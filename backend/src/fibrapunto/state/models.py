@@ -200,6 +200,14 @@ class ConversationState(BaseModel):
 
     offer_human_now: bool = False
 
+    pending_trigger: str | None = None
+    """The escalation trigger that fired on the last turn (§12.1).
+
+    Carried so the handover payload can record *why* the conversation escalated
+    (§12.2) and so §12.5 can watch the distribution of triggers — a rising
+    serviceUnavailable rate is an integration problem wearing an agent
+    problem's clothes."""
+
     # Attribution (§14). Which build produced this conversation.
     test_mode: str | None = None
     agent_model: str = ""

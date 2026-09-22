@@ -25,6 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from fibrapunto.api import operator
 from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
 from fibrapunto.observability.events import EventType
@@ -38,14 +39,27 @@ log = structlog.get_logger(__name__)
 _sessions: dict[str, Conversation] = {}
 _store: TraceStore | None = None
 _gateway: CrmGateway | None = None
+_operator_pool = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _store, _gateway
+    global _store, _gateway, _operator_pool
     # One pool, opened under the agent's own database role (§8). Every
     # conversation shares it; none of them can widen it.
     _gateway = await CrmGateway.connect(svc_agent())
+    # The operator view runs as platform_admin: it reads internal_comments and
+    # the completeness view, both of which the agent is denied (§8). Two pools,
+    # two identities, and the difference is visible in what each can see.
+    import asyncpg
+
+    from fibrapunto.settings import get_settings
+
+    _operator_pool = await asyncpg.create_pool(
+        get_settings().dsn("platform"), min_size=1, max_size=3
+    )
+    operator.set_pool(_operator_pool)
+
     try:
         _store = await TraceStore.connect()
     except Exception as exc:  # noqa: BLE001
@@ -59,6 +73,8 @@ async def lifespan(app: FastAPI):
         await _store.close()
     if _gateway:
         await _gateway.close()
+    if _operator_pool:
+        await _operator_pool.close()
 
 
 app = FastAPI(
@@ -66,6 +82,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.include_router(operator.router)
 
 app.add_middleware(
     CORSMiddleware,

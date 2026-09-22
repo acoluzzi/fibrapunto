@@ -22,6 +22,7 @@ from pydantic import BaseModel
 
 from fibrapunto.credentials.store import BILLING_API_TOKEN, FileSecretStore
 from fibrapunto.domains.registry import DomainKey, get
+from fibrapunto.escalation import engine, triggers
 from fibrapunto.graph.build import run_domain_turn
 from fibrapunto.graph.tool_node import ToolDispatcher
 from fibrapunto.integrations.billing_client import BillingClient
@@ -116,6 +117,7 @@ class Conversation:
         previous_domain = state.current_domain
         calls_before = len(state.capability_calls)
 
+        collected_before = state.collected.model_copy(deep=True)
         state.record_turn(TurnRole.customer, text)
         self.trace.emit(EventType.turn_received, turn_seq=state.turn_count)
 
@@ -178,6 +180,24 @@ class Conversation:
                 outcome=call.outcome,
                 incident_id=call.incident_id,
             )
+
+        # Did this turn actually advance anything? Measured against collected
+        # state, because a fluent apologetic turn that learned nothing is the
+        # loop §12.1 warns about (§12.1's no-progress trigger).
+        triggers.update_progress(state, collected_before)
+
+        trigger = triggers.evaluate(state)
+        if trigger:
+            engine.note_trigger(state, trigger)
+            self.trace.emit(
+                EventType.escalation_triggered,
+                turn_seq=state.turn_count,
+                kind=trigger.kind.value,
+                reason=trigger.reason,
+                immediate=trigger.immediate,
+                decided_by="code",
+            )
+            state.pending_trigger = trigger.kind.value
 
         state.record_turn(TurnRole.agent, reply_text)
         self.trace.emit(

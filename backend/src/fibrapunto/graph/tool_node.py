@@ -34,6 +34,7 @@ from fibrapunto.capabilities.billing_lookup import billing_lookup
 from fibrapunto.capabilities.create_handover_record import create_handover_record
 from fibrapunto.capabilities.outcomes import BillingRejected, HandoverFailed
 from fibrapunto.capabilities.runtime import CapabilityCall
+from fibrapunto.capabilities.transfer_to_human import transfer_to_human
 from fibrapunto.domains.registry import Domain
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.perimeter.gateway import CrmGateway
@@ -135,9 +136,15 @@ class ToolDispatcher:
                         recorder=recorder,
                     )
 
+            case "transfer_to_human":
+                result = await transfer_to_human(recorder=recorder)
+                # §12.4: outside service hours the transfer does not happen.
+                # Recorded so the closing message states the real window
+                # rather than a comfortable "a breve".
+                state.collected.lookup_outcomes.append(result.outcome)
+
             case _:
-                # transfer_to_human arrives with the escalation engine on day 6.
-                log.warning("tool.not_yet_implemented", capability=name)
+                log.error("tool.unknown_capability", capability=name)
                 result = BillingRejected(reason="format_invalid")
 
         return result.model_dump(mode="json")
@@ -206,14 +213,17 @@ class _StateRecorder:
 def _trigger_for(state: ConversationState) -> str:
     """Why this handover is being opened (§12.2).
 
-    §12.1 splits triggers into categorical, conditional and customer-initiated.
-    The domain gives the categorical one for free — every cancellation escalates
-    regardless of how the conversation went. The conditional triggers become
-    available on day 6 when the trigger engine lands; until then the honest
-    label is the domain, not a guess.
+    Prefers the trigger the engine actually computed, so the record says
+    "conditional:service_unavailable" when that is what happened rather than a
+    category inferred from the domain. §12.5 reads this distribution to tell an
+    integration problem from an agent problem, and a field that always says the
+    same thing tells it nothing.
     """
+    if state.pending_trigger:
+        return state.pending_trigger
+
     from fibrapunto.domains.registry import DomainKey
 
     if state.current_domain is DomainKey.cancellation:
         return "categorical:cancellation"
-    return "categorical:billing_dispute"
+    return "categorical:amount_dispute"
