@@ -194,3 +194,52 @@ privilege — `permission denied for sequence crm.handover_record_id_seq (USAGE)
 — not the table the statement happened to mention. This is the third distinct
 instance in five days, from two different vendors, which suggests the category
 rather than the product is the problem.
+
+---
+
+## 5. A free-tier in-flight ceiling makes multi-turn verification impractical
+
+**Where:** verifying the cancellation and guardrail paths end to end, day 7.
+
+**What happened.** Repeated failures on the *second or third* model call of a
+conversation:
+
+```
+402 — This request would exceed your available credits given your current
+      in-flight requests.   reason: in_flight_budget_exhausted
+      Retry-After: 120
+```
+
+Not credit exhaustion: $0.15 spent against a $20 key limit. The account is
+`is_free_tier: true` — the $20 is a *spending cap*, not purchased credit — and
+OpenRouter sizes its in-flight reservation ceiling accordingly. Each request
+reserves its `max_tokens` (entry 3), those reservations settle slowly, and a
+conversation issues several calls in quick succession. Two turns is enough to
+hit it.
+
+**Why it matters beyond the inconvenience.** It bounds what can be verified at
+all:
+
+| Activity | Calls | Feasible on free tier |
+| --- | --- | --- |
+| Single-turn probe | 2 | yes |
+| Two-turn conversation | 4–5 | intermittently |
+| §14's eval run, 30 cases × ~5 turns | 300+ | no |
+
+The evaluation suite is not a nice-to-have in this design — §1's metrics are the
+deliverable, and §14 says "nothing in this document is believed because it was
+designed". A tier that cannot run the harness cannot produce the evidence.
+
+**What it cost.** Roughly forty minutes across several attempts, and the
+verification is still outstanding.
+
+**Decision.** Purchase credits before day 9. Until then, verification is
+offline-first: everything deterministic is unit-tested against the real database
+and the real stub, and live runs are reserved for what genuinely needs a model.
+That split was already the working method for cost reasons; this makes it a
+constraint rather than a preference.
+
+**Worth noting for anyone repeating this.** The failure mode is easy to
+misread. The error says "available credits", the balance says plenty remain, and
+the natural conclusion is a bug in the request. The word that matters is
+`in_flight`, and it appears only in the metadata.

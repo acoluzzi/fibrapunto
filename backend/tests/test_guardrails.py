@@ -1,0 +1,333 @@
+"""The output-boundary guards (§11, §1, §9).
+
+§11's argument is that a guardrail existing at only one layer is fragile, "and
+the layer it usually exists at — the prompt — is the softest one". These tests
+exercise the hard layers: a reply containing an invented figure is rejected by
+code, whatever the prompt said.
+
+The last section is §11's own test methodology, made executable:
+
+    "Layer independence is the point. Each layer is tested by removing the layer
+    above it and confirming the behaviour still holds. If instruction-level
+    rules are what prevent a privacy failure, layer 1 is wrong."
+"""
+
+from __future__ import annotations
+
+from datetime import date
+from decimal import Decimal
+
+import pytest
+from fibrapunto.capabilities.runtime import CapabilityCall
+from fibrapunto.domains.registry import DomainKey
+from fibrapunto.guardrails import pipeline
+from fibrapunto.guardrails.pipeline import GuardName
+from fibrapunto.privacy import detectors
+from fibrapunto.privacy.detectors import SensitiveKind
+from fibrapunto.state.models import (
+    BillingFacts,
+    ConversationState,
+    Turn,
+    TurnRole,
+)
+
+# A real IBAN shape that passes mod-97, and a Luhn-valid test card.
+VALID_IBAN = "IT60X0542811101000000123456"
+VALID_CARD = "4111 1111 1111 1111"
+
+
+def grounded_state() -> ConversationState:
+    """A conversation where 29,90 € and 19 September are verified facts."""
+    state = ConversationState(current_domain=DomainKey.billing)
+    state.collected.contract_number = "FP-2023-048812"
+    state.collected.billing = BillingFacts(
+        status="failed",
+        failure_reason="fondi insufficienti",
+        amount=Decimal("29.90"),
+        next_retry_date=date(2026, 9, 19),
+    )
+    state.turns.append(
+        Turn(role=TurnRole.customer, text="contratto FP-2023-048812, pagamento respinto")
+    )
+    return state
+
+
+def ungrounded_state() -> ConversationState:
+    """The billing system did not answer. Nothing is verified."""
+    state = ConversationState(current_domain=DomainKey.billing)
+    state.turns.append(Turn(role=TurnRole.customer, text="mi è arrivato un SMS"))
+    state.capability_calls.append(
+        CapabilityCall(
+            capability="billing_lookup",
+            outcome="serviceUnavailable",
+            started_at=date.today(),  # type: ignore[arg-type]
+            duration_ms=8000,
+            incident_id="abc123def456",
+        )
+    )
+    return state
+
+
+# --- grounding: §1's "no invention: 0" ---------------------------------------
+
+
+def test_a_verified_figure_passes():
+    state = grounded_state()
+    reply = "L'addebito di 29,90 € è stato respinto. Nuovo tentativo il 19 settembre."
+    assert pipeline.inspect(reply, state) == []
+
+
+def test_an_invented_amount_is_blocked():
+    """The figure is plausible, correctly formatted, and wrong. Nothing in the
+    reply's shape distinguishes it from a real one — which is why the check is
+    against the lookup result rather than against the text."""
+    state = grounded_state()
+    violations = pipeline.inspect("L'addebito di 24,90 € è stato respinto.", state)
+
+    assert violations and violations[0].guard is GuardName.grounding
+    assert "24,90" in violations[0].problems[0]
+
+
+def test_an_invented_date_is_blocked():
+    state = grounded_state()
+    violations = pipeline.inspect("Il nuovo tentativo è previsto per il 25 ottobre.", state)
+    assert violations[0].guard is GuardName.grounding
+
+
+def test_with_the_billing_system_down_no_figure_can_be_grounded():
+    """§15 row 1, as a structural property rather than an observation.
+
+    With the stub in timeout mode there is no verified figure at all, so *any*
+    figure fails. The agent cannot invent one because there is nothing for it
+    to be grounded against.
+    """
+    state = ungrounded_state()
+    violations = pipeline.inspect(
+        "Il suo addebito di 29,90 € è stato respinto il 12 settembre.", state
+    )
+    assert violations[0].guard is GuardName.grounding
+    assert len(violations[0].problems) >= 2, "both the amount and the date are invented"
+
+
+def test_repeating_a_figure_the_customer_gave_is_not_invention():
+    """§4.1's dispute example: the customer says their plan is 24,90 €. Reading
+    that back is not a claim about billing — it is quoting the customer."""
+    state = grounded_state()
+    state.turns.append(Turn(role=TurnRole.customer, text="ma il mio piano è da 24,90 € non 29,90"))
+    assert pipeline.inspect("Lei dichiara un piano da 24,90 €. È corretto?", state) == []
+
+
+def test_ordinary_numbers_in_prose_are_not_figures():
+    """ "due giorni lavorativi" must not trip the guard, or every reply fails
+    and the guard gets switched off — which is how guards die."""
+    state = grounded_state()
+    reply = "Un collega la ricontatterà entro due giorni lavorativi. Ha 2 rate residue."
+    assert pipeline.inspect(reply, state) == []
+
+
+def test_an_unverified_contract_number_is_blocked():
+    state = grounded_state()
+    violations = pipeline.inspect("Ho controllato il contratto FP-2099-123456.", state)
+    assert violations[0].guard is GuardName.grounding
+
+
+# --- promises: §1's "cancellation discipline: 0" -----------------------------
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Ho disdetto il suo contratto.",
+        "La disdetta è stata effettuata.",
+        "Il contratto è stato chiuso come richiesto.",
+        "Ho disposto il rimborso della differenza.",
+        "Le rimborserò la differenza.",
+        "Ho stornato l'importo.",
+        "Ho modificato il metodo di pagamento.",
+        "Posso offrirle uno sconto se resta con noi.",
+    ],
+)
+def test_forbidden_commitments_are_blocked(reply):
+    """§1 measures "did it execute **or promise** a cancellation". The tools
+    make executing impossible; this covers the promising."""
+    violations = pipeline.inspect(reply, grounded_state())
+    assert any(v.guard is GuardName.promises for v in violations), reply
+
+
+def test_declining_to_do_those_things_is_fine():
+    state = grounded_state()
+    reply = (
+        "Non posso disporre rimborsi né modifiche agli importi, ma posso passare "
+        "la sua richiesta a un collega."
+    )
+    assert not any(v.guard is GuardName.promises for v in pipeline.inspect(reply, state))
+
+
+def test_a_reference_number_that_does_not_exist_is_blocked():
+    """§12.4's backstop. The reference comes from the database; any other number
+    presented as one was invented."""
+    state = grounded_state()
+    violations = pipeline.inspect("Ho aperto la pratica n. 00009999.", state)
+    assert any("inesistente" in p for v in violations for p in v.problems)
+
+
+def test_the_real_reference_passes():
+    state = grounded_state()
+    state.collected.handover_reference = "00001042"
+    assert not any(
+        v.guard is GuardName.promises
+        for v in pipeline.inspect("Ho aperto la pratica n. 00001042.", state)
+    )
+
+
+# --- visibility: §5.2, §17.6 -------------------------------------------------
+
+
+def test_an_outcome_code_never_reaches_the_customer():
+    state = grounded_state()
+    violations = pipeline.inspect(
+        "La verifica ha restituito serviceUnavailable, riprovi più tardi.", state
+    )
+    assert any(v.guard is GuardName.visibility for v in violations)
+
+
+def test_an_internal_queue_name_never_reaches_the_customer():
+    """§13 gives the customer "un collega dell'amministrazione", not
+    "billing_operations"."""
+    violations = pipeline.inspect(
+        "Ho inoltrato la pratica alla coda billing_operations.", grounded_state()
+    )
+    assert any(v.guard is GuardName.visibility for v in violations)
+
+
+def test_an_incident_id_never_reaches_the_customer():
+    state = ungrounded_state()
+    violations = pipeline.inspect("Si è verificato un errore, riferimento abc123def456.", state)
+    assert any(v.guard is GuardName.visibility for v in violations)
+
+
+def test_the_blocklist_is_derived_from_the_models():
+    """Adding an outcome must extend the guard automatically — a hand-kept list
+    falls behind the contract, and silently."""
+    from fibrapunto.guardrails.output_visibility import OUTCOME_LITERALS
+
+    assert {"serviceUnavailable", "notFound", "createdWithoutContractLink"} <= (OUTCOME_LITERALS)
+
+
+# --- language: §10 criterion 3 -----------------------------------------------
+
+
+def test_english_technical_vocabulary_is_flagged():
+    violations = pipeline.inspect("Il payment è failed, apro un support ticket.", grounded_state())
+    assert any(v.guard is GuardName.language for v in violations)
+
+
+def test_the_informal_register_is_flagged():
+    """The base identity requires "lei" throughout. An older customer addressed
+    as "tu" is a different error from a wrong figure, and still one the operator
+    would notice."""
+    violations = pipeline.inspect("Puoi pagare dal tuo link sicuro.", grounded_state())
+    assert any(v.guard is GuardName.language for v in violations)
+
+
+# --- the pipeline ------------------------------------------------------------
+
+
+def test_a_clean_reply_passes_through_untouched():
+    state = grounded_state()
+    reply = "L'addebito di 29,90 € è stato respinto per fondi insufficienti."
+    result = pipeline.resolve(reply, state)
+    assert result.clean and result.text == reply and not result.substituted
+
+
+def test_the_repair_instruction_names_the_specific_problem():
+    """ "riscrivi senza inventare" produces a differently invented reply. The
+    instruction has to give the model something to act on."""
+    state = grounded_state()
+    violations = pipeline.inspect("L'importo è 24,90 €.", state)
+    instruction = pipeline.repair_instruction(violations)
+    assert "24,90" in instruction
+
+
+def test_a_failed_repair_substitutes_rather_than_sending():
+    """§16 accepts model variance on reading the customer. It does not accept
+    variance in what the company says."""
+    state = grounded_state()
+    bad = "L'addebito di 24,90 € è stato respinto."
+    result = pipeline.resolve(bad, state, repaired_reply=bad)
+
+    assert result.substituted
+    assert "24,90" not in result.text
+    assert "collega" in result.text, "the fallback must still offer a human (§11)"
+
+
+def test_a_style_only_violation_is_sent_rather_than_substituted():
+    """An anglicism is worse than clean Italian and better than a canned
+    refusal. Substituting for it would make the guard more damaging than the
+    thing it guards against."""
+    state = grounded_state()
+    reply = "Il suo payment di 29,90 € non è andato a buon fine."
+    result = pipeline.resolve(reply, state, repaired_reply=reply)
+
+    assert not result.substituted
+    assert result.text == reply
+    assert result.violations
+
+
+# --- §9: sensitive data ------------------------------------------------------
+
+
+def test_an_iban_is_detected_and_redacted():
+    text = f"il mio iban è {VALID_IBAN}, mi addebiti pure"
+    redacted, kinds = detectors.redact(text)
+
+    assert VALID_IBAN not in redacted
+    assert "[[REDATTO:IBAN]]" in redacted
+    assert kinds == [SensitiveKind.iban]
+    assert "mi addebiti pure" in redacted, "the rest of the message survives"
+
+
+def test_a_card_number_is_detected_by_luhn():
+    redacted, kinds = detectors.redact(f"la carta è {VALID_CARD}")
+    assert SensitiveKind.card in kinds
+    assert "4111" not in redacted
+
+
+def test_an_invalid_iban_is_left_alone():
+    """The checksum is what stops the guard mangling ordinary text. A redaction
+    demo that eats a real sentence discredits the whole pipeline."""
+    text = "il codice pratica è IT99X0000000000000000000000"
+    redacted, kinds = detectors.redact(text)
+    assert kinds == [] and redacted == text
+
+
+def test_an_ordinary_long_number_is_not_a_card():
+    text = "il numero cliente è 1234567890123456"
+    _, kinds = detectors.redact(text)
+    assert SensitiveKind.card not in kinds
+
+
+def test_a_contract_number_is_never_treated_as_sensitive():
+    """It is the one identifier the agent is supposed to handle (§4.1)."""
+    text = "il contratto è FP-2023-048812"
+    redacted, kinds = detectors.redact(text)
+    assert kinds == [] and redacted == text
+
+
+# --- §11: layer independence -------------------------------------------------
+
+
+def test_the_grounding_guard_holds_without_any_prompt():
+    """§11: "Each layer is tested by removing the layer above it and confirming
+    the behaviour still holds."
+
+    The prompt is not involved here at all — no model, no instructions, no
+    domain. An invented figure is rejected by code. If the only thing stopping
+    invention were the prompt, this test could not exist.
+    """
+    state = ungrounded_state()
+    assert pipeline.inspect("Le risultano 45,00 € da pagare.", state)
+
+
+def test_the_promises_guard_holds_without_any_prompt():
+    assert pipeline.inspect("Ho disdetto il contratto.", ConversationState())

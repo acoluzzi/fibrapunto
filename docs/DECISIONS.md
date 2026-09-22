@@ -251,7 +251,29 @@ with it enthusiastically.
 
 ## Knowledge and scope
 
-### 12. No retrieval, with a dated gate · `open` — decide at the day-7 freeze
+### 12. No retrieval · `settled` at the day-7 freeze — **not built**
+
+**Gate outcome (day 7).** Days 1–7 ran to schedule, which was the condition for
+building tier 2. It was not built anyway, and the reason changed between setting
+the gate and reaching it:
+
+1. **The evaluation suite became the scarce thing.** A free-tier provider
+   ceiling (FRICTION-LOG 5) put day 9's harness at risk, and §14 opens with
+   "nothing in this document is believed because it was designed". Three
+   capabilities with a metrics table are worth more than four without one — the
+   same argument §16 makes about domains.
+
+2. **The dependency was underweighted when the gate was written.** Tier 2
+   requires extending the grounding guard to procedural claims *first*, or it
+   reopens the §5.1 hole it was supposed to respect. That extension would land
+   on the same day as the eval work, competing with it rather than following it.
+
+The tiering below stands as the design. Tier 1 shipped on day 4 and is in
+production use by the demo; tiers 2 and 3 are documented and unbuilt.
+
+---
+
+**Original entry, for the reasoning:**
 
 **Decision.** No RAG in this build. Domain instructions live in operator-editable
 files. A retrieval capability is designed but not built.

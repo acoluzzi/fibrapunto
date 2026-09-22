@@ -25,14 +25,17 @@ from fibrapunto.domains.registry import DomainKey, get
 from fibrapunto.escalation import engine, triggers
 from fibrapunto.graph.build import run_domain_turn
 from fibrapunto.graph.tool_node import ToolDispatcher
+from fibrapunto.guardrails import pipeline
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.llm.registry import ModelRole, get_registry
 from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceRecorder
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import svc_agent
+from fibrapunto.privacy import detectors
 from fibrapunto.router import policy
 from fibrapunto.router.classifier import classify
+from fibrapunto.settings import get_settings
 from fibrapunto.state.models import ConversationState, ConversationStatus, TurnRole
 
 log = structlog.get_logger(__name__)
@@ -118,6 +121,24 @@ class Conversation:
         calls_before = len(state.capability_calls)
 
         collected_before = state.collected.model_copy(deep=True)
+
+        # §9 + docs/DECISIONS.md #16: pre-redact before the turn is recorded or
+        # sent to the provider. The model still learns that an IBAN was pasted,
+        # so it can tell the customer not to send one — but the digits never
+        # leave this process.
+        if get_settings().redact_inbound:
+            text, kinds = detectors.redact(text)
+            if kinds:
+                for kind in kinds:
+                    if kind.value not in state.collected.sensitive_data_seen:
+                        state.collected.sensitive_data_seen.append(kind.value)
+                self.trace.emit(
+                    EventType.redaction_applied,
+                    turn_seq=state.turn_count + 1,
+                    # The KIND, never the value (§9).
+                    kinds=[k.value for k in kinds],
+                )
+
         state.record_turn(TurnRole.customer, text)
         self.trace.emit(EventType.turn_received, turn_seq=state.turn_count)
 
@@ -167,6 +188,28 @@ class Conversation:
 
         # 2. Run the domain. Only this domain's capabilities are bound (§17.1).
         reply_text, _ = await run_domain_turn(domain, state, self._dispatcher)
+
+        # §11: the output-boundary guards. One repair attempt, then substitute.
+        guarded = pipeline.resolve(reply_text, state)
+        if guarded.violations:
+            repaired, _ = await run_domain_turn(
+                domain,
+                state,
+                self._dispatcher,
+                extra_instruction=pipeline.repair_instruction(guarded.violations),
+            )
+            guarded = pipeline.resolve(reply_text, state, repaired_reply=repaired)
+
+        for violation in guarded.violations:
+            self.trace.emit(
+                EventType.guardrail_triggered,
+                turn_seq=state.turn_count,
+                guard=violation.guard.value,
+                problems=violation.problems,
+                blocking=violation.blocking,
+                substituted=guarded.substituted,
+            )
+        reply_text = guarded.text
 
         # Capability calls are recorded into state by the dispatcher; mirror
         # the new ones into the trace so the panel can interleave them with the

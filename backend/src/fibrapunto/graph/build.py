@@ -212,7 +212,12 @@ def _turn_constraints(state: ConversationState) -> str:
     return "## Vincoli di questo turno\n\n" + "\n".join(lines)
 
 
-async def run_domain_turn(domain: Domain, state: ConversationState, dispatcher) -> tuple[str, list]:
+async def run_domain_turn(
+    domain: Domain,
+    state: ConversationState,
+    dispatcher,
+    extra_instruction: str | None = None,
+) -> tuple[str, list]:
     """One customer turn: call the model, run any tools, call again, answer.
 
     Returns the reply text and the tool messages produced, so the caller can
@@ -220,6 +225,10 @@ async def run_domain_turn(domain: Domain, state: ConversationState, dispatcher) 
     """
     model = build_chat_model(ModelRole.agent).bind_tools(_tool_stubs(domain))
     messages = build_messages(domain, state)
+    if extra_instruction:
+        # A guardrail repair (§11). Appended last so it is the most
+        # recent thing the model reads, and outside the cached block.
+        messages.append(SystemMessage(extra_instruction))
     tool_messages: list = []
 
     for round_index in range(MAX_TOOL_ROUNDS):
