@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import yaml
-from fastapi import FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, Header, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -60,18 +60,33 @@ def _load() -> None:
 _load()
 
 
+class Unauthorized(Exception):
+    """Raised by the token check; turned into a contract-shaped 401 below."""
+
+
 def _require_token(authorization: str | None) -> None:
     """§17.7: credentials live in a store outside the automation.
 
     Enforced here so the rotation demo can actually fail. A credential nothing
     checks proves nothing.
+
+    Deliberately NOT `HTTPException`: FastAPI wraps that in `{"detail": ...}`,
+    so the 401 body would be `{"detail": {"error": "UNAUTHORIZED"}}` while the
+    published contract declares a bare `BillingError`. That mismatch is a real
+    contract violation, and the integration layer caught it on the first live
+    conversation — which is exactly what ExternalServiceRegistration is for,
+    but the stub should not be the one breaking its own contract.
     """
-    expected = f"Bearer {get_settings().api_token}"
-    if authorization != expected:
-        raise HTTPException(
-            status_code=401,
-            detail=BillingError(error="UNAUTHORIZED").model_dump(by_alias=True),
-        )
+    if authorization != f"Bearer {get_settings().api_token}":
+        raise Unauthorized
+
+
+@app.exception_handler(Unauthorized)
+async def _unauthorized_handler(request: Request, exc: Unauthorized) -> JSONResponse:
+    return JSONResponse(
+        status_code=401,
+        content=BillingError(error="UNAUTHORIZED").model_dump(by_alias=True),
+    )
 
 
 @app.get(
