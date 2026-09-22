@@ -8,6 +8,10 @@ dependencies = [
     "fastapi==0.120.4",
     "uvicorn[standard]==0.38.0",
     "pydantic==2.12.3",
+    # Imported by settings.py. Undeclared until the container build
+    # caught it: the shared workspace venv had the backend's copy on
+    # the path, so nothing failed locally.
+    "pydantic-settings==2.11.0",
     "pyyaml==6.0.2",
 ]
 

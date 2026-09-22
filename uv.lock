@@ -924,6 +924,7 @@ source = { editable = "mock-billing" }
 dependencies = [
     { name = "fastapi" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pyyaml" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -932,6 +933,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", specifier = "==0.120.4" },
     { name = "pydantic", specifier = "==2.12.3" },
+    { name = "pydantic-settings", specifier = "==2.11.0" },
     { name = "pyyaml", specifier = "==6.0.2" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.38.0" },
 ]

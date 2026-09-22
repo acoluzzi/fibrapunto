@@ -1,0 +1,325 @@
+/* Roles, not raw hex.
+ *
+ * Values from the validated reference palette. The only colour that carries
+ * meaning here is the capability outcome badge, and that is the *status*
+ * palette — fixed, never themed, and always paired with a glyph and the
+ * outcome name, so colour never carries the meaning alone.
+ *
+ * Dark values are declared under both scopes: the media query covers the OS
+ * setting, the data-theme scope covers the toggle, and the toggle must win
+ * both ways.
+ */
+
+:root {
+  color-scheme: light;
+
+  --surface-1: #fcfcfb;
+  --plane: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #77766f;
+  --border: #e3e2dd;
+  --border-strong: #cfcec8;
+
+  /* Status — fixed, never themed. Icon + label is the mitigation for the
+     two that sit below 3:1 on the light surface. */
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+
+  --accent: #2a78d6;
+
+  --radius: 6px;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --plane: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #8f8e85;
+    --border: #2e2e2c;
+    --border-strong: #454440;
+    --accent: #3987e5;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --plane: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8f8e85;
+  --border: #2e2e2c;
+  --border-strong: #454440;
+  --accent: #3987e5;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--plane);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* --- layout --------------------------------------------------------------- */
+
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+.panels {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.1fr) minmax(260px, 0.7fr);
+  gap: 1px;
+  background: var(--border);
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 1100px) {
+  .panels { grid-template-columns: 1fr; overflow-y: auto; }
+}
+
+.panel {
+  background: var(--surface-1);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: none;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.panel-head .hint { font-size: 11px; color: var(--text-muted); }
+
+.panel-body { overflow-y: auto; padding: 14px; flex: 1; min-height: 0; }
+
+/* --- control strip -------------------------------------------------------- */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-strong);
+  flex: none;
+  flex-wrap: wrap;
+}
+
+.strip .brand { font-weight: 650; letter-spacing: -0.01em; }
+.strip .spacer { flex: 1; }
+
+.field { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.field label { color: var(--text-secondary); }
+
+select, button, input {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+}
+
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* --- chat ----------------------------------------------------------------- */
+
+.msg { margin-bottom: 12px; display: flex; flex-direction: column; gap: 3px; }
+.msg .who {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.msg .bubble {
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  border: 1px solid var(--border);
+}
+.msg.customer .bubble { background: var(--plane); }
+.msg.agent .bubble { background: var(--surface-1); border-color: var(--border-strong); }
+
+.composer { display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); flex: none; }
+.composer input { flex: 1; padding: 8px 10px; }
+
+.typing { color: var(--text-muted); font-style: italic; font-size: 12px; }
+
+/* --- trace ---------------------------------------------------------------- */
+
+.event {
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: start;
+}
+.event:last-child { border-bottom: none; }
+.event .glyph { color: var(--text-muted); font-size: 11px; line-height: 1.6; }
+.event .name { font-family: var(--mono); font-size: 11px; color: var(--text-secondary); }
+.event .detail { font-size: 12px; margin-top: 2px; }
+.event .ms { font-family: var(--mono); font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+.turn-rule {
+  margin: 14px 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border-strong);
+  padding-top: 8px;
+}
+.turn-rule:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+
+/* Status badge. The glyph and the text carry the meaning; the colour is
+   reinforcement, never the signal. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.badge.good { color: var(--good); }
+.badge.warning { color: var(--warning); }
+.badge.serious { color: var(--serious); }
+.badge.critical { color: var(--critical); }
+.badge.neutral { color: var(--text-secondary); border-color: var(--border-strong); }
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+details.raw summary { cursor: pointer; font-size: 11px; color: var(--text-muted); }
+details.raw pre {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--plane);
+  padding: 8px;
+  border-radius: var(--radius);
+  overflow-x: auto;
+  margin: 6px 0 0;
+}
+
+/* --- metrics: stat tiles, not charts -------------------------------------- */
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+
+.tile {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.tile .label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.tile .value {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  margin-top: 2px;
+}
+.tile .value small { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+
+table.metrics { width: 100%; border-collapse: collapse; font-size: 12px; }
+table.metrics th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-strong);
+}
+table.metrics td {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+table.metrics td.num { text-align: right; }
+
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 18px 0 8px;
+}
+.section-title:first-child { margin-top: 0; }
+
+.empty { color: var(--text-muted); font-size: 12px; padding: 8px 0; }
+
+.note {
+  font-size: 11px;
+  color: var(--text-muted);
+  border-left: 2px solid var(--border-strong);
+  padding-left: 8px;
+  margin-top: 10px;
+}
+
+/* --- operator view -------------------------------------------------------- */
+
+.operator { max-width: 900px; margin: 0 auto; padding: 24px; }
+.record-head { border-bottom: 1px solid var(--border-strong); padding-bottom: 12px; margin-bottom: 16px; }
+.record-head h1 { font-size: 18px; margin: 0 0 4px; }
+.record-head .meta { color: var(--text-secondary); font-size: 12px; }
+
+dl.fields { display: grid; grid-template-columns: 190px 1fr; gap: 6px 14px; margin: 0; }
+dl.fields dt { color: var(--text-muted); font-size: 12px; }
+dl.fields dd { margin: 0; font-size: 13px; }
+
+a { color: var(--accent); }

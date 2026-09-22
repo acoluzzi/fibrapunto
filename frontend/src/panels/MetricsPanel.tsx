@@ -1,0 +1,176 @@
+import { statusOf } from "../lib/outcome";
+import type { AgentReply, Domain, TraceEvent } from "../lib/types";
+
+interface Props {
+  replies: AgentReply[];
+  events: TraceEvent[];
+  domains: Domain[];
+  perimeter: Record<string, any> | null;
+}
+
+/** Session metrics.
+ *
+ *  Stat tiles, not charts — deliberately. A single session has no series to
+ *  plot: four numbers and a tally of outcomes is the whole of what is known,
+ *  and a sparkline over two data points would be decoration pretending to be
+ *  information. The run-over-run view in §1's table arrives with the eval
+ *  harness, when there is actually a progression to show. */
+export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
+  const turns = replies.length;
+  const latencies = events
+    .filter((event) => event.name === "agent.reply" && event.duration_ms != null)
+    .map((event) => event.duration_ms as number);
+  const p50 = median(latencies);
+
+  const outcomes = new Map<string, number>();
+  for (const reply of replies) {
+    for (const call of reply.capability_calls) {
+      outcomes.set(call.outcome, (outcomes.get(call.outcome) ?? 0) + 1);
+    }
+  }
+
+  const guardrailHits = events.filter((e) => e.name === "guardrail.triggered").length;
+  const last = replies.at(-1);
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Metriche</h2>
+        <span className="hint">questa sessione</span>
+      </div>
+      <div className="panel-body">
+        <div className="tiles">
+          <Tile label="Turni" value={String(turns)} />
+          <Tile
+            label="Latenza p50"
+            value={p50 == null ? "—" : (p50 / 1000).toFixed(1)}
+            unit={p50 == null ? undefined : "s"}
+          />
+          <Tile label="Verifiche" value={String(sum(outcomes))} />
+          <Tile label="Guardrail" value={String(guardrailHits)} />
+        </div>
+
+        <div className="section-title">Esiti delle capability</div>
+        {outcomes.size === 0 ? (
+          <p className="empty">Nessuna verifica ancora.</p>
+        ) : (
+          <table className="metrics">
+            <tbody>
+              {[...outcomes.entries()].map(([outcome, count]) => {
+                const { role, glyph } = statusOf(outcome);
+                return (
+                  <tr key={outcome}>
+                    <td>
+                      <span className={`badge ${role}`}>
+                        <span aria-hidden="true">{glyph}</span>
+                        {outcome}
+                      </span>
+                    </td>
+                    <td className="num">{count}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        <div className="section-title">Stato</div>
+        <table className="metrics">
+          <tbody>
+            <Row label="Dominio" value={last?.domain ?? "—"} />
+            <Row label="Contratto" value={last?.contract_number ?? "—"} />
+            <Row label="Pratica" value={last?.handover_reference ?? "—"} />
+            <Row label="Esito" value={last?.status ?? "—"} />
+          </tbody>
+        </table>
+
+        <div className="section-title">Perimetro (§8)</div>
+        {perimeter ? (
+          <table className="metrics">
+            <tbody>
+              <tr>
+                <td>svc_agent</td>
+                <td className="num">
+                  <span className={`badge ${perimeter.svc_agent?.allowed ? "good" : "critical"}`}>
+                    <span aria-hidden="true">{perimeter.svc_agent?.allowed ? "●" : "■"}</span>
+                    {perimeter.svc_agent?.allowed ? "consentito" : "negato"}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td>platform_admin</td>
+                <td className="num">
+                  <span className={`badge ${perimeter.platform_admin?.allowed ? "good" : "critical"}`}>
+                    <span aria-hidden="true">{perimeter.platform_admin?.allowed ? "●" : "■"}</span>
+                    {perimeter.platform_admin?.allowed ? "consentito" : "negato"}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        ) : (
+          <p className="empty">—</p>
+        )}
+        <p className="note">
+          Stessa query, due identità: <code>customer.email</code>. La differenza
+          è una GRANT di Postgres, non un'istruzione.
+        </p>
+
+        <div className="section-title">Domini attivi (§17.1)</div>
+        <table className="metrics">
+          <tbody>
+            {domains.map((domain) => (
+              <tr key={domain.key}>
+                <td>
+                  {domain.key}
+                  {!domain.enabled && <span className="chip" style={{ marginLeft: 6 }}>non attivo</span>}
+                </td>
+                <td className="num">{domain.capabilities.length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="note">
+          Il numero è quante capability quel dominio può chiamare. La disdetta
+          non ne ha nessuna che possa eseguirla: per questo la metrica §1 vale
+          zero per costruzione.
+        </p>
+
+        <div className="section-title">Metriche §1</div>
+        <p className="empty">
+          Disponibili dopo <code>make eval</code>: sono calcolate sulla
+          traccia di 30 conversazioni, non su questa.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function Tile({ label, value, unit }: { label: string; value: string; unit?: string }) {
+  return (
+    <div className="tile">
+      <div className="label">{label}</div>
+      <div className="value">
+        {value}
+        {unit && <small> {unit}</small>}
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <tr>
+      <td>{label}</td>
+      <td className="num" style={{ fontFamily: "var(--mono)", fontSize: 11 }}>{value}</td>
+    </tr>
+  );
+}
+
+const sum = (map: Map<string, number>) => [...map.values()].reduce((a, b) => a + b, 0);
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
