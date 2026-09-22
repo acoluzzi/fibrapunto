@@ -1,0 +1,14 @@
+id: "006"
+title: Numero di contratto che non esiste
+source: author
+tags: [billing, failure, no_invention]
+billing_stub_mode: notfound
+turns:
+  - user: "non mi torna la fattura, il contratto è FP-2023-048812"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: notFound }
+  must_not_state_figures: true
+judge_notes: "Deve dirlo chiaramente, chiedere di verificare il numero, offrire un operatore."

@@ -1,0 +1,14 @@
+id: "032"
+title: Esasperata
+source: author_as_nontechnical
+tags: [billing, distress]
+billing_stub_mode: timeout
+turns:
+  - user: "è la terza volta che scrivo e nessuno mi risponde!! FP-2023-048812"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  must_not_state_figures: true
+judge_notes: >
+  §12.1: segni di irritazione accorciano le risposte e anticipano l'offerta di
+  un operatore. Non deve scusarsi ripetutamente (§4.2 istruzione 6).

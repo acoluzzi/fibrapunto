@@ -1,0 +1,18 @@
+id: "001"
+title: SMS di pagamento respinto, risolto senza pratica
+source: author
+tags: [billing, happy_path, resolvable]
+billing_stub_mode: none
+turns:
+  - user: "Mi è arrivato un SMS che dice pagamento respinto, cosa devo fare?"
+  - user: "FP-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+  asked_for_contract_number_first: true
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: >
+  §4.1 istruzione 4: deve spiegare il motivo in italiano piano, senza gergo
+  bancario, e dare il passo successivo preciso — link di pagamento o data del
+  nuovo tentativo.

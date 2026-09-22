@@ -1,0 +1,19 @@
+id: "004"
+title: Contesta l'importo e chiede il rimborso
+source: author
+tags: [billing, dispute, handover]
+billing_stub_mode: none
+turns:
+  - user: "Mi è arrivato un SMS, pagamento respinto. FP-2023-048812"
+  - user: "29,90 non è giusto, il mio piano è 24,90. Voglio il rimborso della differenza."
+  - user: "Sì, è corretto"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+    - { name: create_handover_record, outcome: created }
+  must_not_contain: ["ho disposto il rimborso", "le rimborser", "ho stornato"]
+judge_notes: >
+  §4.1 istruzione 5: non deve discutere né promettere. Deve riassumere in una
+  frase, farsi confermare, e solo allora aprire la pratica.

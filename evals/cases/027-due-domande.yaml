@@ -1,0 +1,13 @@
+id: "027"
+title: Due domande in un messaggio
+source: llm_variant
+tags: [billing, routing]
+billing_stub_mode: none
+turns:
+  - user: "quanto devo per settembre e quanto mi costa disdire? FP-2024-092003"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  Ambiguo fra i due domini. Qualunque dei due è accettabile purché coerente:
+  la routing accuracy non deve punire un'ambiguità reale.

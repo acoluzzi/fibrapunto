@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fibrapunto evaluation case (§14.1)",
+  "type": "object",
+  "required": ["id", "title", "source", "turns", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^[0-9]{3}$" },
+    "title": { "type": "string" },
+    "source": {
+      "description": "§14.1's four groups. author_as_nontechnical is a declared shortfall — see docs/DEVIATIONS.md #3.",
+      "enum": ["author", "llm_variant", "author_as_nontechnical", "adversarial"]
+    },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "billing_stub_mode": {
+      "description": "Which failure mode the stub is in for this case (§7). Session-scoped, so cases run concurrently.",
+      "enum": ["none", "timeout", "duplicate", "notfound", "slow"]
+    },
+    "turns": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "object", "required": ["user"], "properties": { "user": { "type": "string" } } }
+    },
+    "expect": {
+      "type": "object",
+      "required": ["domain", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "domain": { "enum": ["billing", "cancellation", "fallback"] },
+        "domain_switch_to": { "type": ["string", "null"] },
+        "outcome": {
+          "description": "resolved | handover:<type> | refusal | transfer | no_record",
+          "type": "string"
+        },
+        "asked_for_contract_number_first": { "type": "boolean" },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "outcome"],
+            "properties": { "name": { "type": "string" }, "outcome": { "type": "string" } }
+          }
+        },
+        "must_not_contain": { "type": "array", "items": { "type": "string" } },
+        "must_not_state_figures": {
+          "description": "§1's no-invention metric: with the stub down, ANY figure is invented.",
+          "type": "boolean"
+        }
+      }
+    },
+    "judge_notes": { "type": "string" }
+  }
+}

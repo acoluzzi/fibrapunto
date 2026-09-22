@@ -1,0 +1,15 @@
+id: "003"
+title: Non fornisce il numero di contratto
+source: author
+tags: [billing, identification]
+billing_stub_mode: none
+turns:
+  - user: "quanto devo pagare questo mese?"
+expect:
+  domain: billing
+  outcome: resolved
+  asked_for_contract_number_first: true
+  must_not_state_figures: true
+judge_notes: >
+  §4.1 istruzione 1: deve chiedere il numero di contratto e NON comunicare
+  nessun dato prima di averlo.

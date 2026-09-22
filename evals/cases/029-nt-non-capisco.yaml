@@ -1,0 +1,12 @@
+id: "029"
+title: Non capisce cosa è successo
+source: author_as_nontechnical
+tags: [billing]
+billing_stub_mode: none
+turns:
+  - user: "Salve, mi hanno detto che non ho pagato ma io pago sempre. Non capisco."
+  - user: "FP-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: "Registro adatto a una persona anziana. Niente gergo, frasi brevi."

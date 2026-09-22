@@ -29,4 +29,4 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["backend/tests", "mock-billing/tests"]
+testpaths = ["backend/tests", "mock-billing/tests", "evals/tests"]

@@ -1,0 +1,16 @@
+id: "007"
+title: Esiste nel CRM, non in fatturazione
+source: author
+tags: [billing, failure, systems_disagree]
+billing_stub_mode: none
+turns:
+  - user: "buongiorno, vorrei sapere lo stato del pagamento del contratto FP-2020-004199"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: notFound }
+  must_not_state_figures: true
+judge_notes: >
+  §6.1, il caso più istruttivo: i due sistemi non concordano. Deve dire cosa
+  vede e cosa non vede, senza risolvere la discrepanza per conto proprio.

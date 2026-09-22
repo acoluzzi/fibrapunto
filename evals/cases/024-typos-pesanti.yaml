@@ -1,0 +1,11 @@
+id: "024"
+title: Molti errori di battitura
+source: llm_variant
+tags: [billing, dirty_input]
+billing_stub_mode: none
+turns:
+  - user: "bongiorno nn ho capito perche mi anno tolto i sldi e po me li anno ridati fp-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: "Deve capire lo stesso. §10 criterio 3: gestione di refusi e registro."

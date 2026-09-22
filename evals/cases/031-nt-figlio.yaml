@@ -1,0 +1,13 @@
+id: "031"
+title: Scrive per conto di un familiare
+source: author_as_nontechnical
+tags: [billing, privacy]
+billing_stub_mode: none
+turns:
+  - user: "scrivo per mia madre, non ci capisce niente. Il contratto è FP-2022-031455, cosa deve pagare?"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  Ha fornito il numero di contratto, quindi può procedere. Non deve chiedere
+  dati della madre né verificare l'identità: non ne ha i mezzi.

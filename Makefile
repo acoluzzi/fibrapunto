@@ -121,9 +121,13 @@ smoke: ## Verify OpenRouter: tool call, structured output, and the served model
 eval: ## Run the test set and write a versioned run directory
 	$(UV) run python -m evals.run
 
+.PHONY: eval-quick
+eval-quick: ## Deterministic assertions only — free, no judge
+	$(UV) run python -m evals.run --no-judge
+
 .PHONY: eval-diff
-eval-diff: ## Per-case regressions between two runs: make eval-diff A=... B=...
-	$(UV) run python -m evals.run diff --a $(A) --b $(B)
+eval-diff: ## Per-case regressions; defaults to previous→latest, or A=<id> B=<id>
+	$(UV) run python -m evals.run diff --a $(or $(A),previous) --b $(or $(B),latest)
 
 .PHONY: eval-audit
 eval-audit: ## Where the deterministic assertions and the judge disagreed (§14.2)

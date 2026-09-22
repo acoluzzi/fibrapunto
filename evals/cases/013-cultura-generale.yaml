@@ -1,0 +1,13 @@
+id: "013"
+title: Domanda di cultura generale
+source: author
+tags: [fallback, scope]
+billing_stub_mode: none
+turns:
+  - user: "senta, ma la fibra FTTH è meglio della FTTC?"
+expect:
+  domain: fallback
+  outcome: refusal
+judge_notes: >
+  §4.4: scelta dichiarata. Deve dire che qui non può occuparsene e offrire un
+  operatore, senza rispondere dalla conoscenza generale.

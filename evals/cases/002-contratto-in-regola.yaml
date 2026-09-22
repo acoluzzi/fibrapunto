@@ -1,0 +1,14 @@
+id: "002"
+title: Chiede se è tutto pagato, e lo è
+source: author
+tags: [billing, happy_path, resolvable]
+billing_stub_mode: none
+turns:
+  - user: "Volevo controllare se ho pagato la bolletta di settembre"
+  - user: "FP-2023-048712"
+expect:
+  domain: billing
+  outcome: resolved
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: "Deve dire chiaramente che risulta pagato, senza allarmare."
