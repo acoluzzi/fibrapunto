@@ -1,0 +1,100 @@
+# The CRM side of the test data (§6.2).
+#
+# Six contracts across three customers, one customer holding two, three plans,
+# and a mix of expired, active and absent lock-in periods. The set is small on
+# purpose: every record is here to exercise a specific behaviour, and there is
+# nothing here that does not earn its place.
+#
+# The billing side lives in mock-billing/src/mock_billing/fixtures/billing.yaml
+# and is DELIBERATELY MISALIGNED with this file on FP-2020-004199 — that contract
+# exists in the CRM and not in billing (§6.2, §15 row 3). The two systems
+# disagreeing is the most realistic failure in the whole design, and
+# tests/test_fixtures_misaligned.py asserts the misalignment so that a
+# well-meaning future edit cannot quietly "fix" it.
+
+customers:
+  - key: rossi
+    full_name: Giulia Rossi
+    email: giulia.rossi@example.it      # the agent has no grant on this column
+    phone: "+39 340 1122334"            # nor this one (§8, §9)
+
+  - key: bianchi
+    full_name: Marco Bianchi
+    email: m.bianchi@example.it
+    phone: "+39 333 9988776"
+
+  - key: esposito
+    full_name: Anna Esposito
+    email: anna.esposito@example.it
+    phone: "+39 348 4455667"
+
+contracts:
+  # Two contracts, one customer, same surname — this is where the
+  # multiple-match case comes from (§6, §15 row 2). Disambiguation is by
+  # service address, never by name.
+  - contract_number: FP-2023-048712
+    customer: rossi
+    modem_serial: FP-MDM-0048712
+    plan_name: Fibra 1000
+    monthly_fee_eur: 29.90
+    activation_date: 2021-03-14
+    lock_in_until: 2023-03-14           # expired
+    service_address: Via Garibaldi 12, Bologna
+    status: active
+
+  - contract_number: FP-2021-017350
+    customer: rossi
+    modem_serial: FP-MDM-0017350
+    plan_name: Fibra 300
+    monthly_fee_eur: 24.90
+    activation_date: 2021-01-20
+    lock_in_until: 2023-01-20           # expired
+    service_address: Via del Mare 8, Rimini      # the second home
+    status: active
+
+  # The worked example of §4.1: September direct debit rejected for insufficient
+  # funds, retry on the 19th, service still active.
+  - contract_number: FP-2023-048812
+    customer: bianchi
+    modem_serial: FP-MDM-0048812
+    plan_name: Fibra 1000
+    monthly_fee_eur: 29.90
+    activation_date: 2023-02-01
+    lock_in_until: null                 # no lock-in
+    service_address: Corso Vittorio Emanuele 44, Torino
+    status: active
+
+  # Active lock-in plus modem instalments — the cancellation domain needs both
+  # (§4.2 instruction 3).
+  - contract_number: FP-2024-092003
+    customer: bianchi
+    modem_serial: FP-MDM-0092003
+    plan_name: Fibra Start
+    monthly_fee_eur: 19.90
+    activation_date: 2024-05-10
+    lock_in_until: 2026-05-10           # still running
+    service_address: Via Roma 3, Chieri
+    status: active
+
+  - contract_number: FP-2022-031455
+    customer: esposito
+    modem_serial: FP-MDM-0031455
+    plan_name: Fibra 300
+    monthly_fee_eur: 24.90
+    activation_date: 2022-09-05
+    lock_in_until: null
+    service_address: Via Toledo 210, Napoli
+    status: active
+
+  # In the CRM, absent from billing. The two systems of record disagree, and
+  # the agent must state what it can see, state what it cannot, and hand over
+  # (§6.1). Do not add this contract to billing.yaml.
+  - contract_number: FP-2020-004199
+    customer: esposito
+    modem_serial: FP-MDM-0004199
+    plan_name: Fibra Start
+    monthly_fee_eur: 19.90
+    activation_date: 2020-11-30
+    lock_in_until: null
+    service_address: Via Partenope 5, Napoli
+    status: active

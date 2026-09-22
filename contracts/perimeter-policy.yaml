@@ -1,0 +1,151 @@
+# The authorization perimeter — §8.
+#
+# This file is the single source of truth for §8's table. Three things consume it:
+#
+#   1. perimeter/render_grants.py  → db/migrations/004_grants.generated.sql
+#      (drift-tested: the committed SQL must match a fresh render)
+#   2. perimeter/policy.py         → the runtime check, which produces a readable
+#      denial before a query is built. Postgres is the authority; this layer
+#      exists so the error message is good — the constructive answer to §8.1.
+#   3. The UI's perimeter panel and docs/ARCHITECTURE.md.
+#
+# Editing this file changes what the database enforces. That is the point.
+
+version: 1
+
+principals:
+
+  # The agent's service identity. Read on customer and contract, create on
+  # handover record, nothing else. Every absence below is a decision.
+  svc_agent:
+    db_role: fibrapunto_agent
+    description: >
+      The conversational agent. Runs under its own identity, never with the
+      permissions of the person who configured it (§8).
+
+    # Schema-level access. `platform: none` is why the agent cannot read its own
+    # transcripts or traces — the same decision as the email restriction, made
+    # for the same reason.
+    schemas:
+      crm: [USAGE]
+      platform: none
+
+    entities:
+
+      customer:
+        table: crm.customer
+        # Name only. Needed to link the handover record; nothing else is needed,
+        # and what it cannot read it cannot repeat or send to a model (§9).
+        read: [id, full_name]
+        # email and phone are deliberately absent. This is the field-level
+        # restriction of §17.3, and the "Outside the perimeter" row of §15.
+        denied_read: [email, phone]
+        create: []
+        update: []
+        delete: []
+
+      contract:
+        table: crm.contract
+        read: "*"
+        # No writes. Contract state is a human's decision (§8, §3).
+        create: []
+        update: []
+        delete: []
+
+      handover_record:
+        table: crm.handover_record
+        read:
+          - id
+          - reference
+          - record_type
+          - priority
+          - queue
+          - contract_number
+          - claimed_contract_number
+          - contract_link_missing
+          - customer_id
+          - subject
+          - collected_context
+          - stated_reason
+          - handled_by_agent
+          - status
+          - origin_session_id
+          - created_at
+        # Internal comments are not the agent's business (§8).
+        denied_read: [internal_comments]
+        create:
+          - record_type
+          - priority
+          - queue
+          - contract_number
+          - claimed_contract_number
+          - contract_link_missing
+          - customer_id
+          - subject
+          - collected_context
+          - stated_reason
+          - origin_session_id
+        # handled_by_agent is absent from the INSERT list on purpose: it has
+        # DEFAULT true, so the agent cannot create a record that claims not to
+        # be agent-handled. §13's row becomes an invariant.
+        # reference is absent for the same reason: it defaults from a sequence
+        # the agent may only USAGE, so it cannot forge or choose a reference
+        # number it did not receive (§12.4).
+        #
+        # Once open, a record belongs to people (§8).
+        update: []
+        delete: []
+
+    sequences:
+      - name: crm.handover_reference_seq
+        grant: USAGE
+
+    # Everything else: no access. The platform schema is not listed anywhere
+    # above, so the agent cannot read its own transcripts or traces.
+
+  # The operator's administrator. Exists so the boundary can be tested rather
+  # than trusted (§8): the same gateway call under both principals, side by side.
+  platform_admin:
+    db_role: fibrapunto_platform
+    description: >
+      The platform identity. Runs migrations, the reset script, the eval
+      harness and the operator view. Never used to serve a conversation.
+
+    schemas:
+      crm: [USAGE]
+      platform: [USAGE, CREATE]
+
+    # The observability schema is the platform's own; it is granted wholesale
+    # rather than enumerated, because there is no boundary to draw inside it.
+    owns_schemas: [platform]
+
+    # No TRUNCATE. It was added here briefly when the reset script failed for
+    # want of it, then withdrawn: truncating tables and restarting identity
+    # sequences is schema-owner work, so reset runs as the database owner
+    # alongside the migrations instead. This principal is for what the
+    # *application* does platform-side — traces, transcripts, the operator view.
+    #
+    # Recorded rather than silently reverted because widening a grant until an
+    # error stops is the exact failure §8.1 warns about, and it is no less
+    # tempting when the identity being widened is not the agent's.
+    extra_table_privileges: []
+
+    entities:
+      customer:
+        table: crm.customer
+        read: "*"
+        create: "*"
+        update: "*"
+        delete: "*"
+      contract:
+        table: crm.contract
+        read: "*"
+        create: "*"
+        update: "*"
+        delete: "*"
+      handover_record:
+        table: crm.handover_record
+        read: "*"
+        create: "*"
+        update: "*"
+        delete: "*"

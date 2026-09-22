@@ -1,0 +1,32 @@
+[project]
+name = "fibrapunto-workspace"
+version = "0.1.0"
+description = "Fibrapunto assistant — workspace root"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = ["backend", "mock-billing", "evals"]
+
+[tool.uv]
+package = false
+
+# Test and lint tooling belongs to the workspace, not to one member — the
+# perimeter tests import the backend but live at the root of the check surface.
+[dependency-groups]
+dev = [
+    "pytest==8.4.2",
+    "pytest-asyncio==1.2.0",
+    "ruff==0.14.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["backend/tests", "mock-billing/tests"]

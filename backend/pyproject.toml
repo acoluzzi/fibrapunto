@@ -1,0 +1,54 @@
+[project]
+name = "fibrapunto"
+version = "0.1.0"
+description = "Fibrapunto assistant — agent core and platform"
+requires-python = ">=3.12"
+
+# Pinned exactly, no carets. A model or framework upgrade is a change to the
+# system and re-runs the evaluation suite before it reaches anyone (§10).
+dependencies = [
+    # The reasoning layer. LangGraph's router-plus-domain-nodes is §4's
+    # structure directly; see docs/ARCHITECTURE.md.
+    #
+    # We do not use its prebuilt ToolNode. Verified against 1.2.12: the default
+    # handler returns ToolInvocationError.message to the model as free text and
+    # re-raises everything else. Neither branch is what §5.1 asks for — one puts
+    # an untyped error in front of the reasoning layer, the other takes the
+    # conversation down. Both must become a named outcome instead.
+    # graph/tool_node.py is ours; tests/test_capability_never_raises.py proves
+    # the prebuilt node stays out and that no exception survives the boundary.
+    "langgraph==1.2.12",
+    "langchain-core==1.6.4",
+    "langchain-openai==1.6.3",  # OpenRouter via base_url — no vendor lock (§10)
+
+    "pydantic==2.12.3",
+    "pydantic-settings==2.11.0",
+    "fastapi==0.120.4",
+    "uvicorn[standard]==0.38.0",
+    "sse-starlette==3.0.2",
+    "asyncpg==0.30.0",
+    "httpx==0.28.1",
+    "pyyaml==6.0.2",
+    "jsonschema==4.25.1",
+    "structlog==25.4.0",
+    "cryptography==46.0.3",
+    "python-dotenv==1.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.2",
+    "pytest-asyncio==1.2.0",
+    "ruff==0.14.2",
+]
+
+[project.scripts]
+fibrapunto-render-grants = "fibrapunto.perimeter.render_grants:main"
+fibrapunto-reset = "fibrapunto.scripts.reset:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fibrapunto"]

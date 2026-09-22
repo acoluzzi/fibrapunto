@@ -1,0 +1,63 @@
+name: fibrapunto
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-fibrapunto}
+      POSTGRES_USER: ${POSTGRES_USER:-fibrapunto_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-owner}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # Named user and database: the default healthcheck checks the wrong ones
+      # and reports healthy while the database is still starting.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fibrapunto_owner} -d ${POSTGRES_DB:-fibrapunto}"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  billing:
+    build:
+      context: .
+      dockerfile: mock-billing/Dockerfile
+    environment:
+      BILLING_BASE_LATENCY_MS: ${BILLING_BASE_LATENCY_MS:-800}
+      BILLING_LATENCY_JITTER_MS: ${BILLING_LATENCY_JITTER_MS:-300}
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8081/_control/health')\""]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      BILLING_BASE_URL: http://billing:8081
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      billing:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    profiles: ["demo"]
+
+volumes:
+  db-data:
