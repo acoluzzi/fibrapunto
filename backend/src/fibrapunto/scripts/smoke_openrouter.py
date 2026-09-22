@@ -20,9 +20,10 @@ import sys
 
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
+from fibrapunto.llm.chat import build_chat_model, served_model
+from fibrapunto.llm.registry import ModelRole, get_registry
 from fibrapunto.settings import get_settings
 
 GREEN, RED, YELLOW, DIM, RESET = "\033[32m", "\033[31m", "\033[33m", "\033[2m", "\033[0m"
@@ -40,37 +41,6 @@ def note(message: str) -> None:
     print(f"    {DIM}{message}{RESET}")
 
 
-def build_model(model_id: str, **kwargs) -> ChatOpenAI:
-    """The one place a model is constructed.
-
-    `provider.allow_fallbacks: false` is not a tuning knob — it is what makes
-    §10's version pinning mean anything. `data_collection: "deny"` restricts
-    routing to providers that do not retain prompts, which is a real §9 control
-    rather than a promise in a README.
-    """
-    settings = get_settings()
-    return ChatOpenAI(
-        model=model_id,
-        base_url=settings.openrouter_base_url,
-        api_key=settings.openrouter_api_key,
-        timeout=60,
-        max_retries=1,
-        extra_body={
-            "provider": {
-                "allow_fallbacks": False,
-                "data_collection": "deny",
-            }
-        },
-        **kwargs,
-    )
-
-
-def served_model(response) -> str | None:
-    """What OpenRouter actually used, as opposed to what we asked for."""
-    metadata = getattr(response, "response_metadata", {}) or {}
-    return metadata.get("model_name") or metadata.get("model")
-
-
 # --- 1. tool calling ---------------------------------------------------------
 
 
@@ -84,11 +54,13 @@ def cerca_contratto(numero_contratto: str) -> str:
     return "stato: respinto"
 
 
-def check_tool_call(model_id: str) -> bool:
-    print(f"\n{YELLOW}1. Tool calling{RESET}  {DIM}({model_id}){RESET}")
+def check_tool_call(role: ModelRole) -> bool:
+    spec = get_registry()[role]
+    print(f"\n{YELLOW}1. Tool calling{RESET}  {DIM}({spec.id}){RESET}")
+    print(f"    {DIM}max_tokens={spec.max_tokens}{RESET}")
     try:
         response = (
-            build_model(model_id)
+            build_chat_model(role)
             .bind_tools([cerca_contratto])
             .invoke(
                 [
@@ -126,11 +98,13 @@ class RoutingDecision(BaseModel):
     confidenza: float = Field(description="0.0 - 1.0")
 
 
-def check_structured_output(model_id: str) -> bool:
-    print(f"\n{YELLOW}2. Structured output{RESET}  {DIM}({model_id}){RESET}")
+def check_structured_output(role: ModelRole) -> bool:
+    spec = get_registry()[role]
+    print(f"\n{YELLOW}2. Structured output{RESET}  {DIM}({spec.id}){RESET}")
+    print(f"    {DIM}max_tokens={spec.max_tokens}{RESET}")
     try:
         result = (
-            build_model(model_id)
+            build_chat_model(role)
             .with_structured_output(RoutingDecision)
             .invoke(
                 [
@@ -154,10 +128,12 @@ def check_structured_output(model_id: str) -> bool:
 # --- 3. the pin (§10) --------------------------------------------------------
 
 
-def check_model_pin(model_id: str) -> bool:
-    print(f"\n{YELLOW}3. Version pinning{RESET}  {DIM}({model_id}){RESET}")
+def check_model_pin(role: ModelRole) -> bool:
+    spec = get_registry()[role]
+    print(f"\n{YELLOW}3. Version pinning{RESET}  {DIM}({spec.id}){RESET}")
+    print(f"    {DIM}max_tokens={spec.max_tokens}{RESET}")
     try:
-        response = build_model(model_id).invoke([HumanMessage("Rispondi con: OK")])
+        response = build_chat_model(role).invoke([HumanMessage("Rispondi con: OK")])
     except Exception as exc:
         fail(f"request failed: {type(exc).__name__}: {exc}")
         return False
@@ -168,8 +144,8 @@ def check_model_pin(model_id: str) -> bool:
         note("the pin cannot be verified — treat every eval run as unpinned")
         return False
 
-    if actual != model_id:
-        fail(f"asked for {model_id}, was served {actual}")
+    if actual != spec.id:
+        fail(f"asked for {spec.id}, was served {actual}")
         note("allow_fallbacks is false, so this should not happen — investigate")
         return False
 
@@ -212,9 +188,9 @@ def main() -> int:
 
     results = [
         check_judge_separation(),
-        check_tool_call(settings.model_agent),
-        check_structured_output(settings.model_router),
-        check_model_pin(settings.model_agent),
+        check_tool_call(ModelRole.agent),
+        check_structured_output(ModelRole.router),
+        check_model_pin(ModelRole.agent),
     ]
 
     print()

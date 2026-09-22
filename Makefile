@@ -25,6 +25,17 @@ db: ## Start Postgres alone (enough for the perimeter tests)
 up: ## Start every service
 	docker compose up -d --build
 
+.PHONY: demo
+demo: up reset ## Start everything and print where to look
+	@echo
+	@echo "  chat + trace + metrics   http://localhost:5173"
+	@echo "  agent API                http://localhost:8000/docs"
+	@echo "  billing system (legacy)  http://localhost:8081/docs"
+	@echo
+	@echo "  provoke a failure mid-conversation:  make billing-mode M=timeout"
+	@echo "  prove the perimeter:                 make perimeter-proof"
+	@echo
+
 .PHONY: down
 down: ## Stop everything, keep the data
 	docker compose down
@@ -51,11 +62,37 @@ migrate: db ## Apply every migration, including the generated grants
 perimeter-proof: ## Run the same query as both identities, side by side (§8)
 	$(UV) run python -m fibrapunto.scripts.perimeter_proof
 
+# --- the billing contract (§7) -----------------------------------------------
+
+.PHONY: openapi
+openapi: ## Regenerate contracts/billing-openapi.v1.yaml from the stub
+	$(UV) run python -m mock_billing.export_openapi
+
+.PHONY: openapi-check
+openapi-check: ## Fail if the committed contract is stale
+	$(UV) run python -m mock_billing.export_openapi --check
+
+.PHONY: billing-mode
+billing-mode: ## Force a failure mode: make billing-mode M=timeout (§7)
+	@curl -sS -X POST localhost:8081/_control/mode \
+		-H 'content-type: application/json' \
+		-d '{"mode":"$(M)","ttl_seconds":120}' | python3 -m json.tool
+
 # --- data (§17.12) -----------------------------------------------------------
 
 .PHONY: reset
 reset: migrate ## Reset to the known data state — idempotent
 	$(UV) run fibrapunto-reset
+
+# --- credentials (§17.7) -----------------------------------------------------
+
+.PHONY: seed-credential
+seed-credential: ## Seed the credential store on a fresh clone
+	$(UV) run python -m fibrapunto.scripts.rotate_credential --seed
+
+.PHONY: rotate-credential
+rotate-credential: ## Rotate the billing credential — no code, no prompt, no restart
+	$(UV) run python -m fibrapunto.scripts.rotate_credential
 
 # --- checks ------------------------------------------------------------------
 

@@ -95,4 +95,51 @@ you did not choose is not a guardrail you can defend.
 
 ---
 
-## 3. (reserved — the model-provider entries land on day 2)
+## 3. OpenRouter reserves credit against `max_tokens`, not against usage
+
+**Where:** the model provider smoke test (§10), day 3.
+
+**What happened.** The first request against a funded key failed:
+
+```
+402 — This request requires more credits, or fewer max_tokens.
+      You requested up to 65536 tokens, but can only afford 4000.
+```
+
+Nothing had been spent. `langchain-openai` sends no `max_tokens` unless told to,
+so the model's ceiling is requested by default, and OpenRouter checks
+affordability against **the reservation rather than the expected usage**. The
+reply that request would actually have produced was about fifty tokens.
+
+**Why it matters beyond the error.** The failure mode is benign here — a 402
+before anything ran. The same default on a well-funded account is not benign: it
+silently removes any ceiling on what a runaway loop can spend, and §16 makes
+cost per conversation an explicit design criterion. Discovering this as a
+refusal was the lucky version; discovering it as an invoice is the other one.
+
+**What it cost.** About fifteen minutes, most of it reading the error properly
+rather than assuming the model slug was wrong.
+
+**Decision.** An explicit output budget per role, in `llm/registry.py`, derived
+from the spec's own worked examples — §4.1's replies are roughly eighty words of
+Italian:
+
+| Role | Budget | Why |
+| --- | --- | --- |
+| agent | 1024 | an Italian reply, possibly with a tool call |
+| router | 256 | a small JSON object: domain, confidence, sentiment |
+| judge | 1024 | the §14.2 schema, including a rationale |
+| persona | 512 | one customer turn |
+
+`test_every_role_has_an_explicit_output_budget` asserts every role has one and
+that it is plausible, so a new role cannot be added without someone deciding
+what it is allowed to spend.
+
+It also consolidated model construction into `llm/chat.py`. Three things must
+hold on every request — the pin, the retention restriction, and the budget — and
+a second construction site is exactly where one of them quietly stops holding.
+
+**To the platform team.** Reserving against the requested ceiling is defensible,
+but the SDK defaulting to the model maximum while the gateway bills against that
+default is a bad pairing. A caller who sets nothing gets the largest possible
+reservation, which is the opposite of the safe default.

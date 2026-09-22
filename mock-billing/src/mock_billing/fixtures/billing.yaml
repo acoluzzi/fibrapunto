@@ -1,0 +1,84 @@
+# The billing system's view of the world (§6.1, §7).
+#
+# The legacy billing system is the system of record for MONEY. The CRM is the
+# system of record for the CONTRACT. They are different systems, they were built
+# at different times, and they do not agree.
+#
+# ⚠️  FP-2020-004199 IS DELIBERATELY ABSENT.
+#
+# It exists in db/fixtures/seed.yaml and not here. That is §6.1's "most
+# instructive failure in the whole design": a contract the CRM knows about and
+# billing does not. The agent must state what it can see, state what it cannot,
+# and hand over — not resolve the disagreement by picking whichever answer is
+# more convenient.
+#
+# backend/tests/test_fixtures_misaligned.py asserts that exactly one contract is
+# CRM-only, so a well-meaning future edit cannot quietly "fix" this file.
+
+contracts:
+  # Paid, nothing interesting. Present so that "everything is fine" is a
+  # reachable answer and not just an untested branch.
+  FP-2023-048712:
+    status: paid
+    amount: "29.90"
+    invoice_month: "2026-09"
+    failure_reason: null
+    next_retry_date: null
+    payment_link: null
+    lock_in_until: "2023-03-14"      # expired
+    remaining_instalments: 0
+
+  FP-2021-017350:
+    status: paid
+    amount: "24.90"
+    invoice_month: "2026-09"
+    failure_reason: null
+    next_retry_date: null
+    payment_link: null
+    lock_in_until: "2023-01-20"      # expired
+    remaining_instalments: 0
+
+  # §4.1's worked example, to the euro and to the day. The transcript in the
+  # spec and the transcript on screen should be the same conversation.
+  FP-2023-048812:
+    status: failed
+    amount: "29.90"
+    invoice_month: "2026-09"
+    failure_reason: fondi insufficienti al momento dell'addebito
+    next_retry_date: "2026-09-19"
+    payment_link: https://pay.fibrapunto.example/c/FP-2023-048812
+    lock_in_until: null
+    remaining_instalments: 0
+
+  # §4.2's cancellation case needs a live lock-in and outstanding instalments,
+  # so the agent has real constraints to state rather than a happy path.
+  FP-2024-092003:
+    status: paid
+    amount: "19.90"
+    invoice_month: "2026-09"
+    failure_reason: null
+    next_retry_date: null
+    payment_link: null
+    lock_in_until: "2026-05-10"      # still running
+    remaining_instalments: 2
+
+  # Pending: neither paid nor failed. Exists so the agent has to handle a state
+  # that is not a resolution and not a problem.
+  FP-2022-031455:
+    status: pending
+    amount: "24.90"
+    invoice_month: "2026-09"
+    failure_reason: null
+    next_retry_date: "2026-09-25"
+    payment_link: null
+    lock_in_until: null
+    remaining_instalments: 0
+
+# Returned in `duplicate` test mode (§7, §15 row 2). The legacy system returns
+# namesakes, which is why §4.1 instruction 3 says to disambiguate by service
+# address and never by name, and never to pick the first result.
+duplicate_matches:
+  - contract_number: FP-2023-048712
+    service_address: Via Garibaldi 12, Bologna
+  - contract_number: FP-2021-017350
+    service_address: Via del Mare 8, Rimini
