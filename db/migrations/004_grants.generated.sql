@@ -32,6 +32,7 @@ GRANT SELECT (id, reference, record_type, priority, queue, contract_number, clai
 GRANT INSERT (record_type, priority, queue, contract_number, claimed_contract_number, contract_link_missing, customer_id, subject, collected_context, stated_reason, origin_session_id) ON crm.handover_record TO fibrapunto_agent;
 
 GRANT USAGE ON SEQUENCE crm.handover_reference_seq TO fibrapunto_agent;
+GRANT USAGE ON SEQUENCE crm.handover_record_id_seq TO fibrapunto_agent;
 
 
 -- --------------------------------------------------------------------------
@@ -66,6 +67,9 @@ GRANT SELECT ON crm.handover_record TO fibrapunto_platform;
 GRANT INSERT ON crm.handover_record TO fibrapunto_platform;
 GRANT UPDATE ON crm.handover_record TO fibrapunto_platform;
 GRANT DELETE ON crm.handover_record TO fibrapunto_platform;
+
+-- handover_completeness
+GRANT SELECT ON crm.v_handover_completeness TO fibrapunto_platform;
 
 -- Everything not granted above is denied. In particular the agent has no
 -- grant on schema platform, so it cannot read its own transcripts.

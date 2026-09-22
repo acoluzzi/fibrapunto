@@ -143,3 +143,54 @@ a second construction site is exactly where one of them quietly stops holding.
 but the SDK defaulting to the model maximum while the gateway bills against that
 default is a bad pairing. A caller who sets nothing gets the largest possible
 reservation, which is the opposite of the safe default.
+
+---
+
+## 4. The same opaque authorization error, a third time — and the limit of layer 1
+
+**Where:** creating the first handover record (§13), day 5.
+
+**What happened.** The agent called `create_handover_record`, and the insert was
+refused:
+
+```
+svc_agent may not create handover_record.(unnamed column).
+Denied by postgres (SQLSTATE 42501).
+```
+
+There is no such column. The missing grant was `USAGE` on
+`crm.handover_record_id_seq` — the sequence behind `id bigserial`. Postgres
+named neither the sequence nor the operation, and the message actively points
+the wrong way: it says *column*, so the reader looks at columns.
+
+**Why this entry is not a repeat of entry 1.** Entry 1's mitigation was a Python
+policy layer that produces a readable denial before the query runs. That layer
+**structurally cannot catch this one**: it validates column lists, and a
+sequence is not a column. Every named column *was* granted, so layer 1 passed
+the request through and layer 2 refused it — with the same unhelpful message
+entry 1 was written about.
+
+That is worth stating plainly rather than quietly patching, because it bounds a
+claim made earlier in this build: *layer 1 is a courtesy, layer 2 is the
+perimeter*. Here the courtesy was unavailable, and the perimeter was the only
+thing talking. The mitigation is real but partial, and pretending otherwise
+would be the more comfortable write-up.
+
+**The trap, again.** The obvious response is `GRANT INSERT ON crm.handover_record`
+— wider, and it does not even fix the problem, because the missing privilege is
+on a different object. An engineer under time pressure could plausibly widen the
+table grant, observe that it still fails, and widen further. The error message
+rewards escalation and punishes precision.
+
+**What it cost.** About twenty minutes, most of it re-reading the INSERT column
+list against the policy and finding them identical.
+
+**Decision.** Grant `USAGE` on the sequence, explicitly, with a comment in
+`contracts/perimeter-policy.yaml` explaining why it is easy to miss. Not a
+widened table grant. The narrow fix is three words longer than the wrong one.
+
+**To the platform team.** A privilege error should name the object and the
+privilege — `permission denied for sequence crm.handover_record_id_seq (USAGE)`
+— not the table the statement happened to mention. This is the third distinct
+instance in five days, from two different vendors, which suggests the category
+rather than the product is the problem.

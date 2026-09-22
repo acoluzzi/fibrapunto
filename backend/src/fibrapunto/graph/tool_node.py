@@ -31,10 +31,13 @@ import structlog
 from langchain_core.messages import AIMessage, ToolMessage
 
 from fibrapunto.capabilities.billing_lookup import billing_lookup
-from fibrapunto.capabilities.outcomes import BillingRejected
+from fibrapunto.capabilities.create_handover_record import create_handover_record
+from fibrapunto.capabilities.outcomes import BillingRejected, HandoverFailed
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.domains.registry import Domain
 from fibrapunto.integrations.billing_client import BillingClient
+from fibrapunto.perimeter.gateway import CrmGateway
+from fibrapunto.perimeter.policy import Principal, svc_agent
 from fibrapunto.state.models import (
     BillingFacts,
     ContractCandidate,
@@ -47,8 +50,18 @@ log = structlog.get_logger(__name__)
 class ToolDispatcher:
     """Executes the tool calls in an assistant message."""
 
-    def __init__(self, billing_client: BillingClient) -> None:
+    def __init__(
+        self,
+        billing_client: BillingClient,
+        gateway: CrmGateway | None = None,
+        principal: Principal | None = None,
+    ) -> None:
         self._billing = billing_client
+        # The agent's own service identity (§8). Passed explicitly rather than
+        # defaulted at the call site, so that every CRM access names who is
+        # acting — there is no ambient identity anywhere in this codebase.
+        self._gateway = gateway
+        self._principal = principal or svc_agent()
 
     async def run(
         self, message: AIMessage, domain: Domain, state: ConversationState
@@ -104,10 +117,26 @@ class ToolDispatcher:
                 )
                 self._absorb_billing(result, args, state)
 
+            case "create_handover_record":
+                if self._gateway is None:
+                    # No CRM connection. §12.4: say it could not be registered
+                    # rather than claiming it was.
+                    log.error("handover.no_gateway")
+                    result = HandoverFailed(incident_id="no-gateway")
+                else:
+                    result = await create_handover_record(
+                        state=state,
+                        gateway=self._gateway,
+                        principal=self._principal,
+                        subject=args.get("riassunto", ""),
+                        trigger=_trigger_for(state),
+                        stated_reason=args.get("motivo_dichiarato"),
+                        disputed_point=args.get("punto_contestato"),
+                        recorder=recorder,
+                    )
+
             case _:
-                # create_handover_record and transfer_to_human arrive on day 6.
-                # Until then the honest answer is a typed refusal, not a stub
-                # that pretends to have opened a case (§12.4).
+                # transfer_to_human arrives with the escalation engine on day 6.
                 log.warning("tool.not_yet_implemented", capability=name)
                 result = BillingRejected(reason="format_invalid")
 
@@ -172,3 +201,19 @@ class _StateRecorder:
 
     def record(self, call: CapabilityCall) -> None:
         self._state.record_capability(call)
+
+
+def _trigger_for(state: ConversationState) -> str:
+    """Why this handover is being opened (§12.2).
+
+    §12.1 splits triggers into categorical, conditional and customer-initiated.
+    The domain gives the categorical one for free — every cancellation escalates
+    regardless of how the conversation went. The conditional triggers become
+    available on day 6 when the trigger engine lands; until then the honest
+    label is the domain, not a guess.
+    """
+    from fibrapunto.domains.registry import DomainKey
+
+    if state.current_domain is DomainKey.cancellation:
+        return "categorical:cancellation"
+    return "categorical:billing_dispute"

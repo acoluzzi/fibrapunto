@@ -29,6 +29,7 @@ from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
 from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceStore, stream_events
+from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import PerimeterError, platform_admin, svc_agent
 from fibrapunto.prompts.loader import reload_all
 
@@ -36,11 +37,15 @@ log = structlog.get_logger(__name__)
 
 _sessions: dict[str, Conversation] = {}
 _store: TraceStore | None = None
+_gateway: CrmGateway | None = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _store
+    global _store, _gateway
+    # One pool, opened under the agent's own database role (§8). Every
+    # conversation shares it; none of them can widen it.
+    _gateway = await CrmGateway.connect(svc_agent())
     try:
         _store = await TraceStore.connect()
     except Exception as exc:  # noqa: BLE001
@@ -52,6 +57,8 @@ async def lifespan(app: FastAPI):
     yield
     if _store:
         await _store.close()
+    if _gateway:
+        await _gateway.close()
 
 
 app = FastAPI(
@@ -93,7 +100,7 @@ class SendTurn(BaseModel):
 
 @app.post("/api/sessions", response_model=SessionCreated)
 async def create_session(request: CreateSession) -> SessionCreated:
-    convo = Conversation(test_mode=request.test_mode)
+    convo = Conversation(test_mode=request.test_mode, gateway=_gateway)
     _sessions[str(convo.state.id)] = convo
 
     if _store:

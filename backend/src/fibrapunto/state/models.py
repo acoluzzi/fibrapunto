@@ -106,6 +106,14 @@ class CollectedState(BaseModel):
     stated_reason: str | None = None
     """The customer's own words (§12.2, §13). Never paraphrased into the record."""
 
+    disputed_point: str | None = None
+    """What the customer actually objects to (§13, billing disputes).
+
+    Distinct from the subject line: the subject is the headline
+    ("Contestazione addebito settembre 29,90 €"), this is the substance ("il
+    cliente dichiara un piano da 24,90 €"). Only the model can supply it,
+    because only it has read what the customer said."""
+
     disambiguation_candidates: list[ContractCandidate] = Field(default_factory=list)
 
     told_to_customer: list[str] = Field(default_factory=list)

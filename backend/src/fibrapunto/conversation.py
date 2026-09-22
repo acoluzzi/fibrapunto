@@ -28,6 +28,8 @@ from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.llm.registry import ModelRole, get_registry
 from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceRecorder
+from fibrapunto.perimeter.gateway import CrmGateway
+from fibrapunto.perimeter.policy import svc_agent
 from fibrapunto.router import policy
 from fibrapunto.router.classifier import classify
 from fibrapunto.state.models import ConversationState, ConversationStatus, TurnRole
@@ -90,10 +92,17 @@ class Conversation:
         self,
         billing_client: BillingClient | None = None,
         test_mode: str | None = None,
+        gateway: CrmGateway | None = None,
     ) -> None:
         self.state = ConversationState(test_mode=test_mode)
         self.state.agent_model = get_registry()[ModelRole.agent].id
-        self._dispatcher = ToolDispatcher(billing_client or _default_billing_client())
+        # svc_agent(), always. The conversation never runs under any other
+        # identity, and the gateway refuses to be called without one (§8).
+        self._dispatcher = ToolDispatcher(
+            billing_client or _default_billing_client(),
+            gateway=gateway,
+            principal=svc_agent(),
+        )
         self.trace = TraceRecorder(self.state.id)
         self.trace.emit(
             EventType.session_started,

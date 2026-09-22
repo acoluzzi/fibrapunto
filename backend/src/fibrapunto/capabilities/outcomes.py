@@ -182,3 +182,80 @@ BillingLookupResult = Annotated[
 BILLING_OUTCOMES: frozenset[str] = frozenset(
     {"found", "notFound", "serviceUnavailable", "multipleMatches", "rejected"}
 )
+
+
+# --- create handover record (§5, §13) ----------------------------------------
+
+
+class HandoverCreated(BaseModel):
+    """The record exists and carries a reference the customer can be given."""
+
+    outcome: Literal["created"] = "created"
+    reference: str = CustomerVisible(
+        "Numero della pratica, assegnato dal sistema. Comunicalo al cliente esattamente così com'è."
+    )
+    queue_label: str = CustomerVisible(
+        "Il team che la prende in carico, in parole comprensibili al cliente."
+    )
+    response_window: str = CustomerVisible(
+        "Entro quando il cliente verrà ricontattato. Non promettere tempi diversi."
+    )
+
+
+class HandoverCreatedWithoutContractLink(BaseModel):
+    """§13: "When the contract cannot be linked. The record is created anyway,
+    without the link, carrying an explicit note that the contract was not found.
+    An incomplete record beats no record: the customer has still asked for
+    something, and the company has still been told."
+    """
+
+    outcome: Literal["createdWithoutContractLink"] = "createdWithoutContractLink"
+    reference: str = CustomerVisible("Numero della pratica.")
+    queue_label: str = CustomerVisible("Il team che la prende in carico.")
+    response_window: str = CustomerVisible("Entro quando verrà ricontattato.")
+    guidance: str = InternalOnly(
+        "Istruzione operativa per il livello di ragionamento.",
+        default=(
+            "La pratica è stata aperta ma non è stato possibile collegarla a un "
+            "contratto. Dillo al cliente: gli serve sapere che un collega gli "
+            "chiederà di verificare il numero. Non fingere che sia tutto a posto."
+        ),
+    )
+
+
+class HandoverFailed(BaseModel):
+    """§12.4: "The agent must not state a reference number it did not receive.
+
+    It says plainly that it could not register the request, gives the
+    alternative channel, and does not claim that anything has been recorded."
+
+    There is no `reference` field on this model. Not empty, not None — absent,
+    so there is nothing for the reasoning layer to mistake for one.
+    """
+
+    outcome: Literal["failed"] = "failed"
+    missing_fields: list[str] = InternalOnly(
+        "Campi obbligatori non raccolti, se è questo il motivo del fallimento.",
+        default_factory=list,
+    )
+    guidance: str = InternalOnly(
+        "Istruzione operativa per il livello di ragionamento.",
+        default=(
+            "NON è stato possibile registrare la richiesta. Dillo chiaramente al "
+            "cliente. NON dare nessun numero di pratica: non ne esiste uno. "
+            "Indica il canale alternativo (il numero verde o l'area clienti) e "
+            "non dire che qualcosa è stato preso in carico."
+        ),
+    )
+    incident_id: str = InternalOnly(
+        "Identificativo per il log tecnico. Mai mostrarlo al cliente.",
+        default="",
+    )
+
+
+HandoverResult = Annotated[
+    HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
+    Field(discriminator="outcome"),
+]
+
+HANDOVER_OUTCOMES: frozenset[str] = frozenset({"created", "createdWithoutContractLink", "failed"})

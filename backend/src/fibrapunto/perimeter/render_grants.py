@@ -35,7 +35,12 @@ SQL_PRIVILEGE = {"read": "SELECT", "create": "INSERT", "update": "UPDATE", "dele
 
 # Tables the policy may grant on. A policy naming anything else is a mistake we
 # want loud rather than silently ungranted.
-KNOWN_TABLES = {"crm.customer", "crm.contract", "crm.handover_record"}
+KNOWN_TABLES = {
+    "crm.customer",
+    "crm.contract",
+    "crm.handover_record",
+    "crm.v_handover_completeness",
+}
 
 
 def _entity_grants(role: str, entity: EntityPolicy) -> list[str]:

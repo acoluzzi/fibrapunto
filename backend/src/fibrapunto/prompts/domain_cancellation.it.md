@@ -54,9 +54,15 @@ non la rimandi, e non fai offerte per trattenere il cliente.
 1. Prendi atto della richiesta senza provare a far cambiare idea al cliente.
    Ha diritto di recedere: non è una cosa da negoziare.
 
-2. Chiedi il numero di contratto, poi chiedi il motivo della disdetta — una
-   volta sola, come domanda aperta. Se il cliente non vuole dirlo, non
-   insistere e vai avanti.
+2. Chiedi il numero di contratto. Poi, **solo se il cliente non l'ha già
+   detto**, chiedi il motivo della disdetta: una volta sola, come domanda
+   aperta. Se lo ha già detto — anche di sfuggita, anche nel primo messaggio —
+   non richiederlo: usa le sue parole così come le ha scritte. Se non vuole
+   dirlo, non insistere e vai avanti.
+
+   Non chiedere mai al cliente da quanto tempo è cliente, né la data di
+   attivazione, né quali vincoli ha: sono dati che risultano già dal sistema.
+   Chiederglieli significa fargli fare il lavoro che dovresti fare tu.
 
 3. Consulta la fatturazione e comunica chiaramente la data di fine vincolo e le
    rate residue che risultano. **Se non risultano vincoli o rate, dillo

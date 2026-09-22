@@ -97,7 +97,23 @@ principals:
         delete: []
 
     sequences:
+      # The customer-facing case number. USAGE only, so the agent draws the
+      # next value and cannot choose one — §12.4's "must not state a reference
+      # number it did not receive" enforced by the database.
       - name: crm.handover_reference_seq
+        grant: USAGE
+
+      # The surrogate key behind `id bigserial`. Needed for INSERT to work at
+      # all, and easy to miss: Postgres reports its absence as
+      #     svc_agent may not create handover_record.(unnamed column)
+      # which names neither the sequence nor the operation. The obvious "fix"
+      # is to widen the table grant, which does not even work — see
+      # docs/FRICTION-LOG.md entry 4.
+      #
+      # Note also that the Python policy layer CANNOT catch this: it checks
+      # columns, and a sequence is not a column. Layer 1 is a courtesy; the
+      # database is the perimeter, and this is where that distinction bites.
+      - name: crm.handover_record_id_seq
         grant: USAGE
 
     # Everything else: no access. The platform schema is not listed anywhere
@@ -149,3 +165,15 @@ principals:
         create: "*"
         update: "*"
         delete: "*"
+
+      # §1 measures handover completeness, and the view recomputes it in SQL —
+      # independently of the code path that wrote the row, so the metric is not
+      # measured by the thing it measures. Read by the harness and the operator
+      # view; deliberately absent from svc_agent, which has no business knowing
+      # how it is being scored.
+      handover_completeness:
+        table: crm.v_handover_completeness
+        read: "*"
+        create: []
+        update: []
+        delete: []

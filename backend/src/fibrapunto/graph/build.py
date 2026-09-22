@@ -26,7 +26,7 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 
 from fibrapunto.capabilities.billing_lookup import DESCRIPTION, INPUT_DESCRIPTION
-from fibrapunto.domains.registry import CapabilityName, Domain
+from fibrapunto.domains.registry import CapabilityName, Domain, DomainKey
 from fibrapunto.llm.chat import build_chat_model, served_model
 from fibrapunto.llm.registry import ModelRole
 from fibrapunto.state.models import ConversationState
@@ -73,6 +73,45 @@ class HandoverArgs(BaseModel):
         default=None,
         description="Il motivo con le parole del cliente, se lo ha indicato.",
     )
+    punto_contestato: str | None = Field(
+        default=None,
+        description=(
+            "Solo per le contestazioni: che cosa contesta esattamente il "
+            "cliente, in una frase. Per esempio: 'dichiara che il suo piano è "
+            "da 24,90 € e non da 29,90 €'."
+        ),
+    )
+
+
+def _handover_description(domain: Domain) -> str:
+    """The capability description varies by domain, because the spec does.
+
+    §4.1 instruction 5 requires a read-back before opening a billing dispute:
+    "summarise the issue in one sentence, confirm that summary with the
+    customer, then create a handover record." The customer's own agreement is
+    what makes the record trustworthy to the operator who receives it.
+
+    §4.2 requires no such step — its worked example opens the record in the same
+    turn as stating the constraints, and a customer who has already said they
+    are leaving should not be asked to confirm that they meant it.
+
+    A single description for both domains imposes the billing rule on
+    cancellations and costs that customer a turn. Since the tool is bound per
+    domain (§17.1), the description can be too.
+    """
+    if domain.key is DomainKey.cancellation:
+        return (
+            "Registra la richiesta di disdetta per il team dedicato, con quello "
+            "che hai già raccolto. Usala appena hai il numero di contratto e "
+            "hai comunicato i vincoli: non chiedere al cliente di confermare "
+            "che vuole davvero disdire."
+        )
+    return (
+        "Apre una pratica per un collega umano, con quello che hai già "
+        "raccolto. Usala quando il cliente contesta un importo, chiede un "
+        "rimborso o uno storno. Prima di usarla devi aver riassunto la "
+        "richiesta in una frase e aver ottenuto conferma dal cliente."
+    )
 
 
 def _tool_stubs(domain: Domain) -> list[StructuredTool]:
@@ -92,12 +131,7 @@ def _tool_stubs(domain: Domain) -> list[StructuredTool]:
         ),
         CapabilityName.create_handover_record: StructuredTool(
             name="create_handover_record",
-            description=(
-                "Apre una pratica per un collega umano. Usala quando il cliente "
-                "contesta un importo, chiede un rimborso o uno storno, oppure "
-                "quando vuole disdire. Prima di usarla devi aver riassunto la "
-                "richiesta e aver ottenuto conferma dal cliente."
-            ),
+            description=_handover_description(domain),
             args_schema=HandoverArgs,
             func=lambda **_: None,
         ),
