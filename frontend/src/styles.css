@@ -5,9 +5,11 @@
  * palette — fixed, never themed, and always paired with a glyph and the
  * outcome name, so colour never carries the meaning alone.
  *
- * Dark values are declared under both scopes: the media query covers the OS
- * setting, the data-theme scope covers the toggle, and the toggle must win
- * both ways.
+ * Light is the default, deliberately, and the OS setting is **not** consulted.
+ * This is a demo: what appears on the projector should not depend on how the
+ * presenting laptop happens to be configured, and the light surface is the one
+ * the status palette was validated against. Dark is a choice the viewer makes
+ * with the toggle, which writes data-theme and wins from then on.
  */
 
 :root {
@@ -33,20 +35,6 @@
   --radius: 6px;
   --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --surface-1: #1a1a19;
-    --plane: #0d0d0d;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #8f8e85;
-    --border: #2e2e2c;
-    --border-strong: #454440;
-    --accent: #3987e5;
-  }
 }
 
 :root[data-theme="dark"] {

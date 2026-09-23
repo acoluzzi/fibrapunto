@@ -10,20 +10,17 @@ import type { TestMode } from "./lib/types";
 
 export function App() {
   const session = useSession();
-  /* Read the theme that is actually *rendered*, not a guessed default.
+  /* This must agree with the stylesheet's default, or the first press appears
+   * to do nothing: it would compute the theme that is already on screen.
    *
-   * Until the toggle is pressed there is no data-theme attribute, and the
-   * stylesheet falls back to the OS setting via prefers-color-scheme. Assuming
-   * "light" here meant that on a dark-mode machine the page was dark while this
-   * state said light — so the first press computed "dark", which is what was
-   * already on screen, and nothing appeared to happen until the second. */
-  const [theme, setTheme] = useState<"light" | "dark">(() => {
-    const chosen = document.documentElement.dataset.theme;
-    if (chosen === "light" || chosen === "dark") return chosen;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  });
+   * styles.css declares light on :root and applies dark only under
+   * [data-theme="dark"] — the OS setting is deliberately not consulted, so a
+   * demo looks the same on any laptop. Hence "light" when the attribute is
+   * absent. Changing one of these two without the other reintroduces the
+   * two-press bug. */
+  const [theme, setTheme] = useState<"light" | "dark">(() =>
+    document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+  );
 
   if (window.location.pathname.startsWith("/operatore")) {
     return <Operatore />;
