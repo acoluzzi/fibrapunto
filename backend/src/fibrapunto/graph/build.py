@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 
 from fibrapunto.capabilities.billing_lookup import DESCRIPTION, INPUT_DESCRIPTION
 from fibrapunto.domains.registry import CapabilityName, Domain, DomainKey
-from fibrapunto.llm.chat import build_chat_model, served_model
+from fibrapunto.llm.chat import ainvoke, build_chat_model, served_model
 from fibrapunto.llm.registry import ModelRole
 from fibrapunto.state.models import ConversationState
 
@@ -232,7 +232,7 @@ async def run_domain_turn(
     tool_messages: list = []
 
     for round_index in range(MAX_TOOL_ROUNDS):
-        response: AIMessage = await model.ainvoke(messages)
+        response: AIMessage = await ainvoke(model, messages)
         state.agent_model_served = served_model(response)
 
         if not response.tool_calls:
@@ -252,8 +252,9 @@ async def run_domain_turn(
 
     # Out of rounds. Ask once for an answer with no tools available, rather than
     # returning whatever the last tool-calling message happened to contain.
-    final: AIMessage = await build_chat_model(ModelRole.agent).ainvoke(
-        [*messages, SystemMessage("Rispondi adesso al cliente, senza altre verifiche.")]
+    final: AIMessage = await ainvoke(
+        build_chat_model(ModelRole.agent),
+        [*messages, SystemMessage("Rispondi adesso al cliente, senza altre verifiche.")],
     )
     return _text_of(final), tool_messages
 

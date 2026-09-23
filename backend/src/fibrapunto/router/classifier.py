@@ -24,7 +24,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
 from fibrapunto.domains.registry import DomainKey, classifiable_domains
-from fibrapunto.llm.chat import build_chat_model
+from fibrapunto.llm.chat import ainvoke, build_chat_model
 from fibrapunto.llm.registry import ModelRole
 
 log = structlog.get_logger(__name__)
@@ -109,8 +109,8 @@ async def classify(message: str, history: list[str], current_domain: DomainKey) 
         f"Ultimo messaggio del cliente:\n{message}"
     )
 
-    decision: RoutingDecision = await model.ainvoke(
-        [SystemMessage(SYSTEM.format(scopes=_scopes_block())), HumanMessage(prompt)]
+    decision: RoutingDecision = await ainvoke(
+        model, [SystemMessage(SYSTEM.format(scopes=_scopes_block())), HumanMessage(prompt)]
     )
     log.info(
         "router.classified",

@@ -21,14 +21,16 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from fibrapunto.api import operator
 from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
+from fibrapunto.llm.chat import ReasoningLayerUnavailable
 from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceStore, stream_events
 from fibrapunto.perimeter.gateway import CrmGateway
@@ -137,6 +139,31 @@ async def create_session(request: CreateSession) -> SessionCreated:
         await _store.open_conversation(convo.state)
 
     return SessionCreated(conversation_id=str(convo.state.id), domain=convo.domain.value)
+
+
+@app.exception_handler(ReasoningLayerUnavailable)
+async def reasoning_layer_unavailable(request: Request, exc: ReasoningLayerUnavailable):
+    """503, with the provider's own words (§17.10).
+
+    The alternative is a 500 and a stack trace in a container log, which is what
+    this used to be. A model provider that is unreachable — rate limited, out of
+    credit, or simply down — is an operational fact the operator needs stated,
+    and the demo where it happens is exactly the one where nobody has time to
+    read logs.
+
+    Not dressed up as a reply from the agent. §12.4's principle: report what
+    happened, not what was supposed to.
+    """
+    log.error("reasoning_layer.unavailable", reason=exc.reason, hint=exc.hint)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": "reasoning_layer_unavailable",
+            "message": "Il servizio di ragionamento non è raggiungibile.",
+            "provider_said": exc.reason,
+            "hint": exc.hint,
+        },
+    )
 
 
 @app.post("/api/sessions/{conversation_id}/turns", response_model=AgentReply)

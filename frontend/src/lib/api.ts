@@ -2,10 +2,25 @@ import type { AgentReply, Domain, TestMode } from "./types";
 
 const json = { "content-type": "application/json" };
 
+/* The backend states its failures in the body (see the ReasoningLayerUnavailable
+ * handler). Surfacing only the status code would mean the one thing most likely
+ * to go wrong on stage — the model provider unreachable — reads as "500" and
+ * sends you to the container logs. Prefer what the server said. */
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
-    throw new Error(`${init?.method ?? "GET"} ${path} → ${response.status}`);
+    let detail = "";
+    try {
+      const body = await response.json();
+      detail = [body.message, body.hint ?? body.provider_said]
+        .filter(Boolean)
+        .join(" — ");
+    } catch {
+      /* not JSON; the status code is all there is */
+    }
+    throw new Error(
+      detail || `${init?.method ?? "GET"} ${path} → ${response.status}`,
+    );
   }
   return response.json() as Promise<T>;
 }

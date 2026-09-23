@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from fibrapunto.llm import chat
 from fibrapunto.llm.registry import (
     MAX_TOKENS,
     JudgeIsSubject,
@@ -104,3 +105,58 @@ def test_every_role_has_an_explicit_output_budget():
     for role in ModelRole:
         budget = registry[role].max_tokens
         assert 0 < budget <= 4096, f"{role} has an implausible budget: {budget}"
+
+
+# --- when the provider itself is the thing that failed -----------------------
+
+
+def test_a_credit_error_is_interpreted_rather_than_re_raised():
+    """A 402 used to surface as a 500 with a stack trace in a container log.
+
+    The provider's own words are the most useful thing available and they arrive
+    buried in a repr; pulling them out is the difference between "500" and
+    knowing what to do about it.
+    """
+    raw = Exception(
+        "Error code: 402 - {'error': {'message': \"This request requires more "
+        "credits, or fewer max_tokens. You requested up to 1024 tokens, but can "
+        "only afford 398\", 'code': 402}}"
+    )
+    interpreted = chat.interpret_provider_error(raw)
+
+    assert isinstance(interpreted, chat.ReasoningLayerUnavailable)
+    assert "1024 tokens" in interpreted.reason
+    assert interpreted.hint and "max_tokens" in interpreted.hint
+
+
+def test_an_unrecognised_failure_still_becomes_typed():
+    """No hint is honest when there is nothing to hint. What must not happen is
+    the exception escaping as a 500."""
+    interpreted = chat.interpret_provider_error(RuntimeError("socket closed"))
+    assert isinstance(interpreted, chat.ReasoningLayerUnavailable)
+    assert "socket closed" in interpreted.reason
+    assert interpreted.hint is None
+
+
+def test_a_timeout_is_named_as_one():
+    interpreted = chat.interpret_provider_error(TimeoutError("read timed out"))
+    assert "timeout" in (interpreted.hint or "").lower()
+
+
+async def test_the_wrapper_translates_and_does_not_double_wrap():
+    class Boom:
+        async def ainvoke(self, _messages):
+            raise RuntimeError("Error code: 401 - {'error': {'message': 'No auth'}}")
+
+    with pytest.raises(chat.ReasoningLayerUnavailable) as caught:
+        await chat.ainvoke(Boom(), [])
+    assert "No auth" in caught.value.reason
+    assert "OpenRouter" in (caught.value.hint or "")
+
+    class AlreadyTyped:
+        async def ainvoke(self, _messages):
+            raise chat.ReasoningLayerUnavailable("già tipizzato", hint="h")
+
+    with pytest.raises(chat.ReasoningLayerUnavailable) as caught:
+        await chat.ainvoke(AlreadyTyped(), [])
+    assert caught.value.reason == "già tipizzato", "must not be re-interpreted"
