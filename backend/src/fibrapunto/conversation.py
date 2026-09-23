@@ -274,9 +274,6 @@ class Conversation:
         # human does not contradict it.
         state.collected.told_to_customer.append(reply_text)
 
-        # Resolution, escalation and the guardrail pipeline land on days 6-7.
-        # Until then the status stays honest rather than optimistic.
-
         log.info(
             "conversation.turn",
             conversation_id=str(state.id),

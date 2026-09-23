@@ -1,0 +1,98 @@
+# The invariants, on every push.
+#
+# The tests that matter here are not the unit tests — they are the ones that
+# need a real Postgres with real roles, because §8's boundary is a GRANT and a
+# GRANT cannot be checked in a mock. `test_perimeter_raw_sql.py` connects as
+# `fibrapunto_agent` with no application code in the loop; if it passes here, it
+# passes in a clean environment and not only on the machine that wrote it.
+#
+# No OpenRouter key is present, deliberately. Every test in this suite runs
+# against scripted models: a suite that needed a live provider would be a suite
+# nobody could run on a fork, and one whose green depends on a third party's
+# uptime. The live paths are verified by `make eval`, which is not a CI job.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: fibrapunto
+          POSTGRES_USER: fibrapunto_owner
+          POSTGRES_PASSWORD: change-me-owner
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U fibrapunto_owner -d fibrapunto"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync the workspace
+        run: uv sync --all-packages
+
+      - name: Configure
+        run: |
+          cp .env.example .env
+          # The suite never calls a provider; a placeholder keeps settings
+          # validation happy without implying a key is needed to run it.
+          sed -i 's|^OPENROUTER_API_KEY=.*|OPENROUTER_API_KEY=sk-or-v1-ci-placeholder|' .env
+          # The credential store is Fernet-encrypted; generate a key for this run.
+          KEY=$(uv run python -c \
+            "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+          sed -i "s|^FIBRAPUNTO_MASTER_KEY=.*|FIBRAPUNTO_MASTER_KEY=$KEY|" .env
+
+      - name: Lint and format
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      # The committed artefacts must match a fresh render. Both of these are
+      # generated files that a well-meaning hand-edit would silently desync:
+      # 004_grants.generated.sql from the perimeter policy, and the billing
+      # OpenAPI from the stub's own models.
+      - name: Generated artefacts are not stale
+        run: |
+          uv run fibrapunto-render-grants --check
+          uv run python -m mock_billing.export_openapi --check
+
+      - name: Apply migrations
+        run: uv run python -m fibrapunto.scripts.apply_migrations
+
+      - name: Seed the credential store
+        run: uv run python -m fibrapunto.scripts.rotate_credential --seed
+
+      - name: Test
+        run: uv run pytest -q
+
+      # Prints the §8 boundary under both identities. Not an assertion — the
+      # assertions are in test_perimeter_raw_sql.py — but having it in the log
+      # means the grants a given commit actually produced are on the record.
+      - name: Perimeter proof
+        run: uv run python -m fibrapunto.scripts.perimeter_proof
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The image build runs `tsc` before `vite build`, so this is the
+      # typecheck. It is also what caught an undeclared dependency that the
+      # shared workspace venv had been hiding locally — see the friction log.
+      - name: Build the image
+        run: docker build -t fibrapunto-frontend ./frontend

@@ -163,15 +163,22 @@ def enabled_domains() -> dict[DomainKey, Domain]:
     return {key: d for key, d in DOMAINS.items() if d.enabled}
 
 
-def routable_domains() -> dict[DomainKey, Domain]:
-    """Domains the router may choose between.
+def classifiable_domains() -> dict[DomainKey, Domain]:
+    """Domains the router chooses between — fallback included.
 
-    Fallback is excluded: it is where a turn lands when nothing else fits, not
-    something classified *into*. Including it would let the classifier pick
-    "fallback" for a billing question it found confusing, which is the wrong
-    failure — §4.4's refusal should be a considered outcome, not a shrug.
+    Fallback is a real destination, not a failure to decide: §4.4 requires a
+    considered refusal that still offers a human, and a turn about someone
+    else's data belongs there rather than in whichever domain scored least
+    badly. Verified live: "il modem lampeggia rosso" classifies to fallback at
+    0.95, which is the right answer.
+
+    What stops it becoming a shrug is the rule in the classifier's prompt — an
+    *ambiguous* message goes to its likeliest domain with low confidence, and
+    the hysteresis in router/policy.py decides what to do with that. Excluding
+    fallback from this list would not have bought the same guarantee; it would
+    only have forced every out-of-scope turn into billing or cancellation.
     """
-    return {k: d for k, d in enabled_domains().items() if k is not DomainKey.fallback}
+    return enabled_domains()
 
 
 def get(key: DomainKey) -> Domain:

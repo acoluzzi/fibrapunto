@@ -23,7 +23,7 @@ import structlog
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
 
-from fibrapunto.domains.registry import DomainKey, routable_domains
+from fibrapunto.domains.registry import DomainKey, classifiable_domains
 from fibrapunto.llm.chat import build_chat_model
 from fibrapunto.llm.registry import ModelRole
 
@@ -76,14 +76,22 @@ quello con confidence bassa.
 
 
 def _scopes_block() -> str:
-    lines = []
-    for key, domain in routable_domains().items():
-        lines.append(f"### {key.value}\n{domain.scope_statement}")
-    lines.append(
-        "### fallback\nTutto ciò che non rientra negli ambiti sopra: cultura "
-        "generale, guasti tecnici, vendite, dati di altre persone."
+    """Every scope statement the classifier may choose between, verbatim.
+
+    Fallback is included and comes from the registry like every other domain.
+    It used to carry a second, hand-written description here; two descriptions
+    of one domain is a drift waiting to happen, and §4 is explicit that "a
+    domain has a scope statement used for classification" — singular.
+
+    What keeps fallback from becoming a shrug is the rule in SYSTEM, not its
+    absence from this list: an ambiguous message goes to its likeliest domain
+    with low confidence, and only a message that fits nowhere goes here. §4.4's
+    refusal has to be a considered outcome.
+    """
+    return "\n\n".join(
+        f"### {key.value}\n{domain.scope_statement}"
+        for key, domain in classifiable_domains().items()
     )
-    return "\n\n".join(lines)
 
 
 async def classify(message: str, history: list[str], current_domain: DomainKey) -> RoutingDecision:
