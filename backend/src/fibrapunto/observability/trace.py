@@ -41,7 +41,23 @@ class TraceRecorder:
     def __init__(self, conversation_id: UUID) -> None:
         self.conversation_id = conversation_id
         self.events: list[TraceEvent] = []
+        self._persisted = 0
         self._subscribers: list[Callable[[TraceEvent], None]] = []
+
+    @property
+    def pending(self) -> list[TraceEvent]:
+        """Events not yet written to the store."""
+        return self.events[self._persisted :]
+
+    def mark_persisted(self) -> None:
+        """Called after the store has taken everything currently held.
+
+        The full list is kept rather than cleared: a browser that opens the
+        trace panel mid-conversation replays from `events`, and clearing it
+        would show that viewer a conversation that appears to start wherever
+        they happened to connect.
+        """
+        self._persisted = len(self.events)
 
     def emit(
         self,

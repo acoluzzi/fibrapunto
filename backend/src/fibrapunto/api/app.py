@@ -16,6 +16,7 @@ the platform schema, for §14 and §17.10.
 from __future__ import annotations
 
 import asyncio
+import json
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 from uuid import UUID
@@ -172,11 +173,14 @@ async def send_turn(conversation_id: str, request: SendTurn) -> AgentReply:
     reply = await convo.send(request.text)
 
     if _store:
-        await _store.store_events(convo.trace.events)
+        await _store.store_events(convo.trace.pending)
         # Redaction happens at the write boundary (§9), so what lands on disk is
         # redacted regardless of whether inbound redaction was on for the model.
         await _store.store_transcript(convo.state)
-        convo.trace.events.clear()
+        # Clearing costs a late-joining browser its replay, so remember how far
+        # we have persisted instead. The recorder is bounded by the turn budget
+        # (§12.1), so it cannot grow without limit.
+        convo.trace.mark_persisted()
 
     return reply
 
@@ -199,7 +203,20 @@ async def session_events(conversation_id: str) -> EventSourceResponse:
 
     async def generator():
         async for payload in stream_events(convo.trace):
-            yield {"event": payload["name"], "data": payload}
+            # Two things this line has to get right, and it got both wrong:
+            #
+            # 1. **Unnamed.** SSE's `event:` field routes to
+            #    addEventListener(name), never to onmessage. Naming each event
+            #    meant a browser had to enumerate all seventeen types to receive
+            #    any of them. The name is in the payload, which is where every
+            #    consumer already reads it from.
+            # 2. **Serialised here.** Handing sse-starlette a dict yields
+            #    `str(dict)` — Python repr, with single quotes and None — which
+            #    is not JSON and which `JSON.parse` rejects.
+            #
+            # Both failed silently: the stream connected, frames arrived, and
+            # the panel stayed empty.
+            yield {"data": json.dumps(payload, default=str, ensure_ascii=False)}
 
     return EventSourceResponse(generator())
 

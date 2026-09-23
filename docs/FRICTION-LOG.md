@@ -243,3 +243,84 @@ constraint rather than a preference.
 misread. The error says "available credits", the balance says plenty remain, and
 the natural conclusion is a bug in the request. The word that matters is
 `in_flight`, and it appears only in the metadata.
+
+---
+
+## 6. Three failures the test suite could not have caught, found in one conversation
+
+**Where:** the first end-to-end run of eval case 005 in a browser, day 10.
+
+**What happened.** 229 tests green, lint clean, containers building. Then one
+conversation through the UI — billing unavailable, customer accepts a handover —
+and three separate defects surfaced at once. None of them could have been caught
+by the suite, and the reason why is the interesting part.
+
+**6a — The credential store was not mounted into the container.**
+`docker-compose.yml` never mounted `./secrets`, so `FileSecretStore` inside the
+backend found nothing and every `billing_lookup` failed with
+`CredentialNotFound`. The tests run on the *host*, where the file is present.
+
+The part worth keeping: the typed-outcome layer did its job perfectly.
+`CredentialNotFound` became `serviceUnavailable` with an incident id, the agent
+said the billing system was not responding, and it invented nothing. **The agent
+behaved impeccably while the demo was broken** — which is precisely what §5.1
+promises and also precisely why the failure was invisible. A system that
+degrades gracefully will hide its own misconfiguration.
+
+**6b — `disputed_point` was required on every billing escalation.** §13's table
+lists "what the customer disputes" among a billing dispute's fields, and the
+completeness matrix required it unconditionally. But the billing domain routes
+*every* escalation to `record_type = billing_dispute`, including conversations
+where nothing is disputed. Here the customer asked "quanto devo?", the lookup
+never succeeded, and no figure had ever existed to dispute.
+
+So the record failed validation, and therefore **was never written, and
+therefore the company was never told.** That is §12.4's worst branch reached
+through the front door, and it contradicts §13's own rule — *"an incomplete
+record beats no record"* — which `create_handover_record.py` quotes correctly
+twenty lines below the check that violated it.
+
+**6c — The trace panel received nothing.** Two independent bugs in one line of
+SSE serialisation. Events were emitted *named* (`event: router.decision`), and
+`EventSource.onmessage` only fires for unnamed events — named ones require
+`addEventListener` per type, seventeen of them. And the payload was handed to
+`sse-starlette` as a dict, which serialises it with `str()`: Python repr, single
+quotes, `None`. Not JSON, and `JSON.parse` would have rejected it even if the
+handler had fired.
+
+**Why none of this was caught.** Each defect lives in a seam the tests
+deliberately do not cross:
+
+| Defect | Seam | Why the suite missed it |
+| --- | --- | --- |
+| 6a | host ↔ container | tests run on the host, where the file exists |
+| 6b | required fields ↔ real conversations | fixtures supplied every field, so the conditional case never arose |
+| 6c | backend ↔ browser | the API is tested with `httpx`, which does not care about SSE framing |
+
+That is not an argument for more unit tests. It is an argument for the thing the
+verification debt was always about: **a suite that never leaves the process
+cannot test the boundaries between processes.** The eval harness drives real
+HTTP for exactly this reason, and it had not been run either.
+
+**What it cost.** About an hour: twenty minutes on 6b, which announced itself in
+the logs, and most of the rest on 6c, where the stream connected, frames
+arrived, and the panel stayed empty — a failure with no error anywhere.
+
+**Decisions.**
+- Mount `./secrets:/app/secrets:**ro**`. Read-only is not incidental: the agent
+  resolves a handle at request time and never writes, rotation is an operator
+  action on the host, and a running agent able to rewrite its own credential
+  store would be a strange thing to have built.
+- Require `disputed_point` only when a lookup actually returned a figure. The
+  valuable half of the check survives — if the agent read an amount and the
+  customer objected, a record that omits the objection is still refused.
+- Emit trace events unnamed and serialise them here. The name is in the payload,
+  which is where every consumer already reads it from.
+
+**The general lesson, which is the one I would keep.** All three defects sat
+behind a green suite, and two of them were *masked by correct behaviour
+elsewhere*: graceful degradation hid 6a, and the §12.4 fallback message hid 6b
+by explaining the failure so reasonably that it read as intended. Designing for
+honest failure makes a system pleasant to operate and harder to debug, and the
+mitigation is not better unit tests — it is running the thing end to end,
+earlier, through the same surface a user will touch.

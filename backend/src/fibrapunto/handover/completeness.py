@@ -48,6 +48,39 @@ _BY_TYPE: dict[str, tuple[str, ...]] = {
 }
 
 
+def _billing_was_read(context: dict[str, Any]) -> bool:
+    """Did a lookup actually return this customer's billing data?
+
+    Keyed on the typed outcome rather than on the display value of
+    `billing_status`, which is prose and would drift.
+    """
+    return any(entry.get("outcome") == "found" for entry in context.get("lookups", ()))
+
+
+def _required(record_type: str, context: dict[str, Any]) -> tuple[str, ...]:
+    """The required fields for this record, given what the conversation produced.
+
+    §13's table describes a *worked* billing dispute: one where the amount was
+    read and the customer said what was wrong with it. A billing escalation in
+    which the lookup never succeeded is a different shape — the customer has a
+    question nobody could answer yet, and there is no figure in existence for
+    them to dispute.
+
+    Demanding `disputed_point` there was not strictness, it was a modelling
+    error, and it cost the thing §13 cares about most: the record failed to
+    validate, so no record was written, so **the company was never told**. That
+    is §12.4's worst branch reached through the front door, and it contradicts
+    §13's own rule — "an incomplete record beats no record" — which this file's
+    sibling applies correctly to the unlinked-contract case.
+
+    Found by running case 005 against a live model; see docs/FRICTION-LOG.md.
+    """
+    required = _BY_TYPE.get(record_type, ())
+    if record_type == "billing_dispute" and not _billing_was_read(context):
+        required = tuple(key for key in required if key != "disputed_point")
+    return required
+
+
 def missing_fields(record_type: str, context: dict[str, Any], subject: str) -> list[str]:
     """Which required fields are absent or empty."""
     missing: list[str] = []
@@ -59,7 +92,7 @@ def missing_fields(record_type: str, context: dict[str, Any], subject: str) -> l
         if key not in context:
             missing.append(key)
 
-    for key in _ALWAYS_NON_EMPTY + _BY_TYPE.get(record_type, ()):
+    for key in _ALWAYS_NON_EMPTY + _required(record_type, context):
         value = context.get(key)
         if value is None or value == "" or value == []:
             missing.append(key)

@@ -42,6 +42,18 @@ services:
     environment:
       POSTGRES_HOST: db
       BILLING_BASE_URL: http://billing:8081
+    volumes:
+      # §17.7: the credential store is external to the automation, so it is not
+      # baked into the image. Read-only on purpose — the agent resolves a handle
+      # at request time and never writes; rotation is `make rotate-credential`,
+      # run by an operator on the host. A running agent that could rewrite its
+      # own credential store would be a strange thing to have built.
+      #
+      # Missing this mount meant every billing lookup in the container failed
+      # with CredentialNotFound, which the typed-outcome layer correctly turned
+      # into `serviceUnavailable` — so the agent behaved perfectly and the demo
+      # was broken. See docs/FRICTION-LOG.md.
+      - ./secrets:/app/secrets:ro
     ports:
       - "8000:8000"
     depends_on:

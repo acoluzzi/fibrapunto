@@ -24,7 +24,8 @@ from fibrapunto.scripts.reset import reset
 from fibrapunto.settings import get_settings
 from fibrapunto.state.models import BillingFacts, ConversationState
 
-pytestmark = pytest.mark.asyncio
+# No module-level asyncio mark: this file mixes sync completeness checks with
+# async database tests, and `asyncio_mode = "auto"` already handles the latter.
 
 LINKED = "FP-2024-092003"  # live lock-in, 2 instalments
 
@@ -235,3 +236,74 @@ async def test_cancellation_requires_more_than_a_billing_dispute():
     assert "request_date" in cancellation and "request_date" not in dispute
     assert "disputed_point" in dispute
     assert {"what_customer_was_told", "escalation_trigger"} <= cancellation & dispute
+
+
+# --- a billing escalation that is not a dispute -------------------------------
+#
+# Found by running eval case 005 against a live model: the billing system was
+# down, the customer accepted a handover, and the record failed to validate
+# because `disputed_point` was missing. There was nothing to dispute — no figure
+# had ever been read. The company was therefore never told, which is the outcome
+# §13 exists to prevent.
+
+
+def _context(**overrides):
+    base = {
+        "lookups": [],
+        "escalation_trigger": "billing_unavailable",
+        "what_customer_was_told": ["Il sistema non risponde."],
+        "billing_status": "non disponibile",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_a_dispute_is_not_required_when_no_figure_was_ever_read():
+    """The bug from case 005, as an assertion."""
+    missing = completeness.missing_fields(
+        "billing_dispute",
+        _context(lookups=[{"capability": "billing_lookup", "outcome": "serviceUnavailable"}]),
+        subject="Addebito diretto fallito, verifica non riuscita",
+    )
+    assert missing == [], f"the record must be creatable; missing={missing}"
+
+
+def test_a_dispute_is_still_required_when_the_amount_was_read():
+    """The valuable half of the check is preserved: if the agent read a figure
+    and the customer objected to it, a record that does not say what they
+    objected to is a thin record, and asking again is right."""
+    missing = completeness.missing_fields(
+        "billing_dispute",
+        _context(
+            lookups=[{"capability": "billing_lookup", "outcome": "found"}],
+            billing_status="failed",
+            amount_eur="29.90",
+        ),
+        subject="Contestazione importo",
+    )
+    assert missing == ["disputed_point"]
+
+
+def test_the_dispute_requirement_is_satisfied_once_collected():
+    missing = completeness.missing_fields(
+        "billing_dispute",
+        _context(
+            lookups=[{"capability": "billing_lookup", "outcome": "found"}],
+            billing_status="failed",
+            disputed_point="Il piano è 24,90, non 29,90",
+        ),
+        subject="Contestazione importo",
+    )
+    assert missing == []
+
+
+def test_what_the_customer_was_told_is_required_either_way():
+    """The relaxation is narrow. Fields the agent always has are still enforced,
+    because §12.2's "what the agent already told the customer" is what stops the
+    receiving human contradicting it."""
+    missing = completeness.missing_fields(
+        "billing_dispute",
+        _context(what_customer_was_told=[]),
+        subject="Qualcosa",
+    )
+    assert "what_customer_was_told" in missing
