@@ -122,6 +122,10 @@ class CollectedState(BaseModel):
     that most often causes a second complaint"."""
 
     handover_reference: str | None = None
+    handover_contract_linked: bool = False
+    """Whether the opened case carries a contract link. Kept so a repeated call
+    can return the same outcome variant rather than a different one."""
+
     sensitive_data_seen: list[str] = Field(default_factory=list)
     """Kinds, never values — ["IBAN"], not the IBAN (§9)."""
 

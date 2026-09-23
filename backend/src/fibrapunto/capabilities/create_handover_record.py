@@ -60,12 +60,34 @@ async def create_handover_record(
     disputed_point: str | None = None,
 ) -> HandoverResult:
     """Build the payload from typed state, validate it, insert it."""
+    route = routing.for_domain(state.current_domain)
+
+    # Idempotent per conversation. One customer request is one case, and this
+    # capability is the only thing that can open one — so the guarantee belongs
+    # here rather than in a prompt asking the model to call it once.
+    #
+    # Two ways to reach a second call, and both were observed on the first live
+    # run of the dispute case: the model emitted **two tool calls in the same
+    # assistant message**, each with its own summary, and both executed. It can
+    # equally call again on a later turn after the customer adds something.
+    #
+    # Returning the existing reference is the honest answer under §12.4 — the
+    # record is real, that is its number, and it is the number the customer was
+    # already given. Opening a second one would leave the receiving team two
+    # cases for one problem, which §13's adoption metric ("the rate at which
+    # these records are reassigned or reopened") is precisely designed to catch.
+    if state.collected.handover_reference:
+        log.warning(
+            "handover.duplicate_suppressed",
+            reference=state.collected.handover_reference,
+            attempted_subject=subject,
+        )
+        return _existing(state, route)
+
     if stated_reason:
         state.collected.stated_reason = stated_reason
     if disputed_point:
         state.collected.disputed_point = disputed_point
-
-    route = routing.for_domain(state.current_domain)
 
     context = payload.build_context(state, trigger)
     contract_linked = False
@@ -96,6 +118,7 @@ async def create_handover_record(
 
     reference = await gateway.create_handover_record(principal, values)
     state.collected.handover_reference = reference
+    state.collected.handover_contract_linked = contract_linked
 
     log.info(
         "handover.created",
@@ -114,6 +137,28 @@ async def create_handover_record(
 
     # §13: "An incomplete record beats no record: the customer has still asked
     # for something, and the company has still been told."
+    return HandoverCreatedWithoutContractLink(
+        reference=reference,
+        queue_label=route.queue_label,
+        response_window=route.response_window,
+    )
+
+
+def _existing(state: ConversationState, route: routing.Routing) -> HandoverResult:
+    """The outcome for a case this conversation has already opened.
+
+    Reconstructed rather than remembered as an object, so it stays correct if
+    the conversation switched domain between the two calls — the queue label the
+    customer is told must match the queue the record is actually in.
+    """
+    reference = state.collected.handover_reference
+    assert reference is not None  # guarded by the caller
+    if state.collected.handover_contract_linked:
+        return HandoverCreated(
+            reference=reference,
+            queue_label=route.queue_label,
+            response_window=route.response_window,
+        )
     return HandoverCreatedWithoutContractLink(
         reference=reference,
         queue_label=route.queue_label,

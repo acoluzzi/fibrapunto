@@ -307,3 +307,55 @@ def test_what_the_customer_was_told_is_required_either_way():
         subject="Something",
     )
     assert "what_customer_was_told" in missing
+
+
+# --- one conversation, one case ----------------------------------------------
+#
+# Found on the first live run of the dispute case: the model emitted TWO
+# create_handover_record calls in a single assistant message, each with its own
+# summary, and both executed. The operator queue showed 00001042 and 00001043
+# for one customer with one problem.
+
+
+async def test_a_second_call_returns_the_first_reference(gateway, clean_db):
+    """§12.4 says report what happened. What happened is that a case exists and
+    this is its number — so the second call is answered truthfully rather than
+    refused, and the customer is told the same reference either way."""
+    state = state_for(DomainKey.cancellation)
+
+    first = await create(state, gateway)
+    second = await create(state, gateway, subject="A different summary entirely")
+
+    assert isinstance(first, HandoverCreated)
+    assert isinstance(second, HandoverCreated)
+    assert second.reference == first.reference
+    assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 1
+
+
+async def test_two_calls_in_one_turn_open_one_case(gateway, clean_db):
+    """The shape that actually happened: both tool calls dispatched from the
+    same assistant message, so nothing in between could have noticed."""
+    import asyncio
+
+    state = state_for(DomainKey.cancellation)
+    await create(state, gateway)
+    await asyncio.gather(
+        create(state, gateway, subject="Summary A"),
+        create(state, gateway, subject="Summary B"),
+    )
+
+    assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 1
+
+
+async def test_the_repeat_keeps_the_unlinked_shape(gateway, clean_db):
+    """A repeat must not upgrade an unlinked record into a linked one. The
+    customer was told a colleague would check the number; saying otherwise on
+    the next turn contradicts what they were already told (§12.2)."""
+    state = state_for(DomainKey.cancellation, contract="FP-2099-999999")
+
+    first = await create(state, gateway)
+    second = await create(state, gateway)
+
+    assert isinstance(first, HandoverCreatedWithoutContractLink)
+    assert isinstance(second, HandoverCreatedWithoutContractLink)
+    assert second.reference == first.reference
