@@ -158,11 +158,31 @@ class ToolDispatcher:
         """
         state.collected.lookup_outcomes.append(result.outcome)
 
-        match result.outcome:
-            case "found":
-                number = args.get("numero_contratto", "").strip().upper()
+        # The contract number is a fact about the **conversation**, not a result
+        # of the lookup: the customer said it, and `came_from_customer()` has
+        # already validated that it appeared in their own words (§5.2). So it is
+        # recorded whenever it was acceptable, independently of whether the
+        # external system could be reached.
+        #
+        # Recording it only on `found` was a real defect. With billing down, the
+        # customer supplied a valid number and it was discarded — so the handover
+        # could not link the contract and the agent had to ask them to repeat it
+        # to a human, which is precisely the first minute §13 exists to delete.
+        # It also broke §15 on the failure path: a switch to cancellation after
+        # a failed lookup would re-ask for the number the customer had given.
+        #
+        # The two exclusions are deliberate. `rejected` *is* the outcome meaning
+        # the number was not acceptable. `multipleMatches` means it resolved to
+        # several contracts, so there is not yet a single one to record — that is
+        # what the disambiguation turn is for.
+        if result.outcome in ("found", "serviceUnavailable", "notFound"):
+            number = args.get("numero_contratto", "").strip().upper()
+            if number:
                 state.collected.contract_number = number
                 state.collected.contract_number_source = "customer_verbatim"
+
+        match result.outcome:
+            case "found":
                 state.collected.billing = BillingFacts(
                     status=result.status,
                     failure_reason=result.failure_reason,

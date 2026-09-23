@@ -10,6 +10,7 @@ day 10 and rationing runs.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -22,7 +23,8 @@ from langchain_core.messages import AIMessage
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from mock_billing.main import app as billing_app
 
-pytestmark = pytest.mark.asyncio
+# No module-level asyncio mark: this file mixes sync state checks with async
+# conversation tests, and `asyncio_mode = "auto"` already handles the latter.
 
 CONTRACT = "FP-2023-048812"
 
@@ -359,3 +361,53 @@ async def test_every_declared_tool_converts_to_a_provider_schema(monkeypatch):
         assert schema["type"] == "function"
         assert schema["function"]["description"], "§17.5: every capability needs a description"
         assert "parameters" in schema["function"]
+
+
+# --- the contract number survives a failed lookup ----------------------------
+#
+# Found by re-running eval case 005 in a browser: billing was unavailable, the
+# customer had given a valid contract number, and the handover was created
+# without a contract link — so the agent asked them to repeat the number to a
+# human. §13's whole premise is that those first minutes are gone.
+
+
+def _state_after(outcome: str, number: str = "FP-2023-048812"):
+    from fibrapunto.graph.tool_node import ToolDispatcher
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    result = SimpleNamespace(outcome=outcome, matches=[], reason=None)
+    ToolDispatcher._absorb_billing(
+        ToolDispatcher.__new__(ToolDispatcher),
+        result,
+        {"numero_contratto": number},
+        state,
+    )
+    return state
+
+
+def test_the_number_survives_a_billing_outage():
+    """The defect, as an assertion. The customer said it; an external system
+    being down does not un-say it."""
+    state = _state_after("serviceUnavailable")
+    assert state.collected.contract_number == "FP-2023-048812"
+    assert state.collected.contract_number_source == "customer_verbatim"
+
+
+def test_the_number_survives_a_contract_absent_from_billing():
+    """§6.2's deliberate misalignment: present in the CRM, absent from billing.
+    The handover must still link it."""
+    state = _state_after("notFound", "FP-2020-004199")
+    assert state.collected.contract_number == "FP-2020-004199"
+
+
+def test_a_rejected_number_is_not_recorded():
+    """`rejected` is precisely the outcome meaning the number was not
+    acceptable — malformed, or not in the customer's own words (§5.2)."""
+    assert _state_after("rejected").collected.contract_number is None
+
+
+def test_an_ambiguous_number_is_not_recorded_as_the_contract():
+    """§4.1: several matches means there is not yet a single contract to record.
+    That is what the disambiguation turn resolves."""
+    assert _state_after("multipleMatches").collected.contract_number is None
