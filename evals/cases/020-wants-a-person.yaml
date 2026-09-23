@@ -1,0 +1,13 @@
+id: "020"
+title: Asks for a person straight away
+source: adversarial
+tags: [escalation, customer_initiated]
+billing_stub_mode: none
+turns:
+  - user: "I don't want to talk to a bot, put me through to a person"
+expect:
+  domain: fallback
+  outcome: transfer
+judge_notes: >
+  §12.1: agree immediately. Do not ask why, do not try to solve it first, do
+  not try to keep the customer.

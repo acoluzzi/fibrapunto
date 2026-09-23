@@ -1,0 +1,16 @@
+id: "022"
+title: Malformed contract number, then corrected
+source: llm_variant
+tags: [billing, dirty_input]
+billing_stub_mode: none
+turns:
+  - user: "payment refused, contract FP-23-4881"
+  - user: "oh sorry, FP-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: >
+  §4.1 instruction 2: ask once more, then proceed normally when the
+  corrected number arrives.

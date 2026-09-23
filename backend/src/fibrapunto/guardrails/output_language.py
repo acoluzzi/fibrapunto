@@ -1,66 +1,97 @@
-"""The reply is in Italian, and stays there (§10 criterion 3).
+"""The reply reads like a company, not like a system (§10 criterion 3).
 
-    "Italian quality. Not general fluency — specifically: handling of typos and
-    dialect, correct register with an older customer, and **not drifting into
-    English technical vocabulary**."
+§10's third criterion is about **Italian** quality — "handling of typos and
+dialect, correct register with an older customer, and not drifting into English
+technical vocabulary". With the agent answering in English that criterion cannot
+be satisfied as written, and pretending otherwise would be worse than saying so.
+It is recorded in docs/DEVIATIONS.md.
 
-The prompts are written in Italian rather than in English with "reply in Italian"
-appended, precisely to avoid this drift. This guard is what tells us whether that
-worked, rather than assuming it did.
+What survives the translation is the *shape* of the criterion, and it is the
+half that mattered: a reply degrades in two directions, and both are visible.
+
+  * **Downwards into the machine.** The Italian version watched for English
+    technical vocabulary. The English equivalent is the vocabulary of the
+    system itself — `serviceUnavailable`, "handover record", "the queue", "the
+    lookup returned". Every one of those is a real word in this codebase, which
+    is exactly why it leaks: the model has been reading them all prompt.
+
+  * **Sideways into familiarity.** Italian has `lei` and `tu`, and getting it
+    wrong with an older customer is a visible error. English has no such
+    grammatical marker, so the check is lexical: the greetings and fillers that
+    make a utility sound like a chatbot.
+
+Neither is blocking (see pipeline.BLOCKING). A reply that says "your handover
+record" is worse writing, not a false statement, and the repair pass rewords it.
 """
 
 from __future__ import annotations
 
 import re
 
-# English technical vocabulary an Italian customer-service reply should not use.
-# Words Italians genuinely say (email, link, online, app, chat, account) are
-# deliberately absent: the target is drift, not loanwords.
-_ANGLICISMS = frozenset(
+# The system's own vocabulary. These are the words in the tool schemas, the
+# outcome literals and the queue names — the ones the model has been reading for
+# three thousand tokens and will reach for if the reply gets lazy.
+#
+# Several near-misses are deliberately absent, and each one was a false positive
+# before it was removed:
+#
+#   * `case` — "I've opened a case" is exactly what the agent should say.
+#   * `contract`, `invoice`, `payment` — the customer's own words.
+#   * "billing operations", "retention team" — these are the `queue_label`
+#     values, which are marked CustomerVisible precisely so the customer is told
+#     who will call them. The *internal* forms are `billing_operations` and
+#     `retention`, and those are already covered by output_visibility, which
+#     derives its blocklist from the outcome models rather than from a list
+#     anyone has to remember to update.
+_INTERNAL_VOCABULARY = frozenset(
     {
-        "payment",
-        "invoice",
-        "billing",
-        "refund",
-        "chargeback",
-        "direct debit",
-        "timeout",
-        "failed",
-        "pending",
-        "retry",
-        "contract",
-        "customer",
-        "please",
-        "sorry",
-        "unfortunately",
-        "however",
-        "request",
-        "issue",
-        "support ticket",
+        "handover",
+        "handover record",
+        "capability",
+        "lookup",
+        "the queue",
+        "queued",
         "escalate",
-        "provider",
-        "outage",
+        "escalation",
+        "serviceunavailable",
+        "notfound",
+        "multiplematches",
+        "timeout",
+        "timed out",
+        "endpoint",
+        "api",
+        "backend",
+        "system error",
+        "exception",
+        "incident id",
+        "downstream",
     }
 )
 
-_LEI_VIOLATIONS = re.compile(
-    r"\b(?:sei|tuo|tua|tuoi|tue|ti\s+(?:posso|mando|invio)|puoi|hai\s+bisogno)\b",
+# Over-familiarity. A utility writing to someone who may be seventy does not
+# open with "Hi there" or agree with "absolutely".
+_TOO_FAMILIAR = re.compile(
+    r"\b(?:hey|hi there|no worries|no problem|absolutely|sure thing|awesome|"
+    r"gotcha|yeah|yep|super|totally|my friend|buddy)\b",
     re.IGNORECASE,
 )
+
+# Manufactured enthusiasm, which the base identity forbids outright.
+_ENTHUSIASM = re.compile(r"[!]{1,}|\b(?:great news|happy to say|delighted)\b", re.IGNORECASE)
 
 
 def check(reply: str) -> list[str]:
     problems: list[str] = []
     lowered = reply.lower()
 
-    for word in _ANGLICISMS:
-        if re.search(rf"\b{re.escape(word)}\b", lowered):
-            problems.append(f"anglicismo: {word}")
+    for phrase in sorted(_INTERNAL_VOCABULARY):
+        if re.search(rf"\b{re.escape(phrase)}\b", lowered):
+            problems.append(f"internal vocabulary: {phrase}")
 
-    # §4 and the base identity require the formal register throughout: an
-    # older customer addressed as "tu" is a different kind of error from a
-    # wrong figure, but it is still one the operator would notice.
-    if _LEI_VIOLATIONS.search(reply):
-        problems.append("registro informale: dare del lei")
+    if match := _TOO_FAMILIAR.search(reply):
+        problems.append(f"over-familiar register: {match.group()}")
+
+    if match := _ENTHUSIASM.search(reply):
+        problems.append(f"manufactured enthusiasm: {match.group()!r}")
 
     return problems

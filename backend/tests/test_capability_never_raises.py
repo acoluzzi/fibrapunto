@@ -35,7 +35,7 @@ from pydantic import BaseModel, ValidationError
 pytestmark = pytest.mark.asyncio
 
 CONTRACT = "FP-2023-048812"
-CUSTOMER_TURNS = ["il mio contratto è FP-2023-048812"]
+CUSTOMER_TURNS = ["my contract is FP-2023-048812"]
 
 VALID_OUTCOMES = {"found", "notFound", "serviceUnavailable", "multipleMatches", "rejected"}
 
@@ -248,7 +248,7 @@ async def test_a_number_the_customer_never_typed_is_rejected(patched_httpx):
     result = await billing_lookup(
         "FP-2023-048812",
         client=client(),
-        customer_turns=["non trovo la bolletta, mi aiuti?"],
+        customer_turns=["I cannot find my bill, can you help?"],
         test_mode="normal",
     )
     assert isinstance(result, BillingRejected)
@@ -259,7 +259,7 @@ async def test_a_malformed_number_is_rejected_without_a_call(patched_httpx):
     result = await billing_lookup(
         "FP-23-4881",
         client=client(),
-        customer_turns=["il contratto è FP-23-4881"],
+        customer_turns=["the contract is FP-23-4881"],
     )
     assert isinstance(result, BillingRejected)
     assert result.reason == "format_invalid"

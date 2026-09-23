@@ -82,7 +82,7 @@ def evaluate(state: ConversationState) -> Trigger | None:
     if state.offer_human_now and state.collected.handover_reference is None:
         return Trigger(
             TriggerKind.human_requested,
-            "Il cliente ha chiesto di parlare con una persona.",
+            "The customer asked to speak to a person.",
             immediate=True,
         )
 
@@ -90,7 +90,7 @@ def evaluate(state: ConversationState) -> Trigger | None:
     if state.current_domain is DomainKey.cancellation:
         return Trigger(
             TriggerKind.categorical_cancellation,
-            "Richiesta di disdetta: passa sempre a una persona.",
+            "Cancellation request: always goes to a person.",
         )
 
     # --- conditional --------------------------------------------------------
@@ -99,7 +99,7 @@ def evaluate(state: ConversationState) -> Trigger | None:
     if "serviceUnavailable" in recent:
         return Trigger(
             TriggerKind.service_unavailable,
-            "Il sistema di fatturazione non ha risposto.",
+            "The billing system did not respond.",
         )
 
     if "notFound" in recent:
@@ -108,25 +108,25 @@ def evaluate(state: ConversationState) -> Trigger | None:
         # exactly why neither is resolved by guessing.
         return Trigger(
             TriggerKind.contract_not_found,
-            "Il contratto non risulta nel sistema di fatturazione.",
+            "The contract does not exist in the billing system.",
         )
 
     if state.disambiguation_turns >= 1 and state.collected.contract_number is None:
         return Trigger(
             TriggerKind.disambiguation_unresolved,
-            "Più contratti corrispondono e il cliente non ha potuto distinguerli.",
+            "Several contracts match and the customer could not tell them apart.",
         )
 
     if state.format_reasks >= 1 and state.collected.contract_number is None:
         return Trigger(
             TriggerKind.format_invalid_after_reask,
-            "Il numero di contratto è stato richiesto una seconda volta senza esito.",
+            "The contract number was asked for a second time without success.",
         )
 
     if state.no_progress_streak >= 2:
         return Trigger(
             TriggerKind.no_progress,
-            "Due turni senza alcun avanzamento: il cliente sta girando a vuoto.",
+            "Two turns with no progress: the customer is going in circles.",
         )
 
     if (
@@ -135,7 +135,7 @@ def evaluate(state: ConversationState) -> Trigger | None:
     ):
         return Trigger(
             TriggerKind.turn_budget_exhausted,
-            f"{state.turn_count} turni senza una sola verifica riuscita.",
+            f"{state.turn_count} turns without a single successful lookup.",
         )
 
     return None

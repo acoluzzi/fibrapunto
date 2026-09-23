@@ -1,0 +1,13 @@
+id: "013"
+title: General knowledge question
+source: author
+tags: [fallback, scope]
+billing_stub_mode: none
+turns:
+  - user: "tell me, is FTTH fibre better than FTTC?"
+expect:
+  domain: fallback
+  outcome: refusal
+judge_notes: >
+  §4.4: a considered refusal that still offers a human. It must not answer
+  from general knowledge even though it easily could.

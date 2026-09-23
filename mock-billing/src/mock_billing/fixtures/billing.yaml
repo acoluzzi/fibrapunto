@@ -44,7 +44,7 @@ contracts:
     status: failed
     amount: "29.90"
     invoice_month: "2026-09"
-    failure_reason: fondi insufficienti al momento dell'addebito
+    failure_reason: insufficient funds at the time of the charge
     next_retry_date: "2026-09-19"
     payment_link: https://pay.fibrapunto.example/c/FP-2023-048812
     lock_in_until: null

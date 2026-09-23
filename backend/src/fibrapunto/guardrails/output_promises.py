@@ -19,53 +19,69 @@ import re
 from fibrapunto.state.models import ConversationState
 
 # Each pattern is a claim the company would have to honour.
+#
+# English needs a wider net than Italian did. Italian marks a completed action
+# with a small set of verb forms; English says "I have cancelled", "I've
+# cancelled", "your contract has been cancelled", "that's been cancelled" and
+# "I went ahead and cancelled". So each entry matches the *aspect* — something
+# completed, by us, to their account — rather than one phrasing.
+#
+# Both spellings of cancelled/canceled, because the model will produce either.
 _FORBIDDEN = [
     (
-        "disdetta eseguita",
+        "cancellation claimed as executed",
         re.compile(
-            r"\b(?:ho|abbiamo)\s+(?:disdett|chius|cessat|annullat|disattivat)\w*"
-            r"|\bla disdetta (?:è|e')\s+stat\w+\s+(?:effettuat|complet|attiv|registrat)\w*"
-            r"|\bcontratto (?:è|e')\s+stato\s+(?:chiuso|cessato|disdetto)\b",
+            r"\b(?:i|we)(?:'ve|'ll| have| will)?\s+(?:already\s+|now\s+|just\s+)?"
+            r"(?:cancelled|canceled|closed|terminated|deactivated)\b"
+            r"|\b(?:i|we)\s+went\s+ahead\s+and\s+(?:cancelled|canceled|closed)\b"
+            r"|\b(?:your\s+|the\s+)?(?:contract|service|line|account)\s+(?:has|have)\s+been\s+"
+            r"(?:cancelled|canceled|closed|terminated|deactivated)\b"
+            r"|\b(?:the\s+|your\s+)?cancellation\s+(?:has\s+been|is|was)\s+"
+            r"(?:completed|processed|done|confirmed|effective|registered)\b",
             re.IGNORECASE,
         ),
     ),
     (
-        "rimborso promesso",
+        "refund promised",
         re.compile(
-            r"\b(?:le|il|un)\s+rimbors\w+\s+(?:sarà|verrà|è stato)\b"
-            r"|\bho\s+(?:disposto|autorizzato|emesso)\s+\w*\s*rimbors\w*"
-            r"|\ble rimborser\w+\b|\bprovvedo al rimborso\b",
+            r"\b(?:i|we)(?:'ve| have)?\s+(?:issued|authorised|authorized|arranged|approved)\s+"
+            r"(?:a|the|your)?\s*refund\b"
+            r"|\b(?:i|we)(?:'ll| will)\s+refund\b"
+            r"|\b(?:a|the|your)\s+refund\s+(?:will\s+be|has\s+been|is\s+being)\s+"
+            r"(?:issued|processed|credited|paid)\b"
+            r"|\byou(?:'ll| will)\s+(?:be\s+refunded|get\s+(?:a|your)\s+refund)\b",
             re.IGNORECASE,
         ),
     ),
     (
-        "storno promesso",
+        "credit promised",
         re.compile(
-            r"\bho\s+(?:stornat|accreditat)\w*|\b(?:storno|accredito)\s+"
-            r"(?:è|e')\s+stat\w+\s+(?:effettuat|applicat)\w*",
+            r"\b(?:i|we)(?:'ve| have)?\s+(?:credited|reversed|waived)\b"
+            r"|\b(?:the\s+|your\s+)?(?:credit|charge)\s+(?:has\s+been|was)\s+"
+            r"(?:applied|reversed|removed|waived)\b",
             re.IGNORECASE,
         ),
     ),
     (
-        "metodo di pagamento modificato",
+        "payment method changed",
         re.compile(
-            r"\bho\s+(?:modificat|cambiat|aggiornat)\w*\s+(?:il|la|i)\s*"
-            r"(?:metodo|modalità|coordinate|iban|carta)\b",
+            r"\b(?:i|we)(?:'ve| have)?\s+(?:changed|updated|switched|amended)\s+"
+            r"(?:your\s+)?(?:payment\s+method|payment\s+details|bank\s+details|card|iban)\b",
             re.IGNORECASE,
         ),
     ),
     (
-        "offerta di retention",
+        "retention offer",
         re.compile(
-            r"\b(?:le\s+)?(?:posso\s+)?(?:offrir|propor)\w*\s+"
-            r"(?:uno\s+)?(?:sconto|promozione|offerta)\b"
-            r"|\bse (?:resta|rimane)\s+.{0,30}\bsconto\b",
+            r"\b(?:i\s+can\s+)?(?:offer|give)\s+you\s+(?:a\s+)?"
+            r"(?:discount|promotion|better\s+(?:deal|price|rate))\b"
+            r"|\bif\s+you\s+(?:stay|remain)\b.{0,40}\b(?:discount|off|free)\b",
             re.IGNORECASE,
         ),
     ),
 ]
 
-_REFERENCE = re.compile(r"\b(?:pratica|protocollo)\D{0,20}(\d{6,8})\b", re.IGNORECASE)
+_REFERENCE = re.compile(r"\b(?:case|reference|ref)\D{0,20}(\d{6,8})\b", re.IGNORECASE)
 
 
 def check(reply: str, state: ConversationState) -> list[str]:
@@ -78,6 +94,6 @@ def check(reply: str, state: ConversationState) -> list[str]:
     actual = state.collected.handover_reference
     for match in _REFERENCE.finditer(reply):
         if match.group(1) != actual:
-            problems.append(f"numero di pratica inesistente: {match.group(1)}")
+            problems.append(f"case number that does not exist: {match.group(1)}")
 
     return problems

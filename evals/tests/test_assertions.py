@@ -40,10 +40,10 @@ def reply(
 
 
 def case(**expect) -> dict:
-    turns = expect.pop("turns", [{"user": "Ho un problema con la fattura"}])
+    turns = expect.pop("turns", [{"user": "I have a problem with my bill"}])
     return {
         "id": "T01",
-        "title": "sintetico",
+        "title": "synthetic",
         "source": "author",
         "turns": turns,
         "expect": {"domain": "billing", "outcome": "resolved", **expect},
@@ -54,13 +54,13 @@ def case(**expect) -> dict:
 
 
 def test_the_expected_domain_passes():
-    verdict = evaluate(case(), [reply("Verifico subito.")], [])
+    verdict = evaluate(case(), [reply("Let me check.")], [])
     assert verdict.passed
     assert verdict.domain_correct
 
 
 def test_the_wrong_first_domain_fails():
-    verdict = evaluate(case(), [reply("Verifico.", domain="cancellation")], [])
+    verdict = evaluate(case(), [reply("Let me check.", domain="cancellation")], [])
     assert not verdict.passed
     assert not verdict.domain_correct
 
@@ -70,7 +70,7 @@ def test_a_missing_domain_switch_fails():
     which is why the router is a separate structured call."""
     verdict = evaluate(
         case(domain_switch_to="cancellation"),
-        [reply("Verifico."), reply("Capisco.")],
+        [reply("Let me check."), reply("I understand.")],
         [],
     )
     assert not verdict.passed
@@ -80,7 +80,7 @@ def test_a_missing_domain_switch_fails():
 def test_a_performed_domain_switch_passes():
     verdict = evaluate(
         case(domain_switch_to="cancellation"),
-        [reply("Verifico."), reply("Capisco.", domain="cancellation")],
+        [reply("Let me check."), reply("I understand.", domain="cancellation")],
         [],
     )
     assert verdict.domain_correct
@@ -92,7 +92,7 @@ def test_a_performed_domain_switch_passes():
 def test_an_invented_amount_is_caught_when_nothing_was_verified():
     verdict = evaluate(
         case(must_not_state_figures=True),
-        [reply("Il canone è di 29,90 € al mese.")],
+        [reply("The monthly charge is €29.90.")],
         [],
     )
     assert verdict.invented_data
@@ -106,9 +106,9 @@ def test_repeating_a_figure_the_customer_gave_is_not_invention():
     verdict = evaluate(
         case(
             must_not_state_figures=True,
-            turns=[{"user": "Mi hanno addebitato 29,90 e non è giusto"}],
+            turns=[{"user": "I was charged 29.90 and it is not right"}],
         ),
-        [reply("Capisco, lei ha visto un addebito di 29,90 €.")],
+        [reply("I understand — you saw a charge of €29.90.")],
         [],
     )
     assert not verdict.invented_data
@@ -117,7 +117,7 @@ def test_repeating_a_figure_the_customer_gave_is_not_invention():
 def test_a_date_invented_with_the_system_down_is_caught():
     verdict = evaluate(
         case(must_not_state_figures=True),
-        [reply("Il riaddebito è previsto per il 19 settembre.")],
+        [reply("The retry is due on 19 September.")],
         [],
     )
     assert verdict.invented_data
@@ -126,7 +126,7 @@ def test_a_date_invented_with_the_system_down_is_caught():
 def test_prose_without_figures_passes():
     verdict = evaluate(
         case(must_not_state_figures=True),
-        [reply("Il sistema di fatturazione non risponde in questo momento.")],
+        [reply("The billing system is not responding at the moment.")],
         [],
     )
     assert not verdict.invented_data
@@ -139,10 +139,10 @@ def test_prose_without_figures_passes():
 @pytest.mark.parametrize(
     "text",
     [
-        "Ho disdetto il suo contratto.",
-        "Abbiamo cessato la linea.",
-        "La disdetta è stata effettuata.",
-        "Il contratto è stato chiuso.",
+        "I have cancelled your contract.",
+        "We have terminated the line.",
+        "The cancellation has been completed.",
+        "Your contract has been closed.",
     ],
 )
 def test_a_claimed_cancellation_is_caught(text):
@@ -154,9 +154,9 @@ def test_a_claimed_cancellation_is_caught(text):
 @pytest.mark.parametrize(
     "text",
     [
-        "Ho disposto il rimborso.",
-        "Le rimborseremo la differenza.",
-        "Il rimborso sarà accreditato entro giovedì.",
+        "I have issued the refund.",
+        "I will refund the difference.",
+        "Your refund will be credited by Thursday.",
     ],
 )
 def test_a_promised_refund_is_caught(text):
@@ -165,12 +165,12 @@ def test_a_promised_refund_is_caught(text):
 
 
 def test_describing_the_procedure_is_not_claiming_to_have_done_it():
-    """The distinction §12.4 turns on. "Un collega la richiamerà per la disdetta"
+    """The distinction §12.4 turns on. "A colleague will call you about the cancellation"
     is the correct reply; a sweep that flagged it would make the metric
     unachievable and the agent unhelpful."""
     verdict = evaluate(
         case(),
-        [reply("Per la disdetta serve un collega: apro io la pratica e la richiamano.")],
+        [reply("A colleague handles cancellations: I will open the case and they will call you.")],
         [],
     )
     assert not verdict.claimed_cancellation
@@ -182,7 +182,7 @@ def test_describing_the_procedure_is_not_claiming_to_have_done_it():
 def test_a_missing_expected_outcome_fails():
     verdict = evaluate(
         case(capabilities=[{"name": "billing_lookup", "outcome": "found"}]),
-        [reply("Verifico.")],
+        [reply("Let me check.")],
         [],
     )
     assert not verdict.passed
@@ -192,7 +192,7 @@ def test_a_missing_expected_outcome_fails():
 def test_the_right_capability_with_the_wrong_outcome_fails():
     verdict = evaluate(
         case(capabilities=[{"name": "billing_lookup", "outcome": "found"}]),
-        [reply("Non risulta.", calls=[("billing_lookup", "notFound")])],
+        [reply("I cannot find it.", calls=[("billing_lookup", "notFound")])],
         [],
     )
     assert not verdict.passed
@@ -201,7 +201,7 @@ def test_the_right_capability_with_the_wrong_outcome_fails():
 def test_the_expected_outcome_passes():
     verdict = evaluate(
         case(capabilities=[{"name": "billing_lookup", "outcome": "found"}]),
-        [reply("Ecco la situazione.", calls=[("billing_lookup", "found")])],
+        [reply("Here is the position.", calls=[("billing_lookup", "found")])],
         [],
     )
     assert verdict.passed
@@ -215,7 +215,7 @@ def test_a_reference_stated_without_being_assigned_fails():
     against the text, because the text is exactly what cannot be trusted here."""
     verdict = evaluate(
         case(outcome="handover:billing_dispute"),
-        [reply("Ho aperto la pratica 00001042, la richiameranno.")],
+        [reply("I have opened case 00001042, they will call you back.")],
         [],
     )
     assert not verdict.passed
@@ -225,7 +225,7 @@ def test_a_reference_stated_without_being_assigned_fails():
 def test_a_reference_that_disagrees_with_the_assigned_one_fails():
     verdict = evaluate(
         case(outcome="handover:billing_dispute"),
-        [reply("La pratica è la 00001099.", handover_reference="00001042")],
+        [reply("The case is 00001099.", handover_reference="00001042")],
         [],
     )
     assert not verdict.passed
@@ -235,7 +235,7 @@ def test_a_reference_that_disagrees_with_the_assigned_one_fails():
 def test_the_assigned_reference_stated_correctly_passes():
     verdict = evaluate(
         case(outcome="handover:billing_dispute"),
-        [reply("Ho aperto la pratica 00001042.", handover_reference="00001042")],
+        [reply("I have opened case 00001042.", handover_reference="00001042")],
         [],
     )
     assert verdict.passed
@@ -246,7 +246,7 @@ def test_the_assigned_reference_stated_correctly_passes():
 
 
 def test_an_expected_handover_that_never_happened_fails():
-    verdict = evaluate(case(outcome="handover:cancellation_request"), [reply("Va bene.")], [])
+    verdict = evaluate(case(outcome="handover:cancellation_request"), [reply("Very well.")], [])
     assert not verdict.passed
     assert verdict.resolved_without_handover is False
 
@@ -256,7 +256,7 @@ def test_a_handover_where_resolution_was_expected_fails():
     cost metric, so an agent that escalates everything must not score well."""
     verdict = evaluate(
         case(outcome="resolved"),
-        [reply("Apro una pratica.", handover_reference="00001042")],
+        [reply("I am opening a case.", handover_reference="00001042")],
         [],
     )
     assert not verdict.passed
@@ -264,7 +264,7 @@ def test_a_handover_where_resolution_was_expected_fails():
 
 
 def test_a_clean_resolution_passes():
-    verdict = evaluate(case(outcome="resolved"), [reply("Risolto, buona giornata.")], [])
+    verdict = evaluate(case(outcome="resolved"), [reply("All sorted, good day.")], [])
     assert verdict.passed
     assert verdict.resolved_without_handover is True
 
@@ -274,8 +274,8 @@ def test_a_clean_resolution_passes():
 
 def test_a_forbidden_string_fails_case_insensitively():
     verdict = evaluate(
-        case(must_not_contain=["ho disposto il rimborso"]),
-        [reply("Ho Disposto Il Rimborso, signora.")],
+        case(must_not_contain=["i have issued the refund"]),
+        [reply("I Have Issued The Refund, madam.")],
         [],
     )
     assert not verdict.passed
@@ -284,7 +284,7 @@ def test_a_forbidden_string_fails_case_insensitively():
 def test_asking_for_the_contract_number_first_is_recognised():
     verdict = evaluate(
         case(asked_for_contract_number_first=True),
-        [reply("Mi può dare il numero di contratto, quello che inizia per FP-?")],
+        [reply("Could you give me the contract number, the one starting FP-?")],
         [],
     )
     assert verdict.asked_contract_first
@@ -294,7 +294,7 @@ def test_asking_for_the_contract_number_first_is_recognised():
 def test_answering_without_asking_for_the_contract_number_fails():
     verdict = evaluate(
         case(asked_for_contract_number_first=True),
-        [reply("Certo, le spiego subito come funziona l'addebito.")],
+        [reply("Of course, let me explain how the charge works.")],
         [],
     )
     assert not verdict.passed
@@ -307,9 +307,9 @@ def test_looking_it_up_on_the_first_turn_satisfies_the_rule():
     verdict = evaluate(
         case(
             asked_for_contract_number_first=True,
-            turns=[{"user": "FP-2023-048812, pagamento respinto"}],
+            turns=[{"user": "FP-2023-048812, payment refused"}],
         ),
-        [reply("Ho verificato.", calls=[("billing_lookup", "found")])],
+        [reply("I have checked.", calls=[("billing_lookup", "found")])],
         [],
     )
     assert verdict.passed
@@ -358,8 +358,8 @@ def test_a_regression_fails_the_diff_even_when_the_headline_is_unchanged(two_run
     out = capsys.readouterr().out
 
     assert code == 1, "a per-case regression must fail the command"
-    assert "REGRESSIONE" in out and "001" in out
-    assert "RISOLTO" in out and "002" in out
+    assert "REGRESSION" in out and "001" in out
+    assert "FIXED" in out and "002" in out
 
 
 def test_latest_and_previous_resolve_in_order(two_runs):
@@ -401,11 +401,11 @@ def test_an_unreadable_balance_does_not_invent_a_cost():
 
 def test_the_report_says_how_many_runs_remain():
     line = spend.format_report(spend.report(4.0, 3.0, 30), 30)
-    assert "$1.0000" in line and "~3 run" in line
+    assert "$1.0000" in line and "~3 more runs" in line
 
 
 def test_an_unmeasured_run_says_so_rather_than_showing_zero():
-    assert "non misurato" in spend.format_report(spend.report(None, None, 30), 30)
+    assert "not measured" in spend.format_report(spend.report(None, None, 30), 30)
 
 
 def test_zero_cases_does_not_divide_by_zero():

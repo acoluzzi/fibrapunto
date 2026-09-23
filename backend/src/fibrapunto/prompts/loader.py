@@ -51,10 +51,10 @@ class PromptFile:
 def _strip(raw: str) -> tuple[dict[str, str], str]:
     """Split frontmatter from body, and drop the HTML comments.
 
-    The comments hold the verbatim English original from the spec so the file
-    can be diffed against §4.x. They are for the reviewer, not the model —
-    sending them would be several hundred tokens of English in a prompt whose
-    whole design is to be Italian (§10 criterion 3).
+    The comments hold the provenance of each instruction — which section of the
+    spec it comes from, and why any expansion was made. They are for the
+    reviewer, not the model: sending them would be several hundred tokens of
+    commentary the agent has no use for, on every cached prompt.
     """
     meta: dict[str, str] = {}
     match = _FRONTMATTER.match(raw)
@@ -73,7 +73,7 @@ def _strip(raw: str) -> tuple[dict[str, str], str]:
 @lru_cache
 def load(name: str) -> PromptFile:
     """Load one prompt file by stem, e.g. `domain_billing`."""
-    path = PROMPTS_DIR / f"{name}.it.md"
+    path = PROMPTS_DIR / f"{name}.en.md"
     if not path.exists():
         raise FileNotFoundError(f"No prompt file at {path}")
 

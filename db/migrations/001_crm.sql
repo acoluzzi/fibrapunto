@@ -103,8 +103,26 @@ SELECT
         AND (r.record_type <> 'cancellation_request'
              OR (r.stated_reason IS NOT NULL
                  AND r.collected_context ? 'request_date'))
+        -- `disputed_point` is required only when a lookup actually returned a
+        -- figure. §13's table describes a *worked* billing dispute; a billing
+        -- escalation where the lookup never succeeded is a different shape, and
+        -- there is no amount in existence for the customer to dispute.
+        --
+        -- This mirrors handover/completeness.py deliberately rather than
+        -- sharing code with it: §1 wants completeness recomputed independently
+        -- of the path that wrote the row. Independent has to mean *the same
+        -- rule, derived separately* — the two disagreeing is a bug, and it was
+        -- one: the Python side was fixed first and this was left behind, so
+        -- every record the agent opened during an outage read as incomplete.
         AND (r.record_type <> 'billing_dispute'
              OR (r.collected_context ? 'billing_status'
-                 AND r.collected_context ? 'disputed_point'))
+                 AND (r.collected_context ? 'disputed_point'
+                      OR NOT EXISTS (
+                          SELECT 1
+                            FROM jsonb_array_elements(
+                                     COALESCE(r.collected_context -> 'lookups', '[]'::jsonb)
+                                 ) AS lookup
+                           WHERE lookup ->> 'outcome' = 'found'
+                      ))))
     ) AS is_complete
 FROM crm.handover_record r;

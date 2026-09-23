@@ -1,0 +1,13 @@
+id: "029"
+title: Does not understand what happened
+source: author_as_nontechnical
+tags: [billing]
+billing_stub_mode: none
+turns:
+  - user: "Hello, they told me I haven't paid but I always pay. I don't understand."
+  - user: "FP-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  Register suited to an older person. No jargon, short sentences.

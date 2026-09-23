@@ -70,17 +70,16 @@ class Domain:
 
 # The scope statements are what the router classifies against. §4 is explicit
 # that "a domain has a scope statement used for classification" — so these are
-# the spec's own words, translated, not a paraphrase written for the classifier.
+# the spec's own words, not a paraphrase written to be classifier-friendly.
 DOMAINS: dict[DomainKey, Domain] = {
     DomainKey.billing: Domain(
         key=DomainKey.billing,
         enabled=True,
         scope_statement=(
-            "Domande su fatture, addebiti mensili, addebiti diretti respinti o "
-            "falliti, stato dei pagamenti, e come rimediare a un pagamento non "
-            "andato a buon fine. Include le contestazioni di importo e le "
-            "richieste di rimborso, che però non vengono risolte qui ma passate "
-            "a un collega."
+            "Questions about invoices, monthly charges, failed or rejected "
+            "direct debits, payment status, and how to fix a missed payment. "
+            "Includes disputes over an amount and refund requests, which are "
+            "not resolved here but passed to a colleague."
         ),
         capabilities=(
             CapabilityName.billing_lookup,
@@ -97,9 +96,9 @@ DOMAINS: dict[DomainKey, Domain] = {
         key=DomainKey.cancellation,
         enabled=True,
         scope_statement=(
-            "Il cliente vuole disdire, chiudere, cessare o non rinnovare il "
-            "contratto, oppure chiede come si fa, oppure chiede se ci sono "
-            "penali o vincoli di durata."
+            "The customer wants to cancel, close, terminate or not renew their "
+            "contract, or asks how to do so, or asks about penalties and "
+            "lock-in periods."
         ),
         capabilities=(
             CapabilityName.billing_lookup,
@@ -120,9 +119,9 @@ DOMAINS: dict[DomainKey, Domain] = {
         key=DomainKey.fallback,
         enabled=True,
         scope_statement=(
-            "Tutto ciò che non rientra nella fatturazione né nelle disdette: "
-            "domande di cultura generale, problemi tecnici di linea o modem, "
-            "vendite, richieste sui dati di un'altra persona."
+            "Anything belonging to neither billing nor cancellations: general "
+            "knowledge questions, technical faults with the line or router, "
+            "sales, requests about another person's data."
         ),
         # One capability. There is nothing in scope to look up (§4.4).
         capabilities=(CapabilityName.transfer_to_human,),
@@ -142,8 +141,7 @@ DOMAINS: dict[DomainKey, Domain] = {
         key=DomainKey.modem,
         enabled=False,
         scope_statement=(
-            "Problemi di linea o di modem: connessione assente o lenta, spie "
-            "del modem, guasti di zona."
+            "Line or router problems: no connection or a slow one, router lights, area outages."
         ),
         capabilities=(
             CapabilityName.billing_lookup,
@@ -169,8 +167,8 @@ def classifiable_domains() -> dict[DomainKey, Domain]:
     Fallback is a real destination, not a failure to decide: §4.4 requires a
     considered refusal that still offers a human, and a turn about someone
     else's data belongs there rather than in whichever domain scored least
-    badly. Verified live: "il modem lampeggia rosso" classifies to fallback at
-    0.95, which is the right answer.
+    badly. Verified live: "the router is flashing red" classifies to fallback
+    at 0.95, which is the right answer.
 
     What stops it becoming a shrug is the rule in the classifier's prompt — an
     *ambiguous* message goes to its likeliest domain with low confidence, and

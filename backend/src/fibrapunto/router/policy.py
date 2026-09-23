@@ -10,7 +10,7 @@ is a place where a model's judgement would be worse than an `if`:
 
   * **The confirmation lock.** This is the highest-value rule in the file. §4.1
     instruction 5 has the agent read a summary back and wait. The customer then
-    replies "Sì" — which, classified on its own, is not a billing message. Without
+    replies "Yes" — which, classified on its own, is not a billing message. Without
     the lock, that turn routes to fallback and the handover never happens: the
     one step the spec singles out as making the record trustworthy is lost to a
     classification artefact.
@@ -39,8 +39,11 @@ SWITCH_THRESHOLD = 0.60
 # Short affirmations and negations. A turn that is only one of these carries no
 # topic of its own and must not be classified as though it did.
 _ACKNOWLEDGEMENT = re.compile(
-    r"^\W*(s[iì]+|no|ok(ay)?|va bene|esatto|esattamente|confermo|certo|"
-    r"giusto|corretto|perfetto|d'accordo|procedi|prego)\W*$",
+    r"^\W*(?:"
+    r"y(?:es|eah|ep|up)|no|nope|ok(?:ay)?|sure|correct|right|exactly|"
+    r"confirmed|agreed|fine|(?:that(?:'s| is) )?right|go ahead|please do|"
+    r"that(?:'s| is) correct|sounds good|perfect"
+    r")\W*$",
     re.IGNORECASE,
 )
 

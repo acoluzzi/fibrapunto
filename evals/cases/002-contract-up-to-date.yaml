@@ -1,0 +1,16 @@
+id: "002"
+title: Asks whether everything is paid, and it is
+source: author
+tags: [billing, happy_path, resolvable]
+billing_stub_mode: none
+turns:
+  - user: "I wanted to check whether I paid the September bill"
+  - user: "FP-2023-048712"
+expect:
+  domain: billing
+  outcome: resolved
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: >
+  Nothing is wrong. It must say so and stop, without inventing a problem to
+  be helpful about.

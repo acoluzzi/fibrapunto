@@ -21,7 +21,7 @@ class Routing:
     priority: str
     queue: str
     queue_label: str
-    """What the customer is told. "un collega dell'amministrazione", not
+    """What the customer is told. "a colleague in billing operations", not
     "billing_operations" — §5.2's visibility rule applied to a queue name."""
 
     response_window: str
@@ -33,22 +33,22 @@ _BY_TYPE = {
         record_type="billing_dispute",
         priority="medium",
         queue="billing_operations",
-        queue_label="un collega dell'amministrazione",
-        response_window="entro due giorni lavorativi",
+        queue_label="a colleague in billing operations",
+        response_window="within two working days",
     ),
     "cancellation_request": Routing(
         record_type="cancellation_request",
         priority="high",
         queue="retention",
-        queue_label="un collega del team dedicato",
-        response_window="entro un giorno lavorativo",
+        queue_label="a colleague in the retention team",
+        response_window="within one working day",
     ),
     "technical": Routing(
         record_type="technical",
         priority="medium",
         queue="technical_support",
-        queue_label="un collega dell'assistenza tecnica",
-        response_window="entro due giorni lavorativi",
+        queue_label="a colleague in technical support",
+        response_window="within two working days",
     ),
 }
 

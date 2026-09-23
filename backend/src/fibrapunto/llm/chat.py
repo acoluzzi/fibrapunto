@@ -75,16 +75,16 @@ def interpret_provider_error(exc: Exception) -> ReasoningLayerUnavailable:
     hint = None
     if status == 402 or "requires more credits" in raw:
         hint = (
-            "Credito OpenRouter esaurito. Il provider trattiene credito pari a "
-            "max_tokens per ogni richiesta in volo, quindi il saldo deve coprire "
-            "il tetto richiesto e non solo i token usati."
+            "OpenRouter credit exhausted. The provider reserves credit equal to "
+            "max_tokens for every in-flight request, so the balance must cover "
+            "the requested ceiling and not just the tokens used."
         )
     elif status == 401:
-        hint = "Chiave OpenRouter non valida o assente in .env."
+        hint = "OpenRouter key missing or invalid in .env."
     elif status == 429:
-        hint = "Limite di frequenza del provider. Riprovare fra qualche secondo."
+        hint = "Provider rate limit. Retry in a few seconds."
     elif isinstance(exc, TimeoutError) or "timeout" in raw.lower():
-        hint = "Il provider non ha risposto entro il timeout."
+        hint = "The provider did not respond within the timeout."
 
     return ReasoningLayerUnavailable(detail, hint=hint)
 

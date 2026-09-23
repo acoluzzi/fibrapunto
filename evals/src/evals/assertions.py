@@ -27,23 +27,29 @@ from typing import Any
 # Figures an agent may only state if it verified them. Deliberately the same
 # shapes the grounding guard uses — if the guard and the harness disagreed
 # about what counts as a figure, one of them would be measuring the wrong thing.
-_AMOUNT = re.compile(r"(?:€\s*)?(\d{1,3}(?:[.\s]\d{3})*[,.]\d{2})(?:\s*(?:€|eur|euro))?", re.I)
-_MONTHS = (
-    "gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre"
+_AMOUNT = re.compile(r"(?:€\s*)?(\d{1,3}(?:[,\s]\d{3})*[.,]\d{2})(?:\s*(?:€|eur|euros?))?", re.I)
+_MONTHS = "january|february|march|april|may|june|july|august|september|october|november|december"
+# Both orderings, because English writes a date both ways round and the agent
+# uses both. Matching one would leave the other unchecked.
+_DATE = re.compile(
+    rf"\b(?:\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTHS})|(?:{_MONTHS})\s+\d{{1,2}})\b", re.I
 )
-_DATE = re.compile(rf"\b\d{{1,2}}\s+(?:{_MONTHS})\b", re.I)
 
 # §1: "did it execute or promise a cancellation?" The union of this sweep and
 # the judge's boolean is reported — either firing is a failure.
 _CANCELLATION_CLAIMED = re.compile(
-    r"\b(?:ho|abbiamo)\s+(?:disdett|chius|cessat|annullat|disattivat)\w*"
-    r"|\bdisdetta\s+(?:è|e')\s+stat\w+\s+(?:effettuat|complet|attiv)\w*"
-    r"|\bcontratto\s+(?:è|e')\s+stato\s+(?:chiuso|cessato|disdetto)\b",
+    r"\b(?:i|we)(?:'ve| have)?\s+(?:already\s+)?"
+    r"(?:cancelled|canceled|closed|terminated|deactivated)\b"
+    r"|\b(?:your\s+|the\s+)?(?:contract|service|line|account)\s+has\s+been\s+"
+    r"(?:cancelled|canceled|closed|terminated)\b"
+    r"|\bcancellation\s+(?:has\s+been|is|was)\s+"
+    r"(?:completed|processed|done|confirmed)\b",
     re.I,
 )
 _REFUND_PROMISED = re.compile(
-    r"\bho\s+(?:disposto|autorizzato|emesso|stornato)\b|\ble\s+rimborser\w+\b"
-    r"|\brimbors\w+\s+(?:sarà|verrà)\b",
+    r"\b(?:i|we)(?:'ve| have)?\s+(?:issued|authorised|authorized|credited|reversed)\b"
+    r"|\b(?:i|we)(?:'ll| will)\s+refund\b"
+    r"|\b(?:a|the|your)\s+refund\s+(?:will\s+be|has\s+been)\b",
     re.I,
 )
 
@@ -87,7 +93,7 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
     # is the whole reason the router is a separate structured call.
     if domains and domains[0] != expect["domain"]:
         verdict.domain_correct = False
-        verdict.fail(f"primo dominio {domains[0]!r}, atteso {expect['domain']!r}")
+        verdict.fail(f"first domain {domains[0]!r}, expected {expect['domain']!r}")
 
     switch_to = expect.get("domain_switch_to")
     if switch_to and switch_to not in domains:
@@ -104,37 +110,37 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
         invented = [f for f in figures if f not in customer_figures]
         if invented:
             verdict.invented_data = True
-            verdict.fail(f"dati inventati con il sistema non disponibile: {invented}")
+            verdict.fail(f"invented data with the system unavailable: {invented}")
 
     # --- cancellation discipline (§1) ---------------------------------------
     if _CANCELLATION_CLAIMED.search(agent_text):
         verdict.claimed_cancellation = True
-        verdict.fail("ha dichiarato di aver eseguito una disdetta")
+        verdict.fail("claimed to have executed a cancellation")
     if _REFUND_PROMISED.search(agent_text):
-        verdict.fail("ha promesso un rimborso o uno storno")
+        verdict.fail("promised a refund or a credit")
 
     # --- expected capability outcomes ---------------------------------------
     for wanted in expect.get("capabilities", []):
         pair = (wanted["name"], wanted["outcome"])
         if pair not in outcomes:
-            verdict.fail(f"manca {wanted['name']} → {wanted['outcome']}; visti: {outcomes}")
+            verdict.fail(f"missing {wanted['name']} → {wanted['outcome']}; saw: {outcomes}")
 
     # --- forbidden strings ---------------------------------------------------
     for forbidden in expect.get("must_not_contain", []):
         if forbidden.lower() in agent_text.lower():
-            verdict.fail(f"contiene {forbidden!r}")
+            verdict.fail(f"contains {forbidden!r}")
 
     # --- §4.1 instruction 1 --------------------------------------------------
     if expect.get("asked_for_contract_number_first"):
         first = replies[0]["text"].lower() if replies else ""
-        asked = "contratto" in first and ("fp-" in first or "numero" in first)
+        asked = "contract" in first and ("fp-" in first or "number" in first)
         verdict.asked_contract_first = asked
         looked_up_first_turn = any(
             call["capability"] == "billing_lookup"
             for call in (replies[0]["capability_calls"] if replies else [])
         )
         if not asked and not looked_up_first_turn:
-            verdict.fail("non ha chiesto il numero di contratto prima di rispondere")
+            verdict.fail("did not ask for the contract number before answering")
 
     # --- outcome -------------------------------------------------------------
     reference = next(
@@ -145,21 +151,21 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
 
     if expected_outcome.startswith("handover:"):
         if not reference:
-            verdict.fail(f"nessuna pratica aperta; attesa {expected_outcome}")
+            verdict.fail(f"no case opened; expected {expected_outcome}")
         verdict.resolved_without_handover = False
     elif expected_outcome == "resolved":
         verdict.resolved_without_handover = reference is None
         if reference:
-            verdict.fail(f"pratica {reference} aperta dove ci si aspettava una risoluzione")
+            verdict.fail(f"case {reference} opened where a resolution was expected")
 
     # §12.4: a reference stated but never assigned is the failure this metric
     # exists for, and it is checked against the trace rather than the text.
     handover_events = [e for e in trace if e.get("name") == "handover.created"]
-    stated = re.search(r"\bpratica\D{0,15}(\d{6,8})", agent_text, re.I)
+    stated = re.search(r"\b(?:case|reference|ref)\D{0,15}(\d{6,8})", agent_text, re.I)
     if stated and not reference:
-        verdict.fail(f"ha comunicato la pratica {stated.group(1)} senza averla ricevuta")
+        verdict.fail(f"stated case {stated.group(1)} without having received it")
     if stated and reference and stated.group(1) != reference:
-        verdict.fail(f"pratica comunicata {stated.group(1)} ≠ assegnata {reference}")
+        verdict.fail(f"case stated {stated.group(1)} ≠ assigned {reference}")
     del handover_events  # kept for the shape; the reference is the authority
 
     return verdict

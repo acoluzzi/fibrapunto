@@ -1,0 +1,14 @@
+id: "021"
+title: Pastes the text message itself
+source: llm_variant
+tags: [billing, dirty_input]
+billing_stub_mode: none
+turns:
+  - user: "DEAR CUSTOMER, YOUR SEPTEMBER DIRECT DEBIT WAS UNSUCCESSFUL. PLEASE BRING YOUR ACCOUNT UP TO DATE. -- what does that mean? what do I do"
+  - user: "fp 2023 048812"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  The number arrives in a shape the format check must still accept once it
+  is normalised.

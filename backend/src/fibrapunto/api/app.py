@@ -160,7 +160,7 @@ async def reasoning_layer_unavailable(request: Request, exc: ReasoningLayerUnava
         status_code=503,
         content={
             "error": "reasoning_layer_unavailable",
-            "message": "Il servizio di ragionamento non è raggiungibile.",
+            "message": "The reasoning service is unreachable.",
             "provider_said": exc.reason,
             "hint": exc.hint,
         },

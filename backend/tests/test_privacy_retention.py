@@ -70,18 +70,18 @@ def test_storage_redaction_holds_with_inbound_redaction_off(monkeypatch):
     """
     monkeypatch.setattr(get_settings(), "redact_inbound", False)
 
-    to_model, kinds = redaction.for_model(f"Il mio IBAN è {IBAN}")
+    to_model, kinds = redaction.for_model(f"My IBAN is {IBAN}")
     assert IBAN in to_model, "with the toggle off, the model does receive it — that is the point"
     assert kinds, "and the conversation still records that an IBAN was seen"
 
-    stored, flags = redaction.for_storage(f"Il mio IBAN è {IBAN}")
+    stored, flags = redaction.for_storage(f"My IBAN is {IBAN}")
     assert IBAN not in stored
     assert flags == ["IBAN"]
 
 
 def test_inbound_redaction_on_keeps_the_digits_in_this_process(monkeypatch):
     monkeypatch.setattr(get_settings(), "redact_inbound", True)
-    to_model, kinds = redaction.for_model(f"Il mio IBAN è {IBAN}")
+    to_model, kinds = redaction.for_model(f"My IBAN is {IBAN}")
     assert IBAN not in to_model
     assert [k.value for k in kinds] == ["IBAN"]
 
@@ -93,9 +93,9 @@ def test_the_handover_record_is_scrubbed_at_every_depth():
     after the next addition."""
     scrubbed = redaction.for_handover(
         {
-            "summary": f"Ha inviato la carta {CARD}",
+            "summary": f"They sent the card {CARD}",
             "nested": {"note": f"IBAN {IBAN}"},
-            "list": [f"carta {CARD}"],
+            "list": [f"card {CARD}"],
             "untouched": 42,
         }
     )
@@ -108,7 +108,7 @@ def test_the_reply_to_the_customer_is_scrubbed():
     """Structurally unreachable while inbound redaction is on — the model never
     held the digits. It is the only guard left when the toggle is off, which is
     exactly when a missing one would be missed."""
-    reply, kinds = redaction.for_customer(f"Confermo l'IBAN {IBAN}, grazie.")
+    reply, kinds = redaction.for_customer(f"Confirming the IBAN {IBAN}, thank you.")
     assert IBAN not in reply
     assert kinds
 
@@ -117,9 +117,9 @@ def test_a_contract_number_survives_every_boundary():
     """FP-2023-048812 is not sensitive and is needed in all four places. A
     redactor that ate it would break §4.1 while looking like caution."""
     contract = "FP-2023-048812"
-    assert contract in redaction.for_storage(f"Contratto {contract}")[0]
+    assert contract in redaction.for_storage(f"Contract {contract}")[0]
     assert contract in redaction.for_handover({"n": contract})["n"]
-    assert contract in redaction.for_customer(f"Contratto {contract}")[0]
+    assert contract in redaction.for_customer(f"Contract {contract}")[0]
 
 
 # --- the sweep ---------------------------------------------------------------
@@ -133,14 +133,14 @@ async def test_the_sweep_nulls_the_words_and_keeps_the_skeleton(pool, conversati
     await pool.execute(
         """
         INSERT INTO platform.turn (conversation_id, seq, role, text_redacted)
-        VALUES ($1, 0, 'customer', 'Vorrei disdire')
+        VALUES ($1, 0, 'customer', 'I would like to cancel')
         """,
         conversation,
     )
     await pool.execute(
         """
         INSERT INTO platform.trace_event (conversation_id, name, attributes)
-        VALUES ($1, 'turn.received', '{"text": "qualcosa"}'::jsonb)
+        VALUES ($1, 'turn.received', '{"text": "something"}'::jsonb)
         """,
         conversation,
     )
@@ -161,7 +161,7 @@ async def test_the_sweep_nulls_the_words_and_keeps_the_skeleton(pool, conversati
         conversation,
     )
     assert event["name"] == "turn.received", "the event name and timing survive"
-    assert "qualcosa" not in event["attributes"]
+    assert "something" not in event["attributes"]
 
 
 async def test_the_sweep_is_idempotent(pool, conversation):
@@ -170,7 +170,7 @@ async def test_the_sweep_is_idempotent(pool, conversation):
     await pool.execute(
         """
         INSERT INTO platform.turn (conversation_id, seq, role, text_redacted)
-        VALUES ($1, 0, 'customer', 'testo')
+        VALUES ($1, 0, 'customer', 'text')
         """,
         conversation,
     )
@@ -196,7 +196,7 @@ async def test_a_conversation_inside_its_retention_window_is_untouched(pool):
     await pool.execute(
         """
         INSERT INTO platform.turn (conversation_id, seq, role, text_redacted)
-        VALUES ($1, 0, 'customer', 'ancora entro il periodo')
+        VALUES ($1, 0, 'customer', 'still inside the window')
         """,
         conversation_id,
     )
@@ -206,7 +206,7 @@ async def test_a_conversation_inside_its_retention_window_is_untouched(pool):
             "SELECT text_redacted FROM platform.turn WHERE conversation_id = $1",
             conversation_id,
         )
-        assert row["text_redacted"] == "ancora entro il periodo"
+        assert row["text_redacted"] == "still inside the window"
     finally:
         await pool.execute("DELETE FROM platform.conversation WHERE id = $1", conversation_id)
 

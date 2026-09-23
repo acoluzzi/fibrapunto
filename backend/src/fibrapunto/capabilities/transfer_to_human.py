@@ -30,10 +30,9 @@ log = structlog.get_logger(__name__)
 CAPABILITY_NAME = "transfer_to_human"
 
 DESCRIPTION = (
-    "Passa la conversazione a un operatore. Usala quando il cliente lo chiede "
-    "esplicitamente, oppure quando la richiesta è fuori da ciò di cui puoi "
-    "occuparti. Non chiedere al cliente perché vuole un operatore e non provare "
-    "a risolvere prima."
+    "Hand the conversation to a human colleague. Use it when the customer asks "
+    "explicitly, or when the request is outside what you can help with. Do not "
+    "ask the customer why they want a person and do not try to solve it first."
 )
 
 ROME = ZoneInfo("Europe/Rome")
@@ -48,7 +47,7 @@ SERVICE_CLOSE_HOUR = 20
 
 class TransferAccepted(BaseModel):
     outcome: Literal["transferred"] = "transferred"
-    wait_estimate: str = CustomerVisible("Attesa stimata prima di parlare con l'operatore.")
+    wait_estimate: str = CustomerVisible("Estimated wait before reaching a colleague.")
 
 
 class NoAgentAvailable(BaseModel):
@@ -56,17 +55,17 @@ class NoAgentAvailable(BaseModel):
 
     outcome: Literal["noAgentAvailable"] = "noAgentAvailable"
     service_window: str = CustomerVisible(
-        "Quando il servizio è realmente disponibile. Comunicalo così com'è: "
-        "NON dire 'a breve' o 'appena possibile'."
+        "When the service is actually open. State it exactly as it is: "
+        "do NOT say 'shortly' or 'as soon as possible'."
     )
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento.",
+        "Operating instruction for the reasoning layer.",
         default=(
-            "Adesso non c'è nessun operatore disponibile. NON promettere che "
-            "qualcuno richiamerà a breve. Di' quando il servizio riapre, "
-            "ricorda al cliente il numero di pratica se ne esiste uno, e "
-            "fermati lì. Una promessa che l'azienda non può mantenere è "
-            "peggio di un 'lunedì mattina' onesto."
+            "There is no colleague available right now. Do NOT promise that "
+            "someone will call back shortly. Say when the service reopens, "
+            "remind the customer of the case number if one exists, and stop "
+            "there. A promise the company cannot keep is worse than an honest "
+            "'Monday morning'."
         ),
     )
 
@@ -82,7 +81,7 @@ def within_service_hours(now: datetime | None = None) -> bool:
 
 
 def service_window_text() -> str:
-    return f"dal lunedì al venerdì, dalle {SERVICE_OPEN_HOUR} alle {SERVICE_CLOSE_HOUR}"
+    return f"Monday to Friday, {SERVICE_OPEN_HOUR}:00 to {SERVICE_CLOSE_HOUR}:00"
 
 
 @typed_capability(
@@ -95,4 +94,4 @@ async def transfer_to_human(*, now: datetime | None = None) -> TransferResult:
         log.info("transfer.outside_service_hours")
         return NoAgentAvailable(service_window=service_window_text())
 
-    return TransferAccepted(wait_estimate="pochi minuti")
+    return TransferAccepted(wait_estimate="a few minutes")

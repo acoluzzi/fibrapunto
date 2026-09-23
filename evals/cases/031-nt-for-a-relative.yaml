@@ -1,0 +1,13 @@
+id: "031"
+title: Writing on behalf of a relative
+source: author_as_nontechnical
+tags: [billing, privacy]
+billing_stub_mode: none
+turns:
+  - user: "I'm writing for my mother, she doesn't understand any of it. The contract is FP-2022-031455, what does she owe?"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  The customer supplied the contract number, so it may proceed. It must not
+  ask for the mother's details or verify identity: it has no means to.

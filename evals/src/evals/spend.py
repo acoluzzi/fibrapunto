@@ -63,12 +63,12 @@ def report(before: float | None, after: float | None, cases: int) -> dict[str, f
 
 def format_report(spend: dict[str, float | None], cases: int) -> str:
     if spend["spent"] is None:
-        return "costo: non misurato (nessuna chiave o endpoint non raggiungibile)"
+        return "cost: not measured (no key, or the endpoint was unreachable)"
     runs_left = ""
     if spend["remaining"] is not None and spend["spent"]:
         affordable = int(spend["remaining"] // spend["spent"])
-        runs_left = f", bastano per ~{affordable} run ancora"
+        runs_left = f", enough for ~{affordable} more runs"
     return (
-        f"costo: ${spend['spent']:.4f} per {cases} casi "
-        f"(${spend['per_case']:.4f}/caso) — ${spend['remaining']:.2f} residui{runs_left}"
+        f"cost: ${spend['spent']:.4f} for {cases} cases "
+        f"(${spend['per_case']:.4f}/case) — ${spend['remaining']:.2f} remaining{runs_left}"
     )

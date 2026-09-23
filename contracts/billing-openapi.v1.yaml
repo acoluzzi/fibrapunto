@@ -45,7 +45,7 @@ components:
           - pattern: ^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$
             type: string
           - type: 'null'
-          description: Importo dell'addebito in euro.
+          description: The charge, in euros.
           examples:
           - '29.90'
           title: Amount
@@ -53,16 +53,16 @@ components:
           anyOf:
           - type: string
           - type: 'null'
-          description: Motivo del rifiuto, in italiano piano e senza gergo bancario. Valorizzato solo
-            quando status è 'failed'.
+          description: Why the charge was refused, in plain words and without banking jargon. Populated
+            only when status is 'failed'.
           examples:
-          - fondi insufficienti al momento dell'addebito
+          - insufficient funds at the time of the charge
           title: Failurereason
         invoiceMonth:
           anyOf:
           - type: string
           - type: 'null'
-          description: Mese di fatturazione, formato YYYY-MM.
+          description: Billing month, format YYYY-MM.
           examples:
           - 2026-09
           title: Invoicemonth
@@ -71,34 +71,34 @@ components:
           - format: date
             type: string
           - type: 'null'
-          description: 'Fine del vincolo contrattuale. Null significa nessun vincolo: in quel caso dirlo
-            esplicitamente al cliente, non tacere.'
+          description: 'End of the lock-in period. Null means there is none: in that case say so explicitly
+            to the customer rather than staying silent.'
           title: Lockinuntil
         nextRetryDate:
           anyOf:
           - format: date
             type: string
           - type: 'null'
-          description: Data del prossimo tentativo di addebito. Da comunicare al cliente quando un addebito
-            è stato respinto.
+          description: Date of the next retry attempt. To be given to the customer when a charge has been
+            refused.
           title: Nextretrydate
         paymentLink:
           anyOf:
           - type: string
           - type: 'null'
-          description: Link sicuro per il pagamento immediato con carta.
+          description: Secure link to pay immediately by card.
           title: Paymentlink
         remainingInstalments:
           anyOf:
           - type: integer
           - type: 'null'
-          description: Rate del modem ancora da pagare. Zero significa nessuna rata residua.
+          description: Router instalments still to pay. Zero means none remaining.
           examples:
           - 2
           title: Remaininginstalments
         status:
           $ref: '#/components/schemas/PaymentStatus'
-          description: Stato dell'addebito per il mese in corso. Può essere comunicato al cliente.
+          description: Status of the charge for the current month. May be given to the customer.
           examples:
           - failed
       required:
@@ -121,8 +121,8 @@ components:
           title: Contractnumber
           type: string
         serviceAddress:
-          description: 'Indirizzo di attivazione. È l''unico criterio ammesso per far scegliere al cliente
-            fra più contratti: mai il nome.'
+          description: 'Service address. The only criterion allowed for having the customer choose between
+            several contracts: never the name.'
           examples:
           - Via Garibaldi 12, Bologna
           title: Serviceaddress
@@ -213,22 +213,22 @@ components:
       title: ValidationError
       type: object
 info:
-  description: 'Interfaccia del sistema di fatturazione legacy di Fibrapunto.
+  description: 'Interface to Fibrapunto''s legacy billing system.
 
 
-    È il sistema di riferimento per i pagamenti; l''anagrafica del contratto vive nel CRM ed è un sistema
-    diverso. I due possono non essere allineati: un contratto presente nel CRM può non esistere qui.'
-  title: Fibrapunto — sistema di fatturazione (legacy)
+    It is the system of record for payments; the customer record for a contract lives in the CRM, which
+    is a different system. The two may be out of step: a contract present in the CRM may not exist here.'
+  title: Fibrapunto — billing system (legacy)
   version: 1.0.0
 openapi: 3.1.0
 paths:
   /billing/{contract_number}:
     get:
-      description: 'Restituisce lo stato dell''addebito per il contratto indicato.
+      description: 'Returns the charge status for the given contract.
 
 
-        Da chiamare solo dopo che il cliente ha fornito un numero di contratto nel formato FP-YYYY-NNNNNN.
-        Non chiamare mai con un numero ipotizzato o ricostruito.'
+        To be called only after the customer has provided a contract number in the format FP-YYYY-NNNNNN.
+        Never call it with a guessed or reconstructed number.'
       operationId: get_billing_billing__contract_number__get
       parameters:
       - in: path
@@ -245,8 +245,8 @@ paths:
           - type: string
           - type: 'null'
           title: Authorization
-      - description: 'Solo per collaudo: timeout | duplicate | notfound | slow. Non fa parte del comportamento
-          di produzione.'
+      - description: 'Solo per collaudo: timeout | duplicate | notfound | slow. It is not part of production
+          behaviour.'
         in: header
         name: x-test-mode
         required: false
@@ -254,8 +254,8 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: 'Solo per collaudo: timeout | duplicate | notfound | slow. Non fa parte del comportamento
-            di produzione.'
+          description: 'Solo per collaudo: timeout | duplicate | notfound | slow. It is not part of production
+            behaviour.'
           title: X-Test-Mode
       responses:
         '200':
@@ -264,27 +264,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/BillingStatus'
                 title: Response Get Billing Billing  Contract Number  Get
-          description: Contratto trovato.
+          description: Contract found.
         '300':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/MultipleMatches'
-          description: Più contratti corrispondono. Chiedere al cliente di confermare tramite l'indirizzo
-            di attivazione; non scegliere mai il primo risultato.
+          description: Several contracts match. Ask the customer to confirm by service address; never
+            pick the first result.
         '401':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BillingError'
-          description: Credenziale mancante o non valida.
+          description: Missing or invalid credential.
         '404':
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BillingError'
-          description: Nessun contratto con questo numero nel sistema di fatturazione. Può comunque esistere
-            nel CRM.
+          description: No contract with this number in the billing system. It may still exist in the CRM.
         '422':
           content:
             application/json:
@@ -296,8 +295,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BillingError'
-          description: Il sistema di fatturazione non ha risposto in tempo.
-      summary: Stato di fatturazione di un contratto
+          description: The billing system did not respond in time.
+      summary: Billing status for a contract
   /line/{contract_number}:
     get:
       operationId: get_line_line__contract_number__get
@@ -329,4 +328,4 @@ paths:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
           description: Validation Error
-      summary: Stato della linea (dominio modem — progettato, non attivo)
+      summary: Line status (modem domain — designed, not enabled)

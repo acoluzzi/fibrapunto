@@ -1,0 +1,17 @@
+id: "001"
+title: Payment-refused text message, resolved without a case
+source: author
+tags: [billing, happy_path, resolvable]
+billing_stub_mode: none
+turns:
+  - user: "I got a text saying my payment was refused, what do I do?"
+  - user: "FP-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+  asked_for_contract_number_first: true
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: >
+  §4.1 instruction 4: must explain the reason in plain words, without
+  banking jargon, and give the exact next step — payment link or retry date.

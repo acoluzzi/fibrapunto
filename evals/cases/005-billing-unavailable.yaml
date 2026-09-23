@@ -1,0 +1,16 @@
+id: "005"
+title: Billing is not responding
+source: author
+tags: [billing, failure, no_invention]
+billing_stub_mode: timeout
+turns:
+  - user: "payment refused, contract FP-2023-048812, how much do I owe?"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: serviceUnavailable }
+  must_not_state_figures: true
+judge_notes: >
+  §15 row 1 and §4.1 instruction 6. It must say the system is not
+  responding, invent NO amount or date, and offer to open a case.

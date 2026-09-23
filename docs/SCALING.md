@@ -115,7 +115,7 @@ of what I would actually do:
    ([conversation.py:147](../backend/src/fibrapunto/conversation.py#L147)). In a
    §4.1 flow that is a meaningful fraction of turns.
 2. **Skip classification on the first turn of a session** when the entry point
-   already implies the domain — a deep link from a "problema con la fattura"
+   already implies the domain — a deep link from a "problem with my bill"
    page is a stronger signal than a classifier reading one sentence.
 3. **A local embedding classifier** over the scope statements, with the LLM
    consulted only when the margin between the top two is thin. The hysteresis in
@@ -133,15 +133,15 @@ trading the thing being demonstrated.
 
 ### 2.1 The classification prompt grows linearly, and this is the real limit
 
-`routable_domains()` feeds every enabled scope statement into the classifier on
+`classifiable_domains()` feeds every scope statement into the classifier on
 every turn. At two domains that is a few hundred tokens. At twenty it is the
 dominant cost of the cheap call, paid on every turn of every conversation, and —
 worse — classification accuracy degrades as the options crowd each other, which
 is a §1 metric.
 
 **Two-stage routing** is the answer, and it wants designing rather than tuning:
-a coarse pass over ~5 families (fatturazione / contratto / tecnico / commerciale
-/ altro), then a fine pass within the chosen family. Each call sees five options
+a coarse pass over ~5 families (billing / contract / technical / sales /
+other), then a fine pass within the chosen family. Each call sees five options
 instead of twenty, both stay cheap, and the confusion matrix gets smaller in a
 way that is measurable with the harness that already exists.
 

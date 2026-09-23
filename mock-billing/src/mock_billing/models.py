@@ -40,48 +40,48 @@ class BillingStatus(WireModel):
     """A 200 response: the billing system found the contract and has an answer."""
 
     status: PaymentStatus = Field(
-        description=("Stato dell'addebito per il mese in corso. Può essere comunicato al cliente."),
+        description=("Status of the charge for the current month. May be given to the customer."),
         examples=[PaymentStatus.failed],
     )
     failure_reason: str | None = Field(
         default=None,
         description=(
-            "Motivo del rifiuto, in italiano piano e senza gergo bancario. "
-            "Valorizzato solo quando status è 'failed'."
+            "Why the charge was refused, in plain words and without banking "
+            "jargon. Populated only when status is 'failed'."
         ),
-        examples=["fondi insufficienti al momento dell'addebito"],
+        examples=["insufficient funds at the time of the charge"],
     )
     amount: Decimal | None = Field(
         default=None,
-        description="Importo dell'addebito in euro.",
+        description="The charge, in euros.",
         examples=[Decimal("29.90")],
     )
     invoice_month: str | None = Field(
         default=None,
-        description="Mese di fatturazione, formato YYYY-MM.",
+        description="Billing month, format YYYY-MM.",
         examples=["2026-09"],
     )
     next_retry_date: date | None = Field(
         default=None,
         description=(
-            "Data del prossimo tentativo di addebito. "
-            "Da comunicare al cliente quando un addebito è stato respinto."
+            "Date of the next retry attempt. To be given to the customer when a "
+            "charge has been refused."
         ),
     )
     payment_link: str | None = Field(
         default=None,
-        description="Link sicuro per il pagamento immediato con carta.",
+        description="Secure link to pay immediately by card.",
     )
     lock_in_until: date | None = Field(
         default=None,
         description=(
-            "Fine del vincolo contrattuale. Null significa nessun vincolo: "
-            "in quel caso dirlo esplicitamente al cliente, non tacere."
+            "End of the lock-in period. Null means there is none: in that case "
+            "say so explicitly to the customer rather than staying silent."
         ),
     )
     remaining_instalments: int | None = Field(
         default=None,
-        description="Rate del modem ancora da pagare. Zero significa nessuna rata residua.",
+        description="Router instalments still to pay. Zero means none remaining.",
         examples=[2],
     )
 
@@ -92,8 +92,8 @@ class ContractMatch(WireModel):
     contract_number: str = Field(examples=["FP-2023-048712"])
     service_address: str = Field(
         description=(
-            "Indirizzo di attivazione. È l'unico criterio ammesso per far "
-            "scegliere al cliente fra più contratti: mai il nome."
+            "Service address. The only criterion allowed for having the customer "
+            "choose between several contracts: never the name."
         ),
         examples=["Via Garibaldi 12, Bologna"],
     )

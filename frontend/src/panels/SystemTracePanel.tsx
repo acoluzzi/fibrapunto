@@ -18,16 +18,16 @@ export function SystemTracePanel({ events }: { events: TraceEvent[] }) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Cosa è successo nel sistema</h2>
+        <h2>What happened in the system</h2>
         <span className="hint">§17.10</span>
       </div>
       <div className="panel-body">
         {events.length === 0 && (
-          <p className="empty">Nessun evento ancora.</p>
+          <p className="empty">No events yet.</p>
         )}
         {[...byTurn.entries()].map(([turn, turnEvents]) => (
           <div key={turn}>
-            {turn > 0 && <div className="turn-rule">turno {turn}</div>}
+            {turn > 0 && <div className="turn-rule">turn {turn}</div>}
             {turnEvents.map((event, index) => (
               <Row key={index} event={event} />
             ))}
@@ -100,7 +100,7 @@ function Detail({ event }: { event: TraceEvent }) {
           {/* §15: the switch must not cost what was already collected. */}
           {event.contract_number_retained != null && (
             <span className="chip">
-              mantenuto {String(event.contract_number_retained)}
+              retained {String(event.contract_number_retained)}
             </span>
           )}
         </div>
@@ -114,7 +114,7 @@ function Detail({ event }: { event: TraceEvent }) {
             {String(event.kind)}
           </span>
           <div style={{ marginTop: 3 }}>{String(event.reason)}</div>
-          <span className="chip">deciso da: {String(event.decided_by)}</span>
+          <span className="chip">decided by: {String(event.decided_by)}</span>
         </div>
       );
 
@@ -127,7 +127,7 @@ function Detail({ event }: { event: TraceEvent }) {
           </span>
           <div style={{ marginTop: 3 }}>{(event.problems as string[]).join(" · ")}</div>
           {event.substituted === true && (
-            <span className="chip">risposta sostituita</span>
+            <span className="chip">reply substituted</span>
           )}
         </div>
       );
@@ -143,7 +143,7 @@ function Detail({ event }: { event: TraceEvent }) {
           {/* The toggle is off: the model did receive the value. The trace says
               so rather than implying a redaction that did not happen. */}
           {event.redacted === false && (
-            <span className="chip">non rimosso — inviato al modello</span>
+            <span className="chip">not removed — sent to the model</span>
           )}
         </div>
       );
@@ -156,7 +156,7 @@ function Detail({ event }: { event: TraceEvent }) {
               possible with inbound redaction switched off. */}
           <span className="badge critical">
             <span aria-hidden="true">■</span>
-            rimosso dalla risposta: {(event.kinds as string[]).join(", ")}
+            removed from the reply: {(event.kinds as string[]).join(", ")}
           </span>
         </div>
       );

@@ -24,8 +24,11 @@ from enum import StrEnum
 
 class SensitiveKind(StrEnum):
     iban = "IBAN"
-    card = "carta di credito"
+    card = "card number"
     cvv = "CVV"
+    # Kept: the codice fiscale is an Italian identifier, and Fibrapunto is an
+    # Italian operator whose customers have one. Detecting it is a real
+    # requirement regardless of the language the conversation happens in.
     codice_fiscale = "codice fiscale"
     password = "password"
 
@@ -38,16 +41,18 @@ class Finding:
 
     @property
     def placeholder(self) -> str:
-        return f"[[REDATTO:{self.kind.name.upper()}]]"
+        return f"[[REDACTED:{self.kind.name.upper()}]]"
 
 
 # --- patterns ----------------------------------------------------------------
 
 _IBAN = re.compile(r"\b[A-Z]{2}\d{2}[ ]?(?:[A-Z0-9][ ]?){11,30}\b", re.IGNORECASE)
 _CARD = re.compile(r"\b(?:\d[ -]?){13,19}\b")
-_CVV = re.compile(r"(?:cvv|cv2|cvc|codice di sicurezza)\D{0,12}(\d{3,4})\b", re.IGNORECASE)
+_CVV = re.compile(
+    r"(?:cvv|cv2|cvc|security code|codice di sicurezza)\D{0,12}(\d{3,4})\b", re.IGNORECASE
+)
 _CODICE_FISCALE = re.compile(r"\b[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]\b", re.IGNORECASE)
-_PASSWORD = re.compile(r"(?:password|pwd|pin)\s*(?:è|e'|:|=)\s*(\S{4,})", re.IGNORECASE)
+_PASSWORD = re.compile(r"(?:password|pwd|pin)\s*(?:is|è|e'|:|=)\s*(\S{4,})", re.IGNORECASE)
 
 
 def _iban_valid(candidate: str) -> bool:
@@ -167,8 +172,8 @@ def redact(text: str) -> tuple[str, list[SensitiveKind]]:
     """Replace findings with placeholders. Returns the text and the *kinds*.
 
     The kinds are what gets stored and what the model is told — never the
-    values. A model that knows an IBAN was pasted can correctly say "non mi
-    mandi mai l'IBAN in chat"; a model that has the digits can repeat them.
+    values. A model that knows an IBAN was pasted can correctly say "never send
+    me your IBAN in chat"; a model that has the digits can repeat them.
     """
     findings = find(text)
     if not findings:

@@ -1,0 +1,16 @@
+id: "012"
+title: Billing to cancellation mid-conversation
+source: author
+tags: [routing, domain_switch]
+billing_stub_mode: none
+turns:
+  - user: "I got a text about a refused payment"
+  - user: "FP-2024-092003"
+  - user: "actually, look, I want to cancel — I'm tired of these problems"
+expect:
+  domain: billing
+  domain_switch_to: cancellation
+  outcome: "handover:cancellation_request"
+judge_notes: >
+  §15's domain switch. It must NOT ask for the contract number again: the
+  facts are already in collected state.

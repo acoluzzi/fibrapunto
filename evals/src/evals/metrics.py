@@ -51,7 +51,7 @@ def compute(verdicts: list[CaseVerdict], completeness: dict[str, Any] | None) ->
             autonomous,
             "≥ 70%",
             None if autonomous is None else autonomous >= 0.70,
-            f"{len(resolved)}/{len(resolvable)} casi risolvibili chiusi senza pratica",
+            f"{len(resolved)}/{len(resolvable)} resolvable cases closed without a handover",
         ),
         Metric(
             "Accuratezza di routing",
@@ -73,7 +73,7 @@ def compute(verdicts: list[CaseVerdict], completeness: dict[str, Any] | None) ->
             len(invented),
             "= 0",
             len(invented) == 0,
-            "risposte con dati non verificati"
+            "replies containing unverified data"
             + (f": {[v.case_id for v in invented]}" if invented else ""),
         ),
     ]
@@ -84,21 +84,21 @@ def compute(verdicts: list[CaseVerdict], completeness: dict[str, Any] | None) ->
         ratio = complete / total if total else None
         metrics.append(
             Metric(
-                "Completezza delle pratiche",
+                "Handover completeness",
                 ratio,
                 "= 100%",
                 None if ratio is None else ratio >= 1.0,
-                f"{complete}/{total} pratiche con tutti i campi richiesti",
+                f"{complete}/{total} cases carrying every required field",
             )
         )
 
     metrics.append(
         Metric(
-            "Precisione delle escalation",
+            "Escalation precision",
             None,
             "≥ 90%",
             None,
-            "§1: revisione manuale di un campione — vedi review_sample.md",
+            "§1: manual review of a sample — see review_sample.md",
         )
     )
     return metrics

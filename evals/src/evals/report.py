@@ -20,11 +20,11 @@ def render_report(
     lines = [
         f"# Eval run — {run_id}",
         "",
-        f"{passed}/{len(verdicts)} casi superati.",
+        f"{passed}/{len(verdicts)} cases passed.",
         "",
-        "## Metriche §1",
+        "## §1 metrics",
         "",
-        "| Metrica | Valore | Obiettivo | Esito |",
+        "| Metric | Value | Target | Result |",
         "| --- | --- | --- | --- |",
     ]
     for metric in metrics:
@@ -33,9 +33,9 @@ def render_report(
 
     lines += [
         "",
-        "## Per gruppo (§14.1)",
+        "## By group (§14.1)",
         "",
-        "| Gruppo | Superati | Totale |",
+        "| Group | Passed | Total |",
         "| --- | --- | --- |",
     ]
     groups: dict[str, list[CaseVerdict]] = {}
@@ -49,15 +49,15 @@ def render_report(
     if "author_as_nontechnical" in groups:
         lines += [
             "",
-            "> ⚠️ Il gruppo `author_as_nontechnical` **non** soddisfa §14.1: quei casi",
-            "> sono scritti da me in registro non tecnico, non da una persona non",
-            "> tecnica. Vedi `docs/DEVIATIONS.md` §3 — il risultato di quella riga va",
-            "> scontato di conseguenza.",
+            "> ⚠️ The `author_as_nontechnical` group does **not** satisfy §14.1: those",
+            "> cases are written by me in a non-technical register, not by a",
+            "> non-technical person. See `docs/DEVIATIONS.md` #3 — discount that row",
+            "> accordingly.",
         ]
 
     failures = [v for v in verdicts if not v.passed]
     if failures:
-        lines += ["", "## Casi non superati", ""]
+        lines += ["", "## Cases that did not pass", ""]
         for verdict in failures:
             lines.append(f"### {verdict.case_id} — {verdict.title}")
             lines += [f"- {failure}" for failure in verdict.failures]
@@ -66,11 +66,11 @@ def render_report(
     if audit:
         lines += [
             "",
-            "## Disaccordi fra asserzioni e giudice",
+            "## Disagreements between the assertions and the judge",
             "",
-            "§14.2: «il campione letto a mano è l'audit del giudice».",
+            '§14.2: "the sample read by hand is the audit of the judge".',
             "",
-            "| Caso | Campo | Codice | Giudice |",
+            "| Case | Field | Code | Judge |",
             "| --- | --- | --- | --- |",
         ]
         for row in audit:
@@ -87,21 +87,21 @@ def render_review_sample(verdicts: list[CaseVerdict], transcripts: dict[str, Any
     the spec assigns to a person."""
     escalated = [v for v in verdicts if v.handover_reference]
     lines = [
-        "# Campione per la revisione manuale",
+        "# Sample for manual review",
         "",
-        "§1 misura la *precisione delle escalation* come «revisione manuale di un",
-        "campione». Per ogni pratica qui sotto, un revisore scrive se l'escalation",
-        "era giustificata. Il risultato va in `reviewed.yaml`.",
+        '§1 measures *escalation precision* as "manual review of a sample". For',
+        "each case below, a reviewer writes whether the escalation was warranted.",
+        "The result goes in `reviewed.yaml`.",
         "",
     ]
     for verdict in escalated[:10]:
         lines += [
             f"## {verdict.case_id} — {verdict.title}",
-            f"- pratica: {verdict.handover_reference}",
-            "- giustificata: <!-- sì / no -->",
-            "- nota: <!-- -->",
+            f"- case: {verdict.handover_reference}",
+            "- warranted: <!-- yes / no -->",
+            "- note: <!-- -->",
             "",
         ]
     if not escalated:
-        lines.append("_Nessuna escalation in questa run._")
+        lines.append("_No escalations in this run._")
     return "\n".join(lines) + "\n"

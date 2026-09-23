@@ -89,8 +89,8 @@ class ToolDispatcher:
                         {
                             "outcome": "rejected",
                             "guidance": (
-                                "Questa operazione non è disponibile in questo "
-                                "contesto. Offri il passaggio a un operatore."
+                                "This operation is not available in this "
+                                "context. Offer to hand over to a colleague."
                             ),
                         },
                     )
@@ -110,7 +110,7 @@ class ToolDispatcher:
         match name:
             case "billing_lookup":
                 result = await billing_lookup(
-                    args.get("numero_contratto", ""),
+                    args.get("contract_number", ""),
                     client=self._billing,
                     customer_turns=state.customer_turns(),
                     test_mode=state.test_mode,
@@ -129,10 +129,10 @@ class ToolDispatcher:
                         state=state,
                         gateway=self._gateway,
                         principal=self._principal,
-                        subject=args.get("riassunto", ""),
+                        subject=args.get("summary", ""),
                         trigger=_trigger_for(state),
-                        stated_reason=args.get("motivo_dichiarato"),
-                        disputed_point=args.get("punto_contestato"),
+                        stated_reason=args.get("stated_reason"),
+                        disputed_point=args.get("disputed_point"),
                         recorder=recorder,
                     )
 
@@ -140,7 +140,7 @@ class ToolDispatcher:
                 result = await transfer_to_human(recorder=recorder)
                 # §12.4: outside service hours the transfer does not happen.
                 # Recorded so the closing message states the real window
-                # rather than a comfortable "a breve".
+                # rather than a comfortable "shortly".
                 state.collected.lookup_outcomes.append(result.outcome)
 
             case _:
@@ -176,7 +176,7 @@ class ToolDispatcher:
         # several contracts, so there is not yet a single one to record — that is
         # what the disambiguation turn is for.
         if result.outcome in ("found", "serviceUnavailable", "notFound"):
-            number = args.get("numero_contratto", "").strip().upper()
+            number = args.get("contract_number", "").strip().upper()
             if number:
                 state.collected.contract_number = number
                 state.collected.contract_number_source = "customer_verbatim"

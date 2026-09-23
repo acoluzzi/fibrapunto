@@ -155,8 +155,8 @@ async def test_the_wrapper_translates_and_does_not_double_wrap():
 
     class AlreadyTyped:
         async def ainvoke(self, _messages):
-            raise chat.ReasoningLayerUnavailable("già tipizzato", hint="h")
+            raise chat.ReasoningLayerUnavailable("already typed", hint="h")
 
     with pytest.raises(chat.ReasoningLayerUnavailable) as caught:
         await chat.ainvoke(AlreadyTyped(), [])
-    assert caught.value.reason == "già tipizzato", "must not be re-interpreted"
+    assert caught.value.reason == "already typed", "must not be re-interpreted"

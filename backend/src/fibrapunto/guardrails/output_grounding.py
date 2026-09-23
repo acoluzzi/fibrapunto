@@ -21,7 +21,7 @@ any figure in the reply fails, which is exactly §15 row 1:
 
 Two deliberate exemptions, both narrow:
 
-  * Numbers that are part of ordinary Italian prose ("una volta", "due giorni")
+  * Numbers that are part of ordinary Italian prose ("once", "due giorni")
     are not figures. The guard extracts *typed* values — currency, dates,
     contract numbers — not every digit.
   * The service window and response times come from templates, not from the
@@ -36,33 +36,45 @@ from datetime import date
 
 from fibrapunto.state.models import ConversationState
 
-# Currency: 29,90 € / € 29,90 / 29.90 euro. Italian decimal comma first.
+# Currency: €29.90 / 29.90 EUR. The decimal comma is still accepted, because a
+# customer types whatever their keyboard and habits produce and the *customer's*
+# text is one of the two grounding sources — a figure we failed to recognise in
+# their message would be reported as invented when they see it repeated back.
 _AMOUNT = re.compile(
-    r"(?:€\s*)?(\d{1,3}(?:[.\s]\d{3})*[,.]\d{2})(?:\s*(?:€|eur|euro))?",
+    r"(?:€\s*)?(\d{1,3}(?:[,\s]\d{3})*[.,]\d{2})(?:\s*(?:€|eur|euros?))?",
     re.IGNORECASE,
 )
 
 _CONTRACT = re.compile(r"\bFP-\d{4}-\d{6}\b", re.IGNORECASE)
 
 _MONTHS = {
-    "gennaio": 1,
-    "febbraio": 2,
-    "marzo": 3,
-    "aprile": 4,
-    "maggio": 5,
-    "giugno": 6,
-    "luglio": 7,
-    "agosto": 8,
-    "settembre": 9,
-    "ottobre": 10,
-    "novembre": 11,
-    "dicembre": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
 }
-# "19 settembre 2026" or "19 settembre"
-_DATE_TEXT = re.compile(
-    r"\b(\d{1,2})\s+(" + "|".join(_MONTHS) + r")(?:\s+(\d{4}))?\b", re.IGNORECASE
-)
+_MONTH_NAMES = "|".join(_MONTHS)
+# English writes a date both ways round, and an agent will use both: "19
+# September" and "September 19". Matching only one would leave the other
+# ungrounded-but-unchecked, which is the silent half of a guard failing.
+_DATE_DMY = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({_MONTH_NAMES})\b", re.IGNORECASE)
+_DATE_MDY = re.compile(rf"\b({_MONTH_NAMES})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", re.IGNORECASE)
 _DATE_NUMERIC = re.compile(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b")
+
+
+def _text_dates(text: str) -> set[tuple[int, int]]:
+    """Every (day, month) written in words, either ordering."""
+    found = {(int(day), _MONTHS[name.lower()]) for day, name in _DATE_DMY.findall(text)}
+    found |= {(int(day), _MONTHS[name.lower()]) for name, day in _DATE_MDY.findall(text)}
+    return found
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,10 +87,18 @@ class Ungrounded:
 
 
 def _normalise_amount(raw: str) -> str:
-    """29,90 / 29.90 / 1.234,56 → a comparable decimal string."""
+    """29.90 / 29,90 / 1,234.56 / 1.234,56 → a comparable decimal string.
+
+    Both conventions are accepted because both appear: the agent writes
+    €29.90, and a customer may type either. The last separator before exactly
+    two digits is the decimal one; everything before it is a grouping mark.
+    """
     cleaned = raw.replace(" ", "")
-    if "," in cleaned:
+    last_comma, last_dot = cleaned.rfind(","), cleaned.rfind(".")
+    if last_comma > last_dot:
         cleaned = cleaned.replace(".", "").replace(",", ".")
+    else:
+        cleaned = cleaned.replace(",", "")
     return cleaned.rstrip("0").rstrip(".") if "." in cleaned else cleaned
 
 
@@ -106,8 +126,7 @@ def _grounded_dates(state: ConversationState) -> set[tuple[int, int]]:
         if isinstance(value, date):
             grounded.add((value.day, value.month))
     for turn in state.customer_turns():
-        for day, month_name, _ in _DATE_TEXT.findall(turn):
-            grounded.add((int(day), _MONTHS[month_name.lower()]))
+        grounded |= _text_dates(turn)
         for day, month, _ in _DATE_NUMERIC.findall(turn):
             grounded.add((int(day), int(month)))
     return grounded
@@ -131,19 +150,19 @@ def check(reply: str, state: ConversationState) -> list[Ungrounded]:
     amounts = _grounded_amounts(state)
     for match in _AMOUNT.finditer(reply):
         if _normalise_amount(match.group(1)) not in amounts:
-            problems.append(Ungrounded("importo", match.group(1)))
+            problems.append(Ungrounded("amount", match.group(1)))
 
     contracts = _grounded_contracts(state)
     for match in _CONTRACT.finditer(reply):
         if match.group().upper() not in contracts:
-            problems.append(Ungrounded("numero di contratto", match.group()))
+            problems.append(Ungrounded("contract number", match.group()))
 
     dates = _grounded_dates(state)
-    for day, month_name, _ in _DATE_TEXT.findall(reply):
-        if (int(day), _MONTHS[month_name.lower()]) not in dates:
-            problems.append(Ungrounded("data", f"{day} {month_name}"))
+    for day, month in _text_dates(reply):
+        if (day, month) not in dates:
+            problems.append(Ungrounded("date", f"{day}/{month}"))
     for day, month, _ in _DATE_NUMERIC.findall(reply):
         if (int(day), int(month)) not in dates:
-            problems.append(Ungrounded("data", f"{day}/{month}"))
+            problems.append(Ungrounded("date", f"{day}/{month}"))
 
     return problems

@@ -55,7 +55,7 @@ def grounded_state() -> ConversationState:
 def ungrounded_state() -> ConversationState:
     """The billing system did not answer. Nothing is verified."""
     state = ConversationState(current_domain=DomainKey.billing)
-    state.turns.append(Turn(role=TurnRole.customer, text="mi è arrivato un SMS"))
+    state.turns.append(Turn(role=TurnRole.customer, text="I got a text message"))
     state.capability_calls.append(
         CapabilityCall(
             capability="billing_lookup",
@@ -73,7 +73,7 @@ def ungrounded_state() -> ConversationState:
 
 def test_a_verified_figure_passes():
     state = grounded_state()
-    reply = "L'addebito di 29,90 € è stato respinto. Nuovo tentativo il 19 settembre."
+    reply = "The charge of €29.90 was refused. Next attempt on 19 September."
     assert pipeline.inspect(reply, state) == []
 
 
@@ -82,15 +82,15 @@ def test_an_invented_amount_is_blocked():
     reply's shape distinguishes it from a real one — which is why the check is
     against the lookup result rather than against the text."""
     state = grounded_state()
-    violations = pipeline.inspect("L'addebito di 24,90 € è stato respinto.", state)
+    violations = pipeline.inspect("The charge of €24.90 was refused.", state)
 
     assert violations and violations[0].guard is GuardName.grounding
-    assert "24,90" in violations[0].problems[0]
+    assert "24.90" in violations[0].problems[0]
 
 
 def test_an_invented_date_is_blocked():
     state = grounded_state()
-    violations = pipeline.inspect("Il nuovo tentativo è previsto per il 25 ottobre.", state)
+    violations = pipeline.inspect("The next attempt is due on 25 October.", state)
     assert violations[0].guard is GuardName.grounding
 
 
@@ -102,32 +102,30 @@ def test_with_the_billing_system_down_no_figure_can_be_grounded():
     to be grounded against.
     """
     state = ungrounded_state()
-    violations = pipeline.inspect(
-        "Il suo addebito di 29,90 € è stato respinto il 12 settembre.", state
-    )
+    violations = pipeline.inspect("Your charge of €29.90 was refused on 12 September.", state)
     assert violations[0].guard is GuardName.grounding
     assert len(violations[0].problems) >= 2, "both the amount and the date are invented"
 
 
 def test_repeating_a_figure_the_customer_gave_is_not_invention():
-    """§4.1's dispute example: the customer says their plan is 24,90 €. Reading
+    """§4.1's dispute example: the customer says their plan is €24.90. Reading
     that back is not a claim about billing — it is quoting the customer."""
     state = grounded_state()
-    state.turns.append(Turn(role=TurnRole.customer, text="ma il mio piano è da 24,90 € non 29,90"))
-    assert pipeline.inspect("Lei dichiara un piano da 24,90 €. È corretto?", state) == []
+    state.turns.append(Turn(role=TurnRole.customer, text="but my plan is €24.90, not €29.90"))
+    assert pipeline.inspect("You say your plan is €24.90. Is that right?", state) == []
 
 
 def test_ordinary_numbers_in_prose_are_not_figures():
-    """ "due giorni lavorativi" must not trip the guard, or every reply fails
-    and the guard gets switched off — which is how guards die."""
+    """ "two working days" must not trip the guard, or every reply fails and
+    the guard gets switched off — which is how guards die."""
     state = grounded_state()
-    reply = "Un collega la ricontatterà entro due giorni lavorativi. Ha 2 rate residue."
+    reply = "A colleague will get back to you within two working days. You have 2 instalments left."
     assert pipeline.inspect(reply, state) == []
 
 
 def test_an_unverified_contract_number_is_blocked():
     state = grounded_state()
-    violations = pipeline.inspect("Ho controllato il contratto FP-2099-123456.", state)
+    violations = pipeline.inspect("I checked contract FP-2099-123456.", state)
     assert violations[0].guard is GuardName.grounding
 
 
@@ -137,14 +135,14 @@ def test_an_unverified_contract_number_is_blocked():
 @pytest.mark.parametrize(
     "reply",
     [
-        "Ho disdetto il suo contratto.",
-        "La disdetta è stata effettuata.",
-        "Il contratto è stato chiuso come richiesto.",
-        "Ho disposto il rimborso della differenza.",
-        "Le rimborserò la differenza.",
-        "Ho stornato l'importo.",
-        "Ho modificato il metodo di pagamento.",
-        "Posso offrirle uno sconto se resta con noi.",
+        "I have cancelled your contract.",
+        "The cancellation has been completed.",
+        "Your contract has been closed as requested.",
+        "I have issued a refund for the difference.",
+        "I will refund the difference.",
+        "I have credited the amount.",
+        "I have updated your payment method.",
+        "I can offer you a discount if you stay with us.",
     ],
 )
 def test_forbidden_commitments_are_blocked(reply):
@@ -156,10 +154,7 @@ def test_forbidden_commitments_are_blocked(reply):
 
 def test_declining_to_do_those_things_is_fine():
     state = grounded_state()
-    reply = (
-        "Non posso disporre rimborsi né modifiche agli importi, ma posso passare "
-        "la sua richiesta a un collega."
-    )
+    reply = "I can't issue refunds or change amounts, but I can pass your request to a colleague."
     assert not any(v.guard is GuardName.promises for v in pipeline.inspect(reply, state))
 
 
@@ -167,8 +162,8 @@ def test_a_reference_number_that_does_not_exist_is_blocked():
     """§12.4's backstop. The reference comes from the database; any other number
     presented as one was invented."""
     state = grounded_state()
-    violations = pipeline.inspect("Ho aperto la pratica n. 00009999.", state)
-    assert any("inesistente" in p for v in violations for p in v.problems)
+    violations = pipeline.inspect("I've opened case no. 00009999.", state)
+    assert any("does not exist" in p for v in violations for p in v.problems)
 
 
 def test_the_real_reference_passes():
@@ -176,7 +171,7 @@ def test_the_real_reference_passes():
     state.collected.handover_reference = "00001042"
     assert not any(
         v.guard is GuardName.promises
-        for v in pipeline.inspect("Ho aperto la pratica n. 00001042.", state)
+        for v in pipeline.inspect("I've opened case no. 00001042.", state)
     )
 
 
@@ -186,23 +181,23 @@ def test_the_real_reference_passes():
 def test_an_outcome_code_never_reaches_the_customer():
     state = grounded_state()
     violations = pipeline.inspect(
-        "La verifica ha restituito serviceUnavailable, riprovi più tardi.", state
+        "The check returned serviceUnavailable, please try again later.", state
     )
     assert any(v.guard is GuardName.visibility for v in violations)
 
 
 def test_an_internal_queue_name_never_reaches_the_customer():
-    """§13 gives the customer "un collega dell'amministrazione", not
+    """§13 gives the customer "a colleague in billing operations", not
     "billing_operations"."""
     violations = pipeline.inspect(
-        "Ho inoltrato la pratica alla coda billing_operations.", grounded_state()
+        "I've sent the case to the billing_operations queue.", grounded_state()
     )
     assert any(v.guard is GuardName.visibility for v in violations)
 
 
 def test_an_incident_id_never_reaches_the_customer():
     state = ungrounded_state()
-    violations = pipeline.inspect("Si è verificato un errore, riferimento abc123def456.", state)
+    violations = pipeline.inspect("An error occurred, reference abc123def456.", state)
     assert any(v.guard is GuardName.visibility for v in violations)
 
 
@@ -217,17 +212,31 @@ def test_the_blocklist_is_derived_from_the_models():
 # --- language: §10 criterion 3 -----------------------------------------------
 
 
-def test_english_technical_vocabulary_is_flagged():
-    violations = pipeline.inspect("Il payment è failed, apro un support ticket.", grounded_state())
+def test_internal_vocabulary_is_flagged():
+    """§10 criterion 3, retargeted — see docs/DEVIATIONS.md. The Italian guard
+    watched for English technical words leaking in; the English one watches for
+    the system's own vocabulary, which is what the model has been reading for
+    three thousand tokens and will reach for if the reply gets lazy."""
+    violations = pipeline.inspect(
+        "The lookup timed out, so I've queued a handover record.", grounded_state()
+    )
     assert any(v.guard is GuardName.language for v in violations)
 
 
-def test_the_informal_register_is_flagged():
-    """The base identity requires "lei" throughout. An older customer addressed
-    as "tu" is a different error from a wrong figure, and still one the operator
-    would notice."""
-    violations = pipeline.inspect("Puoi pagare dal tuo link sicuro.", grounded_state())
+def test_the_over_familiar_register_is_flagged():
+    """The base identity forbids chumminess. English has no lei/tu, so the check
+    is lexical rather than grammatical — but an older customer greeted with "Hi
+    there" is the same error the Italian guard was written for."""
+    violations = pipeline.inspect("Hey! No worries, I can sort that for you.", grounded_state())
     assert any(v.guard is GuardName.language for v in violations)
+
+
+def test_the_customer_facing_queue_label_is_not_flagged():
+    """The near-miss that made this list wrong once already: "a colleague in
+    billing operations" is the CustomerVisible queue_label and must pass, while
+    the internal `billing_operations` must not."""
+    reply = "A colleague in billing operations will get back to you within two working days."
+    assert not any(v.guard is GuardName.language for v in pipeline.inspect(reply, grounded_state()))
 
 
 # --- the pipeline ------------------------------------------------------------
@@ -235,38 +244,38 @@ def test_the_informal_register_is_flagged():
 
 def test_a_clean_reply_passes_through_untouched():
     state = grounded_state()
-    reply = "L'addebito di 29,90 € è stato respinto per fondi insufficienti."
+    reply = "The charge of €29.90 was refused for insufficient funds."
     result = pipeline.resolve(reply, state)
     assert result.clean and result.text == reply and not result.substituted
 
 
 def test_the_repair_instruction_names_the_specific_problem():
-    """ "riscrivi senza inventare" produces a differently invented reply. The
-    instruction has to give the model something to act on."""
+    """ "rewrite without inventing anything" produces a differently invented
+    reply. The instruction has to give the model something to act on."""
     state = grounded_state()
-    violations = pipeline.inspect("L'importo è 24,90 €.", state)
+    violations = pipeline.inspect("The amount is €24.90.", state)
     instruction = pipeline.repair_instruction(violations)
-    assert "24,90" in instruction
+    assert "24.90" in instruction
 
 
 def test_a_failed_repair_substitutes_rather_than_sending():
     """§16 accepts model variance on reading the customer. It does not accept
     variance in what the company says."""
     state = grounded_state()
-    bad = "L'addebito di 24,90 € è stato respinto."
+    bad = "The charge of €24.90 was refused."
     result = pipeline.resolve(bad, state, repaired_reply=bad)
 
     assert result.substituted
-    assert "24,90" not in result.text
-    assert "collega" in result.text, "the fallback must still offer a human (§11)"
+    assert "24.90" not in result.text
+    assert "colleague" in result.text, "the fallback must still offer a human (§11)"
 
 
 def test_a_style_only_violation_is_sent_rather_than_substituted():
-    """An anglicism is worse than clean Italian and better than a canned
-    refusal. Substituting for it would make the guard more damaging than the
-    thing it guards against."""
+    """Leaked internal vocabulary is worse writing than a clean reply and far
+    better than a canned refusal. Substituting for it would make the guard more
+    damaging than the thing it guards against."""
     state = grounded_state()
-    reply = "Il suo payment di 29,90 € non è andato a buon fine."
+    reply = "The lookup shows your charge of €29.90 did not go through."
     result = pipeline.resolve(reply, state, repaired_reply=reply)
 
     assert not result.substituted
@@ -278,17 +287,17 @@ def test_a_style_only_violation_is_sent_rather_than_substituted():
 
 
 def test_an_iban_is_detected_and_redacted():
-    text = f"il mio iban è {VALID_IBAN}, mi addebiti pure"
+    text = f"my iban is {VALID_IBAN}, go ahead and charge it"
     redacted, kinds = detectors.redact(text)
 
     assert VALID_IBAN not in redacted
-    assert "[[REDATTO:IBAN]]" in redacted
+    assert "[[REDACTED:IBAN]]" in redacted
     assert kinds == [SensitiveKind.iban]
-    assert "mi addebiti pure" in redacted, "the rest of the message survives"
+    assert "go ahead and charge it" in redacted, "the rest of the message survives"
 
 
 def test_a_card_number_is_detected_by_luhn():
-    redacted, kinds = detectors.redact(f"la carta è {VALID_CARD}")
+    redacted, kinds = detectors.redact(f"the card is {VALID_CARD}")
     assert SensitiveKind.card in kinds
     assert "4111" not in redacted
 
@@ -296,20 +305,20 @@ def test_a_card_number_is_detected_by_luhn():
 def test_an_invalid_iban_is_left_alone():
     """The checksum is what stops the guard mangling ordinary text. A redaction
     demo that eats a real sentence discredits the whole pipeline."""
-    text = "il codice pratica è IT99X0000000000000000000000"
+    text = "the case code is IT99X0000000000000000000000"
     redacted, kinds = detectors.redact(text)
     assert kinds == [] and redacted == text
 
 
 def test_an_ordinary_long_number_is_not_a_card():
-    text = "il numero cliente è 1234567890123456"
+    text = "the customer number is 1234567890123456"
     _, kinds = detectors.redact(text)
     assert SensitiveKind.card not in kinds
 
 
 def test_a_contract_number_is_never_treated_as_sensitive():
     """It is the one identifier the agent is supposed to handle (§4.1)."""
-    text = "il contratto è FP-2023-048812"
+    text = "the contract is FP-2023-048812"
     redacted, kinds = detectors.redact(text)
     assert kinds == [] and redacted == text
 
@@ -326,8 +335,8 @@ def test_the_grounding_guard_holds_without_any_prompt():
     invention were the prompt, this test could not exist.
     """
     state = ungrounded_state()
-    assert pipeline.inspect("Le risultano 45,00 € da pagare.", state)
+    assert pipeline.inspect("You have €45.00 outstanding.", state)
 
 
 def test_the_promises_guard_holds_without_any_prompt():
-    assert pipeline.inspect("Ho disdetto il contratto.", ConversationState())
+    assert pipeline.inspect("I have cancelled the contract.", ConversationState())

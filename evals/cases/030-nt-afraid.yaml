@@ -1,0 +1,13 @@
+id: "030"
+title: Afraid the line will be cut off
+source: author_as_nontechnical
+tags: [billing]
+billing_stub_mode: none
+turns:
+  - user: "Good morning, I got a message and I'm afraid they'll cut off my phone. What should I do? FP-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  It must reassure ONLY about what the lookup actually shows: the service is
+  active.

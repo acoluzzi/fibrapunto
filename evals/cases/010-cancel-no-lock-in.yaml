@@ -1,0 +1,16 @@
+id: "010"
+title: Cancellation, no constraints
+source: author
+tags: [cancellation, handover]
+billing_stub_mode: none
+turns:
+  - user: "how do I cancel? my contract is FP-2022-031455"
+expect:
+  domain: cancellation
+  outcome: "handover:cancellation_request"
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+    - { name: create_handover_record, outcome: created }
+judge_notes: >
+  §4.2 instruction 3: with no lock-in it must say so explicitly. Silence on
+  this point reads as a hidden penalty.

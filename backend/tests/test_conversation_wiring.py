@@ -120,14 +120,14 @@ async def test_each_domain_binds_only_its_own_capabilities(monkeypatch):
     than a prompt outcome — the tools simply are not there.
     """
     routed_to(monkeypatch, "fallback")
-    model = scripted(monkeypatch, [AIMessage("Di questo non posso occuparmi.")])
+    model = scripted(monkeypatch, [AIMessage("I cannot help with that here.")])
 
-    await conversation().send("qual è la capitale della Francia?")
+    await conversation().send("what is the capital of France?")
     assert model.bound_tools == ["transfer_to_human"]
 
     routed_to(monkeypatch, "billing")
-    model = scripted(monkeypatch, [AIMessage("Mi dica il numero di contratto.")])
-    await conversation().send("non mi torna la fattura")
+    model = scripted(monkeypatch, [AIMessage("Could you give me the contract number?")])
+    await conversation().send("my bill does not add up")
     assert set(model.bound_tools) == {
         "billing_lookup",
         "create_handover_record",
@@ -142,13 +142,13 @@ async def test_a_tool_outside_the_domain_is_refused_not_executed(monkeypatch):
     scripted(
         monkeypatch,
         [
-            tool_call("billing_lookup", {"numero_contratto": CONTRACT}),
-            AIMessage("Non posso aiutarla su questo."),
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("I cannot help with that."),
         ],
     )
 
     convo = conversation()
-    await convo.send("mi dica lo stato della fattura")
+    await convo.send("tell me my invoice status")
 
     assert convo.state.collected.billing is None, (
         "a capability the fallback domain does not have was executed"
@@ -163,13 +163,13 @@ async def test_a_successful_lookup_populates_collected_state(monkeypatch):
     scripted(
         monkeypatch,
         [
-            tool_call("billing_lookup", {"numero_contratto": CONTRACT}),
-            AIMessage("L'addebito di settembre è stato respinto."),
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("The September charge was refused."),
         ],
     )
 
     convo = conversation()
-    reply = await convo.send(f"il mio contratto è {CONTRACT}, cosa è successo?")
+    reply = await convo.send(f"my contract is {CONTRACT}, what happened?")
 
     assert reply.domain == "billing"
     assert convo.state.collected.contract_number == CONTRACT
@@ -185,12 +185,12 @@ async def test_the_reply_reports_the_outcome_as_a_fact(monkeypatch):
     scripted(
         monkeypatch,
         [
-            tool_call("billing_lookup", {"numero_contratto": CONTRACT}),
-            AIMessage("Ecco la situazione."),
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("Here is the position."),
         ],
     )
 
-    reply = await conversation().send(f"contratto {CONTRACT}")
+    reply = await conversation().send(f"contract {CONTRACT}")
     assert reply.routing.decided_by in {"first_turn", "unchanged", "classifier"}
     assert reply.capability_calls[0].capability == "billing_lookup"
     assert reply.prompt_sha
@@ -210,18 +210,18 @@ async def test_switching_domain_keeps_what_was_collected(monkeypatch):
     scripted(
         monkeypatch,
         [
-            tool_call("billing_lookup", {"numero_contratto": CONTRACT}),
-            AIMessage("L'addebito è stato respinto per fondi insufficienti."),
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("The charge was refused for insufficient funds."),
         ],
     )
 
     convo = conversation()
-    await convo.send(f"pagamento respinto, contratto {CONTRACT}")
+    await convo.send(f"payment refused, contract {CONTRACT}")
     assert convo.domain is DomainKey.billing
 
     routed_to(monkeypatch, "cancellation", confidence=0.92)
-    model = scripted(monkeypatch, [AIMessage("Va bene, procedo con la richiesta.")])
-    await convo.send("comunque voglio disdire, mi sono trasferito")
+    model = scripted(monkeypatch, [AIMessage("Very well, I will proceed with the request.")])
+    await convo.send("anyway I want to cancel, I have moved house")
 
     assert convo.domain is DomainKey.cancellation
     assert convo.state.collected.contract_number == CONTRACT
@@ -236,13 +236,13 @@ async def test_switching_domain_keeps_what_was_collected(monkeypatch):
 async def test_a_low_confidence_switch_is_suppressed(monkeypatch):
     """Hysteresis. One ambiguous turn must not flap the conversation."""
     routed_to(monkeypatch, "billing")
-    scripted(monkeypatch, [AIMessage("Mi dica il numero di contratto.")])
+    scripted(monkeypatch, [AIMessage("Could you give me the contract number?")])
     convo = conversation()
-    await convo.send("non mi torna la fattura")
+    await convo.send("my invoice does not add up")
 
     routed_to(monkeypatch, "cancellation", confidence=0.4)
-    scripted(monkeypatch, [AIMessage("Continuo sulla fattura.")])
-    reply = await convo.send("boh, non so")
+    scripted(monkeypatch, [AIMessage("Continuing with the bill.")])
+    reply = await convo.send("dunno, not sure")
 
     assert convo.domain is DomainKey.billing
     assert reply.routing.decided_by == "below_switch_threshold"
@@ -251,24 +251,24 @@ async def test_a_low_confidence_switch_is_suppressed(monkeypatch):
 async def test_an_acknowledgement_never_reroutes(monkeypatch):
     """The confirmation lock (§4.1 instruction 5).
 
-    "Sì" classified on its own is not a billing message. Without the lock it
+    "Yes" classified on its own is not a billing message. Without the lock it
     routes to fallback and the handover never happens — losing the one step the
     spec singles out as making the record trustworthy.
     """
     from fibrapunto.state.models import PendingConfirmation
 
     routed_to(monkeypatch, "billing")
-    scripted(monkeypatch, [AIMessage("Riassumo: contestazione di 29,90 €. È corretto?")])
+    scripted(monkeypatch, [AIMessage("To confirm: you dispute the €29.90 charge. Is that right?")])
     convo = conversation()
-    await convo.send("29,90 non è giusto, voglio il rimborso")
+    await convo.send("€29.90 is not right, I want a refund")
     convo.state.pending_confirmation = PendingConfirmation(
-        summary="contestazione settembre 29,90 €", asked_at_turn=1
+        summary="September charge disputed, €29.90", asked_at_turn=1
     )
 
     # If the classifier were consulted it would say fallback — and be ignored.
     routed_to(monkeypatch, "fallback", confidence=0.99)
-    scripted(monkeypatch, [AIMessage("Ho aperto la pratica.")])
-    reply = await convo.send("Sì")
+    scripted(monkeypatch, [AIMessage("I have opened the case.")])
+    reply = await convo.send("Yes")
 
     assert convo.domain is DomainKey.billing
     assert reply.routing.decided_by == "confirmation_lock"
@@ -279,14 +279,14 @@ async def test_an_acknowledgement_never_reroutes(monkeypatch):
 
 async def test_an_explicit_request_for_a_person_is_marked_immediately(monkeypatch):
     routed_to(monkeypatch, "billing", human=True)
-    model = scripted(monkeypatch, [AIMessage("La metto subito in contatto con un collega.")])
+    model = scripted(monkeypatch, [AIMessage("I will put you through to a colleague now.")])
 
     convo = conversation()
-    await convo.send("basta, mi passi un operatore")
+    await convo.send("enough, put me through to a person")
 
     assert convo.state.offer_human_now is True
     rendered = "\n".join(str(m.content) for m in model.calls[0])
-    assert "operatore" in rendered.lower()
+    assert "colleague" in rendered.lower()
 
 
 async def test_anger_shortens_the_answers(monkeypatch):
@@ -294,11 +294,11 @@ async def test_anger_shortens_the_answers(monkeypatch):
     model = scripted(monkeypatch, [AIMessage("Capisco.")])
 
     convo = conversation()
-    await convo.send("è la terza volta che scrivo!!")
+    await convo.send("this is the third time I am writing!!")
 
     assert convo.state.terse is True
     rendered = "\n".join(str(m.content) for m in model.calls[0])
-    assert "breve e fattuale" in rendered
+    assert "briefly and factually" in rendered
 
 
 # --- the cache split ---------------------------------------------------------
@@ -309,7 +309,7 @@ async def test_the_stable_prompt_block_is_marked_cacheable(monkeypatch):
     not. Getting this backwards would invalidate the cache every turn and
     roughly triple the input cost (§16)."""
     routed_to(monkeypatch, "billing")
-    model = scripted(monkeypatch, [AIMessage("Buongiorno.")])
+    model = scripted(monkeypatch, [AIMessage("Good morning.")])
     await conversation().send("ciao")
 
     system_messages = [m for m in model.calls[0] if m.type == "system"]
@@ -318,7 +318,7 @@ async def test_the_stable_prompt_block_is_marked_cacheable(monkeypatch):
     stable, volatile = system_messages
     assert stable.additional_kwargs.get("cache_control") == {"type": "ephemeral"}
     assert "cache_control" not in volatile.additional_kwargs
-    assert "Stato già raccolto" in volatile.content
+    assert "State already collected" in volatile.content
 
 
 async def test_the_stable_block_does_not_vary_between_turns(monkeypatch):
@@ -328,15 +328,15 @@ async def test_the_stable_block_does_not_vary_between_turns(monkeypatch):
     scripted(
         monkeypatch,
         [
-            tool_call("billing_lookup", {"numero_contratto": CONTRACT}),
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
             AIMessage("Respinto."),
         ],
     )
     convo = conversation()
-    await convo.send(f"contratto {CONTRACT}")
+    await convo.send(f"contract {CONTRACT}")
 
-    model = scripted(monkeypatch, [AIMessage("Le confermo.")])
-    await convo.send("e adesso?")
+    model = scripted(monkeypatch, [AIMessage("Confirmed.")])
+    await convo.send("and now?")
 
     stable = next(m for m in model.calls[0] if m.type == "system")
     assert CONTRACT not in stable.content, (
@@ -354,7 +354,7 @@ async def test_every_declared_tool_converts_to_a_provider_schema(monkeypatch):
     """
     routed_to(monkeypatch, "billing")
     model = scripted(monkeypatch, [AIMessage("ok")])
-    await conversation().send("non mi torna la fattura")
+    await conversation().send("my bill does not add up")
 
     assert len(model.tool_schemas) == 3
     for schema in model.tool_schemas:
@@ -380,7 +380,7 @@ def _state_after(outcome: str, number: str = "FP-2023-048812"):
     ToolDispatcher._absorb_billing(
         ToolDispatcher.__new__(ToolDispatcher),
         result,
-        {"numero_contratto": number},
+        {"contract_number": number},
         state,
     )
     return state

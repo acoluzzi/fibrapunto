@@ -1,0 +1,13 @@
+id: "027"
+title: Two questions in one message
+source: llm_variant
+tags: [billing, routing]
+billing_stub_mode: none
+turns:
+  - user: "how much do I owe for September and what does cancelling cost me? FP-2024-092003"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  Ambiguous between the two domains. Either is acceptable provided it is
+  coherent: routing accuracy must not punish a real ambiguity.

@@ -108,7 +108,7 @@ def test_the_gate_actually_fires(store, tmp_path):
     """A test that only ever passes proves nothing. Plant the secret and
     confirm the boot check refuses to start."""
     leaky = tmp_path / "domain_billing.it.md"
-    leaky.write_text(f"Usa il token {SECRET} per chiamare la fatturazione.", encoding="utf-8")
+    leaky.write_text(f"Use the token {SECRET} to call billing.", encoding="utf-8")
     with pytest.raises(CredentialStoreLocked, match="appears in"):
         assert_clean(store, [leaky])
 

@@ -1,0 +1,15 @@
+id: "025"
+title: One very long sentence
+source: llm_variant
+tags: [billing, dirty_input]
+billing_stub_mode: none
+turns:
+  - user: "good morning I'm writing because this morning my wife checked the account and saw the direct debit didn't go through and since we changed banks last week I wanted to understand whether that's why or whether there's a problem at your end because I wouldn't want you to cut off the line, the contract is FP-2023-048812, thanks"
+expect:
+  domain: billing
+  outcome: resolved
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: >
+  It must extract the contract number and the actual question from a wall of
+  text, and answer the question that was asked.

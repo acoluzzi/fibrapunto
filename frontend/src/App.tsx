@@ -5,7 +5,7 @@ import { api } from "./lib/api";
 import { ChatPanel } from "./panels/ChatPanel";
 import { MetricsPanel } from "./panels/MetricsPanel";
 import { SystemTracePanel } from "./panels/SystemTracePanel";
-import { Operatore } from "./routes/Operatore";
+import { Operator } from "./routes/Operator";
 import type { TestMode } from "./lib/types";
 
 export function App() {
@@ -22,8 +22,8 @@ export function App() {
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
 
-  if (window.location.pathname.startsWith("/operatore")) {
-    return <Operatore />;
+  if (window.location.pathname.startsWith("/operator")) {
+    return <Operator />;
   }
 
   function toggleTheme() {

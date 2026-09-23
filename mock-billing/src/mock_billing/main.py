@@ -39,13 +39,13 @@ from mock_billing.test_modes import TestMode, apply_latency, global_override, re
 FIXTURES = Path(__file__).parent / "fixtures" / "billing.yaml"
 
 app = FastAPI(
-    title="Fibrapunto — sistema di fatturazione (legacy)",
+    title="Fibrapunto — billing system (legacy)",
     version="1.0.0",
     description=(
-        "Interfaccia del sistema di fatturazione legacy di Fibrapunto.\n\n"
-        "È il sistema di riferimento per i pagamenti; l'anagrafica del "
-        "contratto vive nel CRM ed è un sistema diverso. I due possono non "
-        "essere allineati: un contratto presente nel CRM può non esistere qui."
+        "Interface to Fibrapunto's legacy billing system.\n\n"
+        "It is the system of record for payments; the customer record for a "
+        "contract lives in the CRM, which is a different system. The two may be "
+        "out of step: a contract present in the CRM may not exist here."
     ),
 )
 
@@ -91,34 +91,32 @@ async def _unauthorized_handler(request: Request, exc: Unauthorized) -> JSONResp
 
 @app.get(
     "/billing/{contract_number}",
-    summary="Stato di fatturazione di un contratto",
+    summary="Billing status for a contract",
     description=(
-        "Restituisce lo stato dell'addebito per il contratto indicato.\n\n"
-        "Da chiamare solo dopo che il cliente ha fornito un numero di contratto "
-        "nel formato FP-YYYY-NNNNNN. Non chiamare mai con un numero ipotizzato "
-        "o ricostruito."
+        "Returns the charge status for the given contract.\n\n"
+        "To be called only after the customer has provided a contract number "
+        "in the format FP-YYYY-NNNNNN. Never call it with a guessed or "
+        "reconstructed number."
     ),
     responses={
-        200: {"model": BillingStatus, "description": "Contratto trovato."},
+        200: {"model": BillingStatus, "description": "Contract found."},
         300: {
             "model": MultipleMatches,
             "description": (
-                "Più contratti corrispondono. Chiedere al cliente di "
-                "confermare tramite l'indirizzo di attivazione; non scegliere "
-                "mai il primo risultato."
+                "Several contracts match. Ask the customer to confirm by "
+                "service address; never pick the first result."
             ),
         },
-        401: {"model": BillingError, "description": "Credenziale mancante o non valida."},
+        401: {"model": BillingError, "description": "Missing or invalid credential."},
         404: {
             "model": BillingError,
             "description": (
-                "Nessun contratto con questo numero nel sistema di "
-                "fatturazione. Può comunque esistere nel CRM."
+                "No contract with this number in the billing system. It may still exist in the CRM."
             ),
         },
         504: {
             "model": BillingError,
-            "description": "Il sistema di fatturazione non ha risposto in tempo.",
+            "description": "The billing system did not respond in time.",
         },
     },
 )
@@ -131,7 +129,7 @@ async def get_billing(
         Header(
             description=(
                 "Solo per collaudo: timeout | duplicate | notfound | slow. "
-                "Non fa parte del comportamento di produzione."
+                "It is not part of production behaviour."
             )
         ),
     ] = None,
@@ -150,7 +148,7 @@ async def get_billing(
             status_code=504,
             content=BillingError(
                 error="GATEWAY_TIMEOUT",
-                message="Il sistema di fatturazione non ha risposto in tempo.",
+                message="The billing system did not respond in time.",
             ).model_dump(by_alias=True),
             headers={"X-Billing-Mode": mode.value},
         )
@@ -204,7 +202,7 @@ class LineStatus(BaseModel):
 
 @app.get(
     "/line/{contract_number}",
-    summary="Stato della linea (dominio modem — progettato, non attivo)",
+    summary="Line status (modem domain — designed, not enabled)",
     response_model=LineStatus,
 )
 async def get_line(

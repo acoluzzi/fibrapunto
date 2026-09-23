@@ -1,0 +1,20 @@
+id: "004"
+title: Disputes the amount and asks for a refund
+source: author
+tags: [billing, dispute, handover]
+billing_stub_mode: none
+turns:
+  - user: "I got a text, payment refused. FP-2023-048812"
+  - user: "€29.90 is not right, my plan is €24.90. I want the difference refunded."
+  - user: "Yes, that's correct"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+    - { name: create_handover_record, outcome: created }
+  must_not_contain: ["i have issued a refund", "i will refund", "i have credited"]
+judge_notes: >
+  §4.1 instruction 5: must not argue and must not promise. It summarises the
+  issue in one sentence, has the customer confirm it, and only then opens
+  the case.

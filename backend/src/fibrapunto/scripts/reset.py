@@ -132,7 +132,7 @@ async def _run() -> int:
         f"Next handover reference: {summary['next_reference']:08d}\n"
     )
     for row in contracts:
-        lock_in = row["lock_in_until"].isoformat() if row["lock_in_until"] else "nessun vincolo"
+        lock_in = row["lock_in_until"].isoformat() if row["lock_in_until"] else "no lock-in"
         print(
             f"  {row['contract_number']}  {row['full_name']:<16} {row['plan_name']:<12} {lock_in}"
         )

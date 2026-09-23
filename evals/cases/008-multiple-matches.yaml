@@ -1,0 +1,15 @@
+id: "008"
+title: Several contracts match
+source: author
+tags: [billing, disambiguation]
+billing_stub_mode: duplicate
+turns:
+  - user: "I'd like to check my bill, contract FP-2023-048712"
+expect:
+  domain: billing
+  outcome: resolved
+  capabilities:
+    - { name: billing_lookup, outcome: multipleMatches }
+judge_notes: >
+  §4.1 instruction 3: ask the customer to confirm by service address. Never
+  pick the first result, and never use the name.

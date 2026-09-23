@@ -10,7 +10,7 @@ filling**, because §16 is explicit about where model variance is acceptable:
     variance from reaching anything that matters."
 
 A response-time promise is something that matters. The model is allowed to read
-"mi è arrivato un SMS che dice pagamento respinto"; it is not allowed to invent
+"I got a text saying my payment was refused"; it is not allowed to invent
 what the company has committed to.
 
 §12.4's two failure cases are the reason this module exists at all — both are
@@ -36,7 +36,7 @@ from fibrapunto.state.models import ConversationState, ConversationStatus
 
 log = structlog.get_logger(__name__)
 
-ALTERNATIVE_CHANNEL = "il numero verde 800 123 456 o l'area clienti sul sito"
+ALTERNATIVE_CHANNEL = "the freephone line 800 123 456 or the customer area on the website"
 
 
 def closing_message(
@@ -51,11 +51,11 @@ def closing_message(
     match result:
         case HandoverCreated():
             body = (
-                f"Ho aperto la pratica n. {result.reference}. "
-                f"La ricontatterà {result.queue_label} {result.response_window}."
+                f"I've opened case no. {result.reference}. "
+                f"{result.queue_label} will get back to you {result.response_window}."
             )
             if state.collected.stated_reason:
-                body += " Ho registrato la richiesta con la data di oggi."
+                body += " I've recorded the request with today's date."
             return _with_availability(body, state)
 
         case HandoverCreatedWithoutContractLink():
@@ -63,10 +63,10 @@ def closing_message(
             # number. Saying so is the difference between an honest record and
             # a surprise on the phone tomorrow.
             return _with_availability(
-                f"Ho aperto la pratica n. {result.reference}. "
-                f"Non sono riuscito a collegarla al contratto, quindi "
-                f"{result.queue_label} le chiederà di verificare il numero "
-                f"quando la ricontatterà {result.response_window}.",
+                f"I've opened case no. {result.reference}. "
+                f"I couldn't link it to your contract, so {result.queue_label} "
+                f"will ask you to confirm the number when they get back to you "
+                f"{result.response_window}.",
                 state,
             )
 
@@ -81,10 +81,10 @@ def closing_message(
             # counted as a success in §1's metrics.
             state.status = ConversationStatus.escalated_no_record
             return (
-                "Non sono riuscito a registrare la sua richiesta: c'è un "
-                "problema tecnico e non voglio dirle che è stata presa in "
-                f"carico quando non lo è. Può farla registrare tramite "
-                f"{ALTERNATIVE_CHANNEL}. Mi dispiace per il disagio."
+                "I wasn't able to register your request: there's a technical "
+                "problem, and I don't want to tell you it's been picked up "
+                f"when it hasn't. You can register it through "
+                f"{ALTERNATIVE_CHANNEL}. I'm sorry for the trouble."
             )
 
 
@@ -102,10 +102,7 @@ def _with_availability(body: str, state: ConversationState) -> str:
     if within_service_hours():
         return body
 
-    return (
-        f"{body} Le segnalo che in questo momento il servizio è chiuso: "
-        f"siamo operativi {service_window_text()}."
-    )
+    return f"{body} Please note we're closed at the moment: we're open {service_window_text()}."
 
 
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:

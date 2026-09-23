@@ -105,9 +105,9 @@ async def main_async(args: argparse.Namespace) -> int:
     shortfall = [c for c in cases if c["source"] == "author_as_nontechnical"]
     if shortfall:
         print(
-            f"{YELLOW}⚠ {len(shortfall)} casi sono marcati author_as_nontechnical: "
-            f"scritti da me in registro non tecnico, non da una persona non "
-            f"tecnica.{RESET}\n  {DIM}§14.1 chiede la seconda cosa. Vedi "
+            f"{YELLOW}⚠ {len(shortfall)} cases are marked author_as_nontechnical: "
+            f"written by me in a non-technical register, not by a non-technical "
+            f"person.{RESET}\n  {DIM}§14.1 asks for the second. See "
             f"docs/DEVIATIONS.md #3.{RESET}\n"
         )
 
@@ -115,12 +115,12 @@ async def main_async(args: argparse.Namespace) -> int:
     if not args.no_judge:
         try:
             judge = Judge()
-            print(f"{DIM}giudice: {judge.model}{RESET}")
+            print(f"{DIM}judge: {judge.model}{RESET}")
         except JudgeMisconfigured as exc:
             print(f"{RED}{exc}{RESET}", file=sys.stderr)
             return 2
 
-    print(f"{BOLD}{len(cases)} casi{RESET}  {DIM}concorrenza {args.concurrency}{RESET}\n")
+    print(f"{BOLD}{len(cases)} cases{RESET}  {DIM}concurrency {args.concurrency}{RESET}\n")
 
     # §16 has an argument about cost and the build had no number behind it.
     # Read from outside, before anything is spent.
@@ -163,7 +163,7 @@ async def main_async(args: argparse.Namespace) -> int:
     audit = disagreements(verdicts, judged)
 
     # --- the §1 table --------------------------------------------------------
-    print(f"\n{BOLD}Metriche §1{RESET}")
+    print(f"\n{BOLD}§1 metrics{RESET}")
     for metric in metrics:
         if metric.passed is None:
             mark, colour = "—", DIM
@@ -173,7 +173,7 @@ async def main_async(args: argparse.Namespace) -> int:
             mark, colour = "✗", RED
         print(
             f"  {colour}{mark}{RESET} {metric.name:<28} {metric.display:>6}  "
-            f"{DIM}(obiettivo {metric.target}){RESET}"
+            f"{DIM}(target {metric.target}){RESET}"
         )
         if metric.detail:
             print(f"      {DIM}{metric.detail}{RESET}")
@@ -182,7 +182,7 @@ async def main_async(args: argparse.Namespace) -> int:
 
     if audit:
         print(
-            f"\n{YELLOW}{len(audit)} disaccordi fra asserzioni e giudice{RESET} "
+            f"\n{YELLOW}{len(audit)} disagreements between assertions and judge{RESET} "
             f"{DIM}— make eval-audit{RESET}"
         )
 
@@ -261,9 +261,9 @@ async def main_async(args: argparse.Namespace) -> int:
 
     _append_history(metrics, run_id)
 
-    print(f"\n{DIM}scritto in evals/runs/{run_id}/{RESET}")
+    print(f"\n{DIM}written to evals/runs/{run_id}/{RESET}")
     failed = sum(1 for v in verdicts if not v.passed)
-    print(f"{BOLD}{len(verdicts) - failed}/{len(verdicts)} casi superati{RESET}\n")
+    print(f"{BOLD}{len(verdicts) - failed}/{len(verdicts)} cases passed{RESET}\n")
     return 1 if failed else 0
 
 
@@ -325,10 +325,10 @@ def diff_command(a: str, b: str) -> int:
     for case_id in sorted(results_a.keys() | results_b.keys()):
         before, after = results_a.get(case_id), results_b.get(case_id)
         if before is None:
-            print(f"  {DIM}+ {case_id} {after['title']} — nuovo in b{RESET}")
+            print(f"  {DIM}+ {case_id} {after['title']} — new in b{RESET}")
             continue
         if after is None:
-            print(f"  {DIM}- {case_id} {before['title']} — assente in b{RESET}")
+            print(f"  {DIM}- {case_id} {before['title']} — absent from b{RESET}")
             continue
         if before["passed"] and not after["passed"]:
             regressed.append(after)
@@ -338,18 +338,18 @@ def diff_command(a: str, b: str) -> int:
             still_failing.append(after)
 
     for row in regressed:
-        print(f"  {RED}✗ REGRESSIONE{RESET} {row['case_id']} {row['title']}")
+        print(f"  {RED}✗ REGRESSION{RESET} {row['case_id']} {row['title']}")
         for failure in row["failures"]:
             print(f"      {DIM}{failure}{RESET}")
     for row in fixed:
-        print(f"  {GREEN}✓ RISOLTO{RESET}     {row['case_id']} {row['title']}")
+        print(f"  {GREEN}✓ FIXED{RESET}       {row['case_id']} {row['title']}")
     if still_failing:
-        print(f"\n  {DIM}{len(still_failing)} casi già non superati in entrambe{RESET}")
+        print(f"\n  {DIM}{len(still_failing)} cases already failing in both{RESET}")
 
     # --- the §1 table, side by side -----------------------------------------
     metrics_a = {m["name"]: m for m in json.loads((run_a / "metrics.json").read_text("utf-8"))}
     metrics_b = {m["name"]: m for m in json.loads((run_b / "metrics.json").read_text("utf-8"))}
-    print(f"\n{BOLD}Metriche §1{RESET}")
+    print(f"\n{BOLD}§1 metrics{RESET}")
     for name, after in metrics_b.items():
         before = metrics_a.get(name, {})
         va, vb = before.get("value"), after.get("value")
@@ -366,9 +366,9 @@ def diff_command(a: str, b: str) -> int:
         print(f"  {colour}{arrow}{RESET} {name:<28} {fa:>6} → {fb:>6}")
 
     if not regressed and not fixed:
-        print(f"\n{DIM}Nessun cambiamento per caso.{RESET}")
+        print(f"\n{DIM}No per-case changes.{RESET}")
     else:
-        print(f"\n{BOLD}{len(regressed)} regressioni, {len(fixed)} risolti{RESET}")
+        print(f"\n{BOLD}{len(regressed)} regressions, {len(fixed)} fixed{RESET}")
 
     # A regression fails the command even when the headline numbers improved.
     return 1 if regressed else 0

@@ -35,43 +35,43 @@ class RoutingDecision(BaseModel):
 
     domain: Literal["billing", "cancellation", "fallback"] = Field(
         description=(
-            "Il dominio a cui appartiene l'ultimo messaggio del cliente. "
-            "Usa 'fallback' solo se non rientra chiaramente negli altri."
+            "The domain the customer's latest message belongs to. Use "
+            "'fallback' only if it clearly belongs to neither of the others."
         )
     )
-    confidence: float = Field(description="Quanto sei sicuro, da 0.0 a 1.0.", ge=0.0, le=1.0)
+    confidence: float = Field(description="How sure you are, from 0.0 to 1.0.", ge=0.0, le=1.0)
     explicit_human_request: bool = Field(
         description=(
-            "True se il cliente ha chiesto esplicitamente di parlare con una "
-            "persona ('mi passi un operatore', 'voglio parlare con qualcuno')."
+            "True if the customer explicitly asked to speak to a person "
+            "('put me through to someone', 'I want to talk to a human')."
         )
     )
     sentiment: Literal["neutral", "frustrated", "angry"] = Field(
-        description="Il tono del cliente nell'ultimo messaggio."
+        description="The customer's tone in the latest message."
     )
     rationale: str = Field(
-        description="Una frase sul perché. Uso interno: non viene mai mostrata al cliente."
+        description="One sentence on why. Internal use: never shown to the customer."
     )
 
 
 SYSTEM = """\
-Sei un classificatore. Leggi l'ultimo messaggio di un cliente e decidi a quale \
-ambito appartiene.
+You are a classifier. Read a customer's latest message and decide which domain \
+it belongs to.
 
-Non rispondi al cliente e non dai consigli: produci solo la classificazione.
+You do not reply to the customer and you do not give advice: you produce only \
+the classification.
 
-Gli ambiti disponibili sono questi, con la loro descrizione ufficiale:
+The available domains are these, with their official descriptions:
 
 {scopes}
 
-Regole:
-- Classifica l'ULTIMO messaggio del cliente, usando i messaggi precedenti solo \
-come contesto.
-- Se il cliente cambia argomento a metà conversazione, segui il cambio: è \
-proprio questo il caso che devi cogliere.
-- 'fallback' è per ciò che non rientra negli altri ambiti, non per i messaggi \
-che ti sembrano ambigui. Se è ambiguo ma plausibilmente di un ambito, scegli \
-quello con confidence bassa.
+Rules:
+- Classify the LATEST message, using earlier ones only as context.
+- If the customer changes subject mid-conversation, follow the change: that is \
+precisely the case you exist to catch.
+- 'fallback' is for what belongs to no other domain, not for messages you find \
+ambiguous. If it is ambiguous but plausibly one domain, choose that one with a \
+low confidence.
 """
 
 
@@ -102,11 +102,11 @@ async def classify(message: str, history: list[str], current_domain: DomainKey) 
     """
     model = build_chat_model(ModelRole.router).with_structured_output(RoutingDecision)
 
-    context = "\n".join(f"- {t}" for t in history[-4:]) or "(nessuno)"
+    context = "\n".join(f"- {t}" for t in history[-4:]) or "(none)"
     prompt = (
-        f"Ambito attuale della conversazione: {current_domain.value}\n\n"
-        f"Messaggi precedenti:\n{context}\n\n"
-        f"Ultimo messaggio del cliente:\n{message}"
+        f"Current domain of the conversation: {current_domain.value}\n\n"
+        f"Earlier messages:\n{context}\n\n"
+        f"Customer's latest message:\n{message}"
     )
 
     decision: RoutingDecision = await ainvoke(

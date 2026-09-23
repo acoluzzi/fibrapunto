@@ -1,0 +1,13 @@
+id: "024"
+title: Heavy typing errors
+source: llm_variant
+tags: [billing, dirty_input]
+billing_stub_mode: none
+turns:
+  - user: "helo i dont understand why yuo took the mony and then gaev it back fp-2023-048812"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  §10 criterion 3's typo handling. It must understand the message and not
+  make the customer feel corrected.

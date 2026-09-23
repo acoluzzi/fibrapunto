@@ -39,7 +39,7 @@ OUTCOME_LITERALS = _all_outcome_literals()
 INTERNAL_FIELDS = _all_internal_field_names()
 
 # Queue names and record types are internal vocabulary too: §13 gives the
-# customer "un collega dell'amministrazione", not "billing_operations".
+# customer "a colleague in billing operations", not "billing_operations".
 INTERNAL_VOCABULARY = frozenset(
     {
         "billing_operations",

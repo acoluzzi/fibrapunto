@@ -208,8 +208,8 @@ async def test_outside_service_hours_no_agent_is_available():
     result = await transfer_to_human(now=saturday_night)
 
     assert isinstance(result, NoAgentAvailable)
-    assert "lunedì" in result.service_window or "venerdì" in result.service_window
-    assert "non promettere" in result.guidance.lower()
+    assert "Monday" in result.service_window or "Friday" in result.service_window
+    assert "do not promise" in result.guidance.lower()
 
 
 @pytest.mark.asyncio
@@ -236,8 +236,8 @@ def test_a_failed_record_produces_no_reference_and_no_claim():
     s = state()
     message = engine.closing_message(HandoverFailed(), s)
 
-    assert "non sono riuscito a registrare" in message.lower()
-    assert "numero verde" in message or "area clienti" in message
+    assert "wasn't able to register" in message.lower()
+    assert "freephone" in message or "customer area" in message
     assert "pratica n." not in message, "a reference was stated that does not exist"
     assert s.status is ConversationStatus.escalated_no_record, (
         "a failed handover must not be counted as handed_over — that would make "
@@ -250,8 +250,8 @@ def test_a_created_record_states_the_real_reference():
     message = engine.closing_message(
         HandoverCreated(
             reference="00001042",
-            queue_label="un collega dell'amministrazione",
-            response_window="entro due giorni lavorativi",
+            queue_label="a colleague in billing operations",
+            response_window="within two working days",
         ),
         s,
     )
@@ -266,13 +266,13 @@ def test_an_unlinked_record_says_so_rather_than_glossing_over_it():
     message = engine.closing_message(
         HandoverCreatedWithoutContractLink(
             reference="00001043",
-            queue_label="un collega",
-            response_window="entro due giorni lavorativi",
+            queue_label="a colleague",
+            response_window="within two working days",
         ),
         s,
     )
     assert "00001043" in message
-    assert "verificare il numero" in message
+    assert "confirm the number" in message
 
 
 # --- the trigger reaches the record (§12.2, §12.5) ---------------------------

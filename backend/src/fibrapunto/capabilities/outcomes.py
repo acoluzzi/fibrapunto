@@ -23,9 +23,9 @@ Two design choices worth defending out loud:
    than what did, which is the §12.4 principle inverted. Recorded in
    docs/DEVIATIONS.md rather than hidden.
 
-Guidance text is Italian because the whole reasoning layer runs in Italian
-(§10 criterion 3): a prompt written in English with "reply in Italian" appended
-drifts into English technical vocabulary, and these strings are prompt.
+Guidance text is in the agent's own output language, because these strings are
+prompt: they are read by the reasoning layer at the moment the failure arrives,
+and a mid-prompt language switch is the kind of thing that shows up in the reply.
 """
 
 from __future__ import annotations
@@ -42,10 +42,10 @@ from fibrapunto.capabilities.base import CustomerVisible, InternalOnly
 class ContractMatch(BaseModel):
     """One candidate contract when the legacy system returns namesakes."""
 
-    contract_number: str = CustomerVisible("Numero del contratto trovato.")
+    contract_number: str = CustomerVisible("The contract number that was found.")
     service_address: str = CustomerVisible(
-        "Indirizzo di attivazione. È l'unico criterio ammesso per far scegliere "
-        "al cliente fra più contratti: mai il nome, mai il cognome."
+        "Service address. The only criterion allowed for having the customer "
+        "choose between several contracts: never the first or last name."
     )
 
 
@@ -59,33 +59,31 @@ class BillingFound(BaseModel):
     outcome: Literal["found"] = "found"
 
     status: Literal["paid", "failed", "pending"] = CustomerVisible(
-        "Stato dell'addebito del mese in corso."
+        "Status of this month's direct debit."
     )
     failure_reason: str | None = CustomerVisible(
-        "Motivo del rifiuto dell'addebito, già in italiano piano. "
-        "Riferirlo al cliente senza gergo bancario e senza codici."
+        "Why the direct debit was refused, already in plain words. "
+        "Pass it on without banking jargon and without codes."
     )
-    amount: Decimal | None = CustomerVisible(
-        "Importo dell'addebito in euro. Scriverlo all'italiana: 29,90 €."
-    )
-    invoice_month: str | None = CustomerVisible("Mese di fatturazione, formato YYYY-MM.")
+    amount: Decimal | None = CustomerVisible("The charge in euros. Write it as €29.90.")
+    invoice_month: str | None = CustomerVisible("Billing month, format YYYY-MM.")
     next_retry_date: date | None = CustomerVisible(
-        "Data del prossimo tentativo di addebito. Comunicarla quando un addebito è stato respinto."
+        "Date of the next retry attempt. State it whenever a direct debit has failed."
     )
     payment_link: str | None = CustomerVisible(
-        "Link sicuro per pagare subito con carta. È l'alternativa da offrire "
-        "al cliente: non chiedere mai i dati della carta in chat."
+        "Secure link to pay now by card. This is the alternative to offer the "
+        "customer: never ask for card details in chat."
     )
     lock_in_until: date | None = CustomerVisible(
-        "Fine del vincolo contrattuale. Se è nullo NON tacere: dire "
-        "esplicitamente che non risultano vincoli."
+        "End of the lock-in period. If it is null do NOT stay silent: say "
+        "explicitly that there are no constraints."
     )
     remaining_instalments: int | None = CustomerVisible(
-        "Rate del modem ancora da pagare. Zero significa nessuna rata residua."
+        "Router instalments still to pay. Zero means none remaining."
     )
 
-    source_system: str = InternalOnly("Sistema di provenienza del dato. Mai citarlo al cliente.")
-    fetched_at: str = InternalOnly("Quando il dato è stato letto. Uso interno.")
+    source_system: str = InternalOnly("Which system the data came from. Never mention it.")
+    fetched_at: str = InternalOnly("When the data was read. Internal use.")
 
 
 class BillingNotFound(BaseModel):
@@ -98,12 +96,12 @@ class BillingNotFound(BaseModel):
 
     outcome: Literal["notFound"] = "notFound"
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento. Mai mostrarla al cliente.",
+        "Operating instruction for the reasoning layer. Never show it to the customer.",
         default=(
-            "Nessun contratto risulta con questo numero. Dillo chiaramente al "
-            "cliente, chiedigli di verificare il numero, e offri l'apertura di "
-            "una pratica con un operatore. Non inventare NESSUN dato di "
-            "contratto: né importi, né date, né stato."
+            "No contract exists with this number. Tell the customer plainly, "
+            "ask them to check the number, and offer to open a case with a "
+            "colleague. Invent NO contract data of any kind: no amounts, no "
+            "dates, no status."
         ),
     )
 
@@ -118,15 +116,15 @@ class BillingServiceUnavailable(BaseModel):
 
     outcome: Literal["serviceUnavailable"] = "serviceUnavailable"
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento. Mai mostrarla al cliente.",
+        "Operating instruction for the reasoning layer. Never show it to the customer.",
         default=(
-            "Il sistema di fatturazione non risponde. Dillo chiaramente al "
-            "cliente, NON fornire nessun importo e nessuna data, e offri di "
-            "aprire una pratica. Non promettere tempi che non dipendono da te."
+            "The billing system is not responding. Tell the customer plainly, "
+            "give NO amount and NO date, and offer to open a case. Do not "
+            "promise timescales that are not yours to promise."
         ),
     )
     incident_id: str = InternalOnly(
-        "Identificativo per correlare con il log tecnico. Mai mostrarlo al cliente."
+        "Identifier for correlating with the technical log. Never show it."
     )
 
 
@@ -135,14 +133,14 @@ class BillingMultipleMatches(BaseModel):
 
     outcome: Literal["multipleMatches"] = "multipleMatches"
     matches: list[ContractMatch] = CustomerVisible(
-        "Contratti trovati. Chiedi al cliente quale sia il suo indicando "
-        "l'indirizzo di attivazione. Non scegliere mai tu, e non usare il nome."
+        "The contracts found. Ask the customer which is theirs by service "
+        "address. Never choose yourself, and never use the name."
     )
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento. Mai mostrarla al cliente.",
+        "Operating instruction for the reasoning layer. Never show it to the customer.",
         default=(
-            "Se dopo una domanda di chiarimento il cliente non identifica il "
-            "contratto, non insistere: offri il passaggio a un operatore."
+            "If after one clarifying question the customer still has not "
+            "identified the contract, do not insist: offer a colleague."
         ),
     )
 
@@ -155,14 +153,14 @@ class BillingRejected(BaseModel):
 
     outcome: Literal["rejected"] = "rejected"
     reason: Literal["contract_number_not_from_customer", "format_invalid"] = InternalOnly(
-        "Perché la chiamata è stata rifiutata. Uso interno."
+        "Why the call was refused. Internal use."
     )
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento. Mai mostrarla al cliente.",
+        "Operating instruction for the reasoning layer. Never show it to the customer.",
         default=(
-            "Non hai un numero di contratto valido fornito dal cliente. "
-            "Chiedilo, nel formato FP-YYYY-NNNNNN. Se il formato è sbagliato "
-            "una seconda volta, offri un operatore invece di insistere."
+            "You do not have a valid contract number from the customer. Ask "
+            "for one, in the format FP-YYYY-NNNNNN. If the format is wrong a "
+            "second time, offer a colleague rather than insisting."
         ),
     )
 
@@ -192,13 +190,13 @@ class HandoverCreated(BaseModel):
 
     outcome: Literal["created"] = "created"
     reference: str = CustomerVisible(
-        "Numero della pratica, assegnato dal sistema. Comunicalo al cliente esattamente così com'è."
+        "The case number, assigned by the system. Give it to the customer exactly as it is."
     )
     queue_label: str = CustomerVisible(
-        "Il team che la prende in carico, in parole comprensibili al cliente."
+        "The team picking it up, in words the customer will understand."
     )
     response_window: str = CustomerVisible(
-        "Entro quando il cliente verrà ricontattato. Non promettere tempi diversi."
+        "When the customer will be contacted by. Do not promise anything different."
     )
 
 
@@ -210,15 +208,15 @@ class HandoverCreatedWithoutContractLink(BaseModel):
     """
 
     outcome: Literal["createdWithoutContractLink"] = "createdWithoutContractLink"
-    reference: str = CustomerVisible("Numero della pratica.")
-    queue_label: str = CustomerVisible("Il team che la prende in carico.")
-    response_window: str = CustomerVisible("Entro quando verrà ricontattato.")
+    reference: str = CustomerVisible("The case number.")
+    queue_label: str = CustomerVisible("The team picking it up.")
+    response_window: str = CustomerVisible("When they will be contacted by.")
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento.",
+        "Operating instruction for the reasoning layer.",
         default=(
-            "La pratica è stata aperta ma non è stato possibile collegarla a un "
-            "contratto. Dillo al cliente: gli serve sapere che un collega gli "
-            "chiederà di verificare il numero. Non fingere che sia tutto a posto."
+            "The case was opened but could not be linked to a contract. Tell "
+            "the customer: they need to know a colleague will ask them to "
+            "confirm the number. Do not pretend everything is fine."
         ),
     )
 
@@ -235,20 +233,20 @@ class HandoverFailed(BaseModel):
 
     outcome: Literal["failed"] = "failed"
     missing_fields: list[str] = InternalOnly(
-        "Campi obbligatori non raccolti, se è questo il motivo del fallimento.",
+        "Required fields that were not collected, if that is why it failed.",
         default_factory=list,
     )
     guidance: str = InternalOnly(
-        "Istruzione operativa per il livello di ragionamento.",
+        "Operating instruction for the reasoning layer.",
         default=(
-            "NON è stato possibile registrare la richiesta. Dillo chiaramente al "
-            "cliente. NON dare nessun numero di pratica: non ne esiste uno. "
-            "Indica il canale alternativo (il numero verde o l'area clienti) e "
-            "non dire che qualcosa è stato preso in carico."
+            "The request could NOT be registered. Tell the customer plainly. "
+            "Give NO case number: none exists. Point them to the alternative "
+            "channel (the freephone line or the customer area) and do not say "
+            "that anything has been picked up."
         ),
     )
     incident_id: str = InternalOnly(
-        "Identificativo per il log tecnico. Mai mostrarlo al cliente.",
+        "Identifier for the technical log. Never show it to the customer.",
         default="",
     )
 

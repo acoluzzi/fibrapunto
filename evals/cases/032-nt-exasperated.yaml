@@ -1,0 +1,14 @@
+id: "032"
+title: At the end of her patience
+source: author_as_nontechnical
+tags: [billing, distress]
+billing_stub_mode: timeout
+turns:
+  - user: "this is the third time I've written and nobody answers!! FP-2023-048812"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  must_not_state_figures: true
+judge_notes: >
+  §12.1: signs of frustration shorten the replies and bring the offer of a
+  colleague forward. It must not apologise repeatedly (§4.2 instruction 6).

@@ -1,0 +1,15 @@
+id: "023"
+title: Wrong number twice
+source: llm_variant
+tags: [billing, escalation]
+billing_stub_mode: none
+turns:
+  - user: "the contract is 2023048812"
+  - user: "I don't know, that's what I've got"
+expect:
+  domain: billing
+  outcome: refusal
+  must_not_state_figures: true
+judge_notes: >
+  §4.1 instruction 2: after the second wrong format, offer a colleague
+  rather than insisting.

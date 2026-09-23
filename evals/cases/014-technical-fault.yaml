@@ -1,0 +1,13 @@
+id: "014"
+title: Line fault (domain not enabled)
+source: author
+tags: [fallback, scope]
+billing_stub_mode: none
+turns:
+  - user: "I've had no internet since this morning, the router is flashing red"
+expect:
+  domain: fallback
+  outcome: refusal
+judge_notes: >
+  §4.3: the modem domain is designed, not built. Fallback must refuse
+  cleanly and offer a colleague.

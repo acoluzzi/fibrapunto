@@ -81,9 +81,9 @@ class GuardResult:
 
 
 SAFE_FALLBACK = (
-    "Mi scusi, non riesco a completare la verifica in modo affidabile e "
-    "preferisco non darle informazioni che non posso confermare. "
-    "Se vuole, la metto in contatto con un collega che può controllare."
+    "I'm sorry — I can't complete that check reliably, and I'd rather not give "
+    "you information I can't confirm. If you'd like, I can put you through to "
+    "a colleague who can look into it."
 )
 
 
@@ -107,41 +107,44 @@ def inspect(reply: str, state: ConversationState) -> list[Violation]:
 def repair_instruction(violations: list[Violation]) -> str:
     """A targeted re-ask, naming what was wrong.
 
-    Deliberately specific: "riscrivi senza inventare" produces a differently
-    invented reply. "L'importo 24,90 € non risulta da nessuna verifica" gives
-    the model something to act on.
+    Deliberately specific: "rewrite without inventing anything" produces a
+    differently invented reply. "€24.90 does not come from any check you made"
+    gives the model something to act on.
     """
-    lines = ["Il messaggio che hai scritto non può essere inviato al cliente."]
+    lines = ["The message you wrote cannot be sent to the customer."]
 
     for violation in violations:
         match violation.guard:
             case GuardName.grounding:
                 lines.append(
-                    "- Contiene dati che non risultano da nessuna verifica: "
+                    "- It contains figures that come from no check you made: "
                     + ", ".join(violation.problems)
-                    + ". Non puoi dirli. Se non li hai verificati, dillo al cliente."
+                    + ". You may not state them. If you have not verified "
+                    "something, tell the customer so."
                 )
             case GuardName.promises:
                 lines.append(
-                    "- Contiene un impegno che non puoi prendere: "
+                    "- It contains a commitment you cannot make: "
                     + ", ".join(violation.problems)
-                    + ". Non puoi disporre rimborsi, storni, modifiche al "
-                    "contratto o disdette, e non puoi dire che siano avvenuti."
+                    + ". You cannot issue refunds or credits, change a "
+                    "contract or cancel one, and you cannot say that any of "
+                    "those has happened."
                 )
             case GuardName.visibility:
                 lines.append(
-                    "- Contiene termini tecnici interni: "
+                    "- It contains internal technical terms: "
                     + ", ".join(violation.problems)
-                    + ". Il cliente non deve vederli mai."
+                    + ". The customer must never see these."
                 )
             case GuardName.language:
                 lines.append(
-                    "- Problemi di lingua o registro: "
+                    "- Problems with wording or register: "
                     + ", ".join(violation.problems)
-                    + ". Scrivi in italiano piano, dando del lei."
+                    + ". Write plainly and professionally, without system "
+                    "vocabulary and without over-familiarity."
                 )
 
-    lines.append("Riscrivilo adesso, correggendo solo questi punti.")
+    lines.append("Rewrite it now, correcting only these points.")
     return "\n".join(lines)
 
 

@@ -1,0 +1,15 @@
+id: "011"
+title: Only asks whether there are penalties
+source: author
+tags: [cancellation]
+billing_stub_mode: none
+turns:
+  - user: "if I cancel now what does it cost me? contract FP-2024-092003"
+expect:
+  domain: cancellation
+  outcome: "handover:cancellation_request"
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+judge_notes: >
+  A question, not yet a request. It must state the constraints accurately
+  and leave the decision to the customer.

@@ -4,7 +4,7 @@ The design decision that matters here: **collected facts do not live in the
 transcript.** They live in `CollectedState`, populated by tool side effects.
 
 That is what makes §15's mid-conversation switch work. When a customer says
-"…comunque voglio disdire" halfway through a billing conversation, the
+"…actually, I want to cancel" halfway through a billing conversation, the
 cancellation domain's first render already contains the contract number. It is
 not re-asked because there is nothing to re-ask — rather than because an
 instruction told the model to remember.
@@ -109,10 +109,10 @@ class CollectedState(BaseModel):
     disputed_point: str | None = None
     """What the customer actually objects to (§13, billing disputes).
 
-    Distinct from the subject line: the subject is the headline
-    ("Contestazione addebito settembre 29,90 €"), this is the substance ("il
-    cliente dichiara un piano da 24,90 €"). Only the model can supply it,
-    because only it has read what the customer said."""
+    Distinct from the subject line: the subject is the headline ("September
+    charge disputed, €29.90"), this is the substance ("the customer says their
+    plan is €24.90"). Only the model can supply it, because only it has read
+    what the customer said."""
 
     disambiguation_candidates: list[ContractCandidate] = Field(default_factory=list)
 
@@ -134,42 +134,40 @@ class CollectedState(BaseModel):
         """
         lines: list[str] = []
         if self.contract_number:
-            lines.append(f"- Numero di contratto: {self.contract_number} (fornito dal cliente)")
+            lines.append(f"- Contract number: {self.contract_number} (given by the customer)")
         if self.billing:
             b = self.billing
-            lines.append(f"- Stato fatturazione: {b.status}")
+            lines.append(f"- Billing status: {b.status}")
             if b.amount is not None:
-                lines.append(f"- Importo: {b.amount} €")
+                lines.append(f"- Amount: €{b.amount}")
             if b.failure_reason:
-                lines.append(f"- Motivo del rifiuto: {b.failure_reason}")
+                lines.append(f"- Reason for refusal: {b.failure_reason}")
             if b.next_retry_date:
-                lines.append(f"- Prossimo tentativo: {b.next_retry_date.isoformat()}")
+                lines.append(f"- Next retry: {b.next_retry_date.isoformat()}")
             if b.payment_link:
-                lines.append(f"- Link di pagamento: {b.payment_link}")
-            lines.append(
-                f"- Vincolo: {b.lock_in_until.isoformat() if b.lock_in_until else 'nessuno'}"
-            )
+                lines.append(f"- Payment link: {b.payment_link}")
+            lines.append(f"- Lock-in: {b.lock_in_until.isoformat() if b.lock_in_until else 'none'}")
             if b.remaining_instalments:
-                lines.append(f"- Rate residue del modem: {b.remaining_instalments}")
+                lines.append(f"- Router instalments remaining: {b.remaining_instalments}")
         if self.stated_reason:
-            lines.append(f'- Motivo indicato dal cliente: "{self.stated_reason}"')
+            lines.append(f'- Reason the customer gave: "{self.stated_reason}"')
         if self.disambiguation_candidates:
-            lines.append("- Contratti da far scegliere al cliente (per indirizzo):")
+            lines.append("- Contracts for the customer to choose between (by address):")
             lines += [
                 f"    · {c.contract_number} — {c.service_address}"
                 for c in self.disambiguation_candidates
             ]
         if self.handover_reference:
-            lines.append(f"- Pratica già aperta: n. {self.handover_reference}")
+            lines.append(f"- Case already opened: no. {self.handover_reference}")
         if self.sensitive_data_seen:
             lines.append(
-                f"- Il cliente ha incollato dati sensibili "
-                f"({', '.join(self.sensitive_data_seen)}): non ripeterli mai."
+                f"- The customer pasted sensitive data "
+                f"({', '.join(self.sensitive_data_seen)}): never repeat it."
             )
 
         if not lines:
-            return "## Stato già raccolto\n\nNulla, per ora."
-        return "## Stato già raccolto\n\n" + "\n".join(lines)
+            return "## State already collected\n\nNothing yet."
+        return "## State already collected\n\n" + "\n".join(lines)
 
 
 class ConversationState(BaseModel):

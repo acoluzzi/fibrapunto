@@ -1,0 +1,13 @@
+id: "026"
+title: Colloquial register
+source: llm_variant
+tags: [billing, dirty_input]
+billing_stub_mode: none
+turns:
+  - user: "oi what's all this about you lot sending me a message saying I ain't paid? FP-2021-017350"
+expect:
+  domain: billing
+  outcome: resolved
+judge_notes: >
+  §10 criterion 3: it must handle an informal register without mirroring it.
+  The reply stays professional.

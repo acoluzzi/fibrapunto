@@ -28,15 +28,15 @@ log = structlog.get_logger(__name__)
 CAPABILITY_NAME = "billing_lookup"
 
 DESCRIPTION = (
-    "Consulta lo stato di fatturazione di un contratto. "
-    "Chiamala solo dopo che il cliente ha fornito un numero di contratto nel "
-    "formato FP-YYYY-NNNNNN. Non chiamarla mai con un numero ipotizzato o "
-    "ricostruito."
+    "Look up the billing status of a contract. "
+    "Call it only after the customer has provided a contract number in the "
+    "format FP-YYYY-NNNNNN. Never call it with a guessed or reconstructed "
+    "number."
 )
 
 INPUT_DESCRIPTION = (
-    "Il numero di contratto fornito dal cliente, formato FP-YYYY-NNNNNN. "
-    "Deve provenire dal cliente alla lettera."
+    "The contract number the customer provided, format FP-YYYY-NNNNNN. "
+    "It must come from the customer verbatim."
 )
 
 

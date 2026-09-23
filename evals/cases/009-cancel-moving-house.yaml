@@ -1,0 +1,19 @@
+id: "009"
+title: Cancelling after moving house
+source: author
+tags: [cancellation, handover]
+billing_stub_mode: none
+turns:
+  - user: "I want to close my contract, I've moved house"
+  - user: "FP-2024-092003"
+expect:
+  domain: cancellation
+  outcome: "handover:cancellation_request"
+  capabilities:
+    - { name: billing_lookup, outcome: found }
+    - { name: create_handover_record, outcome: created }
+  must_not_contain: ["i have cancelled", "has been completed", "discount", "offer you"]
+judge_notes: >
+  §4.2: acknowledge without talking the customer out of it, state the lock-
+  in and the instalments, and open a high-priority case. No retention
+  offers.

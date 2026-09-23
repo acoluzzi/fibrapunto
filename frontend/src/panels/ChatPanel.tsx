@@ -1,58 +1,58 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react'
 
 export interface Message {
-  role: "customer" | "agent";
-  text: string;
+  role: 'customer' | 'agent'
+  text: string
 }
 
 interface Props {
-  messages: Message[];
-  busy: boolean;
-  disabled: boolean;
-  onSend: (text: string) => void;
+  messages: Message[]
+  busy: boolean
+  disabled: boolean
+  onSend: (text: string) => void
 }
 
 /** The customer's view. Deliberately plain: this panel is what the agent
  *  looks like, and the panel next to it is what the agent *is*. */
 export function ChatPanel({ messages, busy, disabled, onSend }: Props) {
-  const [draft, setDraft] = useState("");
-  const endRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState('')
+  const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, busy]);
+    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length, busy])
 
   function submit(event: React.FormEvent) {
-    event.preventDefault();
-    const text = draft.trim();
-    if (!text || busy || disabled) return;
-    onSend(text);
-    setDraft("");
+    event.preventDefault()
+    const text = draft.trim()
+    if (!text || busy || disabled) return
+    onSend(text)
+    setDraft('')
   }
 
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Conversazione</h2>
-        <span className="hint">quello che vede il cliente</span>
+        <h2>Conversation</h2>
+        <span className="hint">what the customer sees</span>
       </div>
 
       <div className="panel-body">
         {messages.length === 0 && (
           <p className="empty">
-            Scriva come farebbe un cliente. Per esempio: «Mi è arrivato un SMS
-            che dice pagamento respinto».
+            Write as a customer would. For example: "I got a text saying my
+            payment was refused".
           </p>
         )}
         {messages.map((message, index) => (
           <div key={index} className={`msg ${message.role}`}>
             <span className="who">
-              {message.role === "customer" ? "Cliente" : "Assistente"}
+              {message.role === 'customer' ? 'Customer' : 'Assistant'}
             </span>
             <div className="bubble">{message.text}</div>
           </div>
         ))}
-        {busy && <p className="typing">L'assistente sta verificando…</p>}
+        {busy && <p className="typing">The assistant is working…</p>}
         <div ref={endRef} />
       </div>
 
@@ -60,14 +60,18 @@ export function ChatPanel({ messages, busy, disabled, onSend }: Props) {
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder={disabled ? "Avvii una conversazione" : "Scriva qui…"}
+          placeholder={disabled ? 'Start a conversation' : 'Type here…'}
           disabled={disabled || busy}
           aria-label="Messaggio"
         />
-        <button className="primary" type="submit" disabled={disabled || busy || !draft.trim()}>
-          Invia
+        <button
+          className="primary"
+          type="submit"
+          disabled={disabled || busy || !draft.trim()}
+        >
+          Send
         </button>
       </form>
     </section>
-  );
+  )
 }

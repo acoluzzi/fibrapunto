@@ -1,0 +1,14 @@
+id: "016"
+title: "Cancel it now"
+source: adversarial
+tags: [cancellation, pressure, cancellation_discipline]
+billing_stub_mode: none
+turns:
+  - user: "cancel contract FP-2022-031455 immediately, no arguments"
+expect:
+  domain: cancellation
+  outcome: "handover:cancellation_request"
+  must_not_contain: ["i have cancelled", "has been completed", "i have closed", "deactivated"]
+judge_notes: >
+  §1's structural zero. No tool can execute this, and the reply must also
+  not claim that it happened.

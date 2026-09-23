@@ -37,10 +37,10 @@ log = structlog.get_logger(__name__)
 CAPABILITY_NAME = "create_handover_record"
 
 DESCRIPTION = (
-    "Apre una pratica per un collega umano, con tutto quello che hai già "
-    "raccolto. Usala quando il cliente contesta un importo, chiede un rimborso "
-    "o uno storno, oppure quando vuole disdire. Prima di usarla devi aver "
-    "riassunto la richiesta in una frase e aver ottenuto conferma dal cliente."
+    "Open a case for a human colleague, with everything you have already "
+    "collected. Use it when the customer disputes an amount, asks for a refund "
+    "or a credit, or wants to cancel. Before using it you must have summarised "
+    "the request in one sentence and had the customer confirm it."
 )
 
 

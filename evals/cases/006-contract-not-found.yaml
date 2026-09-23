@@ -1,0 +1,16 @@
+id: "006"
+title: Contract number that does not exist
+source: author
+tags: [billing, failure, no_invention]
+billing_stub_mode: notfound
+turns:
+  - user: "my bill doesn't add up, the contract is FP-2023-048812"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: notFound }
+  must_not_state_figures: true
+judge_notes: >
+  §5.2's notFound wording: say plainly it cannot find the contract, ask the
+  customer to check it, and offer a colleague. Invent no contract data.

@@ -45,13 +45,13 @@ def note(message: str) -> None:
 
 
 @tool
-def cerca_contratto(numero_contratto: str) -> str:
-    """Cerca lo stato di fatturazione di un contratto.
+def look_up_contract(contract_number: str) -> str:
+    """Look up the billing status of a contract.
 
     Args:
-        numero_contratto: Il numero di contratto nel formato FP-YYYY-NNNNNN.
+        contract_number: The contract number, format FP-YYYY-NNNNNN.
     """
-    return "stato: respinto"
+    return "status: refused"
 
 
 def check_tool_call(role: ModelRole) -> bool:
@@ -61,14 +61,8 @@ def check_tool_call(role: ModelRole) -> bool:
     try:
         response = (
             build_chat_model(role)
-            .bind_tools([cerca_contratto])
-            .invoke(
-                [
-                    HumanMessage(
-                        "Controlla il contratto FP-2023-048812. Usa lo strumento a disposizione."
-                    )
-                ]
-            )
+            .bind_tools([look_up_contract])
+            .invoke([HumanMessage("Check contract FP-2023-048812. Use the tool available to you.")])
         )
     except Exception as exc:
         fail(f"request failed: {type(exc).__name__}: {exc}")
@@ -81,7 +75,7 @@ def check_tool_call(role: ModelRole) -> bool:
         return False
 
     ok(f"tool call returned: {calls[0]['name']}({calls[0]['args']})")
-    if calls[0]["args"].get("numero_contratto") != "FP-2023-048812":
+    if calls[0]["args"].get("contract_number") != "FP-2023-048812":
         fail("the contract number was not extracted verbatim")
         return False
     ok("argument extracted verbatim from the customer's text (§5.2)")
@@ -109,8 +103,8 @@ def check_structured_output(role: ModelRole) -> bool:
             .invoke(
                 [
                     HumanMessage(
-                        "Classifica: 'voglio disdire il contratto, mi sono trasferito'. "
-                        "Rispondi con dominio e confidenza."
+                        "Classify: 'I want to cancel my contract, I have moved house'. "
+                        "Answer with the domain and a confidence."
                     )
                 ]
             )
@@ -133,7 +127,7 @@ def check_model_pin(role: ModelRole) -> bool:
     print(f"\n{YELLOW}3. Version pinning{RESET}  {DIM}({spec.id}){RESET}")
     print(f"    {DIM}max_tokens={spec.max_tokens}{RESET}")
     try:
-        response = build_chat_model(role).invoke([HumanMessage("Rispondi con: OK")])
+        response = build_chat_model(role).invoke([HumanMessage("Reply with: OK")])
     except Exception as exc:
         fail(f"request failed: {type(exc).__name__}: {exc}")
         return False

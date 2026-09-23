@@ -69,7 +69,7 @@ def build_context(state: ConversationState, trigger: str) -> dict[str, Any]:
         # a gap the receiving operator has to interpret — and §5.1's principle
         # applied to the exit path: report what happened, not what was
         # supposed to.
-        context["billing_status"] = "non disponibile"
+        context["billing_status"] = "not available"
         context["constraints"] = None
 
     if collected.disputed_point:
@@ -93,12 +93,14 @@ def add_cancellation_fields(
     something the company can be held to."
     """
     context["request_date"] = date.today().isoformat()
-    context["tenure"] = f"cliente dal {activation.isoformat()}" if activation else "non disponibile"
+    context["tenure"] = (
+        f"customer since {activation.isoformat()}" if activation else "not available"
+    )
     if state.collected.billing is None:
         # §4.2 instruction 3 requires stating the constraints. If they could not
         # be read, the record must say so — silence here reads to the operator
         # as "no constraints", which is a different and wrong statement.
-        context["constraints"] = "non verificabili: il sistema non ha risposto"
+        context["constraints"] = "not verifiable: the system did not respond"
     return context
 
 

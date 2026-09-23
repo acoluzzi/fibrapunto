@@ -50,7 +50,7 @@ customer text
    │     detectors validate (IBAN mod-97, Luhn, CF check char),
    │     kinds recorded in state, digits replaced
    │
-   ├─ 2. router.classify → router.policy.apply        §4   ← skipped on a confirmation "Sì"
+   ├─ 2. router.classify → router.policy.apply        §4   ← skipped on a confirmation "Yes"
    │     model proposes a domain; hysteresis and the
    │     confirmation lock decide
    │
@@ -100,8 +100,8 @@ failure outcome carries its own `guidance`, marked `InternalOnly`:
 class BillingServiceUnavailable(BaseModel):
     outcome: Literal["serviceUnavailable"] = "serviceUnavailable"
     guidance: str = InternalOnly(..., default=(
-        "Il sistema di fatturazione non risponde. Dillo chiaramente, non "
-        "fornire nessun importo né data, e offri l'apertura di una pratica."))
+        "The billing system is not responding. Tell the customer plainly, "
+        "give NO amount and NO date, and offer to open a case."))
 ```
 
 §5.2's output description delivered as *payload*, arriving with the failure,

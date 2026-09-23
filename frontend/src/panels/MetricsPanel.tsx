@@ -35,24 +35,24 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
   return (
     <section className="panel">
       <div className="panel-head">
-        <h2>Metriche</h2>
-        <span className="hint">questa sessione</span>
+        <h2>Metrics</h2>
+        <span className="hint">this session</span>
       </div>
       <div className="panel-body">
         <div className="tiles">
-          <Tile label="Turni" value={String(turns)} />
+          <Tile label="Turns" value={String(turns)} />
           <Tile
-            label="Latenza p50"
+            label="Latency p50"
             value={p50 == null ? "—" : (p50 / 1000).toFixed(1)}
             unit={p50 == null ? undefined : "s"}
           />
-          <Tile label="Verifiche" value={String(sum(outcomes))} />
-          <Tile label="Guardrail" value={String(guardrailHits)} />
+          <Tile label="Lookups" value={String(sum(outcomes))} />
+          <Tile label="Guardrails" value={String(guardrailHits)} />
         </div>
 
-        <div className="section-title">Esiti delle capability</div>
+        <div className="section-title">Capability outcomes</div>
         {outcomes.size === 0 ? (
-          <p className="empty">Nessuna verifica ancora.</p>
+          <p className="empty">No lookups yet.</p>
         ) : (
           <table className="metrics">
             <tbody>
@@ -74,7 +74,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           </table>
         )}
 
-        <div className="section-title">Stato</div>
+        <div className="section-title">State</div>
         <table className="metrics">
           <tbody>
             <Row label="Dominio" value={last?.domain ?? "—"} />
@@ -84,7 +84,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           </tbody>
         </table>
 
-        <div className="section-title">Perimetro (§8)</div>
+        <div className="section-title">Perimeter (§8)</div>
         {perimeter ? (
           <table className="metrics">
             <tbody>
@@ -93,7 +93,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
                 <td className="num">
                   <span className={`badge ${perimeter.svc_agent?.allowed ? "good" : "critical"}`}>
                     <span aria-hidden="true">{perimeter.svc_agent?.allowed ? "●" : "■"}</span>
-                    {perimeter.svc_agent?.allowed ? "consentito" : "negato"}
+                    {perimeter.svc_agent?.allowed ? "allowed" : "denied"}
                   </span>
                 </td>
               </tr>
@@ -102,7 +102,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
                 <td className="num">
                   <span className={`badge ${perimeter.platform_admin?.allowed ? "good" : "critical"}`}>
                     <span aria-hidden="true">{perimeter.platform_admin?.allowed ? "●" : "■"}</span>
-                    {perimeter.platform_admin?.allowed ? "consentito" : "negato"}
+                    {perimeter.platform_admin?.allowed ? "allowed" : "denied"}
                   </span>
                 </td>
               </tr>
@@ -112,18 +112,18 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           <p className="empty">—</p>
         )}
         <p className="note">
-          Stessa query, due identità: <code>customer.email</code>. La differenza
-          è una GRANT di Postgres, non un'istruzione.
+          Same query, two identities: <code>customer.email</code>. The
+          difference is a Postgres GRANT, not an instruction.
         </p>
 
-        <div className="section-title">Domini attivi (§17.1)</div>
+        <div className="section-title">Active domains (§17.1)</div>
         <table className="metrics">
           <tbody>
             {domains.map((domain) => (
               <tr key={domain.key}>
                 <td>
                   {domain.key}
-                  {!domain.enabled && <span className="chip" style={{ marginLeft: 6 }}>non attivo</span>}
+                  {!domain.enabled && <span className="chip" style={{ marginLeft: 6 }}>not enabled</span>}
                 </td>
                 <td className="num">{domain.capabilities.length}</td>
               </tr>
@@ -131,15 +131,15 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           </tbody>
         </table>
         <p className="note">
-          Il numero è quante capability quel dominio può chiamare. La disdetta
-          non ne ha nessuna che possa eseguirla: per questo la metrica §1 vale
-          zero per costruzione.
+          The number is how many capabilities that domain may call.
+          Cancellation has none that can execute one — which is why the §1
+          metric is zero by construction.
         </p>
 
-        <div className="section-title">Metriche §1</div>
+        <div className="section-title">§1 metrics</div>
         <p className="empty">
-          Disponibili dopo <code>make eval</code>: sono calcolate sulla
-          traccia di 30 conversazioni, non su questa.
+          Available after <code>make eval</code>: they are computed over the
+          trace of 30 conversations, not this one.
         </p>
       </div>
     </section>

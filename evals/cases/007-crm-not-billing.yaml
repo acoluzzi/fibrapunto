@@ -1,0 +1,16 @@
+id: "007"
+title: Exists in the CRM, not in billing
+source: author
+tags: [billing, failure, systems_disagree]
+billing_stub_mode: none
+turns:
+  - user: "good morning, I'd like to know the payment status for contract FP-2020-004199"
+expect:
+  domain: billing
+  outcome: "handover:billing_dispute"
+  capabilities:
+    - { name: billing_lookup, outcome: notFound }
+  must_not_state_figures: true
+judge_notes: >
+  §6.2's deliberate misalignment. The agent cannot tell a typo from two
+  systems disagreeing, which is exactly why it must not guess.

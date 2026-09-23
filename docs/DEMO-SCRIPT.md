@@ -27,6 +27,25 @@ are the ones to keep when time is short.
 
 ---
 
+## Before you start
+
+```bash
+make demo          # up + reset, prints the URLs
+```
+
+- chat + trace + metrics → <http://localhost:5173>
+- the operator's queue → <http://localhost:5173/operator>
+- the billing system → <http://localhost:8081/docs>
+
+Have a second terminal open at the repo root. Two beats run there.
+
+**Check first:** the trace panel shows `session.started`, and the metrics panel's
+perimeter row reads `denied` for `svc_agent`. If either is missing, `make reset`.
+
+---
+
+---
+
 ## A · Framing · 4 min
 
 Three things, no slides needed beyond a title:
@@ -52,26 +71,9 @@ Seven beats. Each shows a claim being structural rather than described.
 
 ---
 
-## Before you start
-
-```bash
-make demo          # up + reset, prints the URLs
-```
-
-- chat + trace + metrics → <http://localhost:5173>
-- the operator's queue → <http://localhost:5173/operatore>
-- the billing system → <http://localhost:8081/docs>
-
-Have a second terminal open at the repo root. Two beats run there.
-
-**Check first:** the trace panel shows `session.started`, and the metrics panel's
-perimeter row reads `negato` for `svc_agent`. If either is missing, `make reset`.
-
----
-
 ## 1 · A conversation that works · ~2 min
 
-> "Buongiorno, mi è arrivato un SMS che dice pagamento respinto. Cosa succede?"
+> "Good morning, I got a text saying my payment was refused. What's going on?"
 
 The agent asks for the contract number before discussing anything. **Say that
 out loud** — §4.1's first instruction, and §16 states the trade-off honestly: it
@@ -90,9 +92,9 @@ domain, not to the agent.
 
 ## 2 · Break the billing system mid-conversation · ~2 min
 
-Press **Provoca ora → timeout** in the control strip. Then, in the chat:
+Press **Provoke now → fault** in the control strip. Then, in the chat:
 
-> "E quindi quanto devo pagare?"
+> "So how much do I have to pay?"
 
 The agent says the system is not responding and offers to open a case. It does
 **not** invent an amount.
@@ -106,7 +108,7 @@ If someone asks "but would it really not invent one?", that is beat 6.
 
 ## 3 · Change the subject · ~2 min
 
-> "Sa una cosa, lasci stare. Voglio disdire."
+> "You know what, forget it. I want to cancel."
 
 Two things to point at, in this order:
 
@@ -117,15 +119,15 @@ Two things to point at, in this order:
    none of them can execute a cancellation — that is why §1's "autonomous
    cancellations: 0" is a structural zero rather than a well-behaved one.
 
-Answer the agent's confirmation with **"Sì, confermo"**. It opens a case and
+Answer the agent's confirmation with **"Yes, that's correct"**. It opens a case and
 gives a reference number.
 
 ## 4 · Ask for something it must not have · ~1 min
 
-> "Mi può dire qual è l'email associata al contratto?"
+> "Can you tell me the email address on the contract?"
 
 It cannot. Now show *why*, in the metrics panel: the same query under two
-identities, `svc_agent` **negato** and `platform_admin` **consentito**.
+identities, `svc_agent` **denied** and `platform_admin` **allowed**.
 
 Then the line that matters:
 
@@ -170,7 +172,7 @@ amount because it was asked nicely.
 
 ## 7 · The record a human actually receives · ~2 min
 
-Open **/operatore**. The case from beat 3 is there, with:
+Open **/operator**. The case from beat 3 is there, with:
 
 - `queue` and `priority` **derived by code**, never chosen by the model, with DB
   `CHECK` constraints behind them (§13);
@@ -264,7 +266,7 @@ Prepared answers, because these are the predictable ones.
 
 Paste an IBAN into the chat. The agent tells the customer not to send payment
 credentials in chat and continues without it. The trace shows
-`redaction_applied` with the **kind** and never the value.
+`privacy.redaction_applied` with the **kind** and never the value.
 
 Then say the honest part, because it is in the spec and volunteering it is
 better than being asked: §9 admits that by the time that rule applies, the text
@@ -296,7 +298,7 @@ a sequence is not one.
 | Symptom | Fix |
 |---|---|
 | Agent replies with the safe fallback repeatedly | a guard is firing; open the trace, it names which one |
-| Billing always fails | a `Provoca` TTL is still live — press **Ripristina**, or wait 120s |
+| Billing always fails | a `Provoke` TTL is still live — press **restore**, or wait 120s |
 | Empty operator queue | `make reset`, then re-run beat 3 |
 | Chat does not stream | SSE needs `proxy_buffering off`; check the frontend container is the built image, not a stale one |
 | Model errors mentioning credits | OpenRouter balance — the agent cannot run without it |

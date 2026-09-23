@@ -53,13 +53,13 @@ def state_for(domain: DomainKey, contract: str | None = LINKED) -> ConversationS
     """A conversation that has already collected what §13 requires."""
     state = ConversationState(current_domain=domain)
     state.collected.contract_number = contract
-    state.collected.stated_reason = "mi sono trasferito"
-    state.collected.told_to_customer = ["Il vincolo termina il 10 maggio 2026 e restano 2 rate."]
+    state.collected.stated_reason = "I have moved house"
+    state.collected.told_to_customer = ["The lock-in ends on 10 May 2026 and 2 instalments remain."]
     state.collected.billing = BillingFacts(status="paid", amount=None, remaining_instalments=2)
     return state
 
 
-async def create(state, gateway, subject="Richiesta disdetta — trasloco"):
+async def create(state, gateway, subject="Cancellation request — moving house"):
     return await create_handover_record(
         state=state,
         gateway=gateway,
@@ -79,7 +79,7 @@ async def test_a_cancellation_record_is_created(gateway, clean_db):
     assert result.reference == "00001042", (
         "the first reference of a fresh demo should match §4.1's worked example"
     )
-    assert "giorno lavorativo" in result.response_window
+    assert "working day" in result.response_window
 
 
 async def test_queue_and_priority_are_derived_not_chosen(gateway, clean_db):
@@ -145,7 +145,7 @@ async def test_what_the_customer_was_told_is_carried(gateway, clean_db):
         await clean_db.fetchval("SELECT collected_context FROM crm.handover_record")
     )
     assert context["what_customer_was_told"]
-    assert "10 maggio 2026" in context["what_customer_was_told"][0]
+    assert "10 May 2026" in context["what_customer_was_told"][0]
 
 
 # --- §13: the contract that cannot be linked ---------------------------------
@@ -197,16 +197,16 @@ async def test_a_failed_handover_carries_no_reference_at_all(gateway, clean_db):
 
     result = await create(state, gateway)
     assert not hasattr(result, "reference")
-    assert "non dare nessun numero di pratica" in result.guidance.lower()
+    assert "give no case number" in result.guidance.lower()
 
 
 async def test_a_billing_dispute_routes_to_the_other_queue(gateway, clean_db):
     state = state_for(DomainKey.billing)
     state.collected.billing = BillingFacts(status="failed", failure_reason="fondi")
-    state.collected.told_to_customer = ["L'addebito è stato respinto."]
+    state.collected.told_to_customer = ["The charge was refused."]
     # §13 requires a billing dispute to record what is actually disputed —
     # supplied by the model, since only it knows what the customer objected to.
-    state.collected.disputed_point = "il cliente dichiara un piano da 24,90 €"
+    state.collected.disputed_point = "the customer says their plan is €24.90"
 
     result = await create_handover_record(
         state=state,
@@ -251,7 +251,7 @@ def _context(**overrides):
     base = {
         "lookups": [],
         "escalation_trigger": "billing_unavailable",
-        "what_customer_was_told": ["Il sistema non risponde."],
+        "what_customer_was_told": ["The system is not responding."],
         "billing_status": "non disponibile",
     }
     base.update(overrides)
@@ -263,7 +263,7 @@ def test_a_dispute_is_not_required_when_no_figure_was_ever_read():
     missing = completeness.missing_fields(
         "billing_dispute",
         _context(lookups=[{"capability": "billing_lookup", "outcome": "serviceUnavailable"}]),
-        subject="Addebito diretto fallito, verifica non riuscita",
+        subject="Direct debit failed, lookup unsuccessful",
     )
     assert missing == [], f"the record must be creatable; missing={missing}"
 
@@ -279,7 +279,7 @@ def test_a_dispute_is_still_required_when_the_amount_was_read():
             billing_status="failed",
             amount_eur="29.90",
         ),
-        subject="Contestazione importo",
+        subject="Amount disputed",
     )
     assert missing == ["disputed_point"]
 
@@ -290,9 +290,9 @@ def test_the_dispute_requirement_is_satisfied_once_collected():
         _context(
             lookups=[{"capability": "billing_lookup", "outcome": "found"}],
             billing_status="failed",
-            disputed_point="Il piano è 24,90, non 29,90",
+            disputed_point="The plan is €24.90, not €29.90",
         ),
-        subject="Contestazione importo",
+        subject="Amount disputed",
     )
     assert missing == []
 
@@ -304,6 +304,6 @@ def test_what_the_customer_was_told_is_required_either_way():
     missing = completeness.missing_fields(
         "billing_dispute",
         _context(what_customer_was_told=[]),
-        subject="Qualcosa",
+        subject="Something",
     )
     assert "what_customer_was_told" in missing

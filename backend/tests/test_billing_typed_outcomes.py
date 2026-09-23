@@ -82,13 +82,13 @@ async def test_found(patched_httpx):
     assert isinstance(result, BillingFound)
     assert result.status == "failed"
     assert str(result.amount) == "29.90", "the exact amount must survive the round trip"
-    assert result.failure_reason == "fondi insufficienti al momento dell'addebito"
+    assert result.failure_reason == "insufficient funds at the time of the charge"
 
 
 async def test_not_found(patched_httpx):
     result = await make_client().lookup(CONTRACT, test_mode="notfound")
     assert isinstance(result, BillingNotFound)
-    assert "non inventare" in result.guidance.lower()
+    assert "invent no contract data" in result.guidance.lower()
 
 
 async def test_contract_in_crm_but_not_in_billing(patched_httpx):
