@@ -109,19 +109,43 @@ function Detail({ record }: { record: any }) {
           ))}
         </dd>
 
-        <dt>Contatti</dt>
-        <dd>{record.customer_contact.email} · {record.customer_contact.phone}</dd>
+        <dt>Come ricontattarlo</dt>
+        <dd>
+          {record.customer_contact.email || record.customer_contact.phone ? (
+            <>
+              {[record.customer_contact.email, record.customer_contact.phone]
+                .filter(Boolean)
+                .join(" · ")}
+              <span className="chip">letto come operatore</span>
+            </>
+          ) : (
+            /* Empty because the record carries no customer: the contract could
+               not be linked, so there is nobody to join to. Saying why beats a
+               blank field that reads as a missing permission. */
+            <span className="muted">
+              non disponibile — la pratica non è collegata a un contratto
+            </span>
+          )}
+        </dd>
       </dl>
 
       <p className="note">
-        L'assistente non può leggere queste ultime due colonne: non ha la GRANT
-        su <code>customer.email</code> né su <code>internal_comments</code>. Che
-        siano qui è l'identità dell'operatore che fa qualcosa che l'agente non
-        può fare (§8).
+        Questa riga è il §8 visto dall'altro lato. L'assistente non ha la GRANT
+        su <code>customer.email</code> e <code>customer.phone</code>: quei dati
+        non sono mai entrati nel suo contesto, quindi non poteva ripeterli né
+        inviarli a un modello. La stessa query, eseguita qui come
+        <code> platform_admin</code>, li restituisce. Non è un permesso diverso
+        nell'interfaccia — è un'identità di database diversa.
       </p>
 
+      {/* The named rows above are the operator's view. This is the engineer's:
+          the raw column, shown to make the point that a handover record is
+          structured data with named keys rather than a paragraph of prose (§13)
+          — which is what makes "complete" measurable instead of degrading into
+          "long enough". Collapsed, because an operator picking up the phone
+          should never need to open it. */}
       <details className="raw" style={{ marginTop: 16 }}>
-        <summary>Contesto completo</summary>
+        <summary>collected_context — la colonna grezza (§13)</summary>
         <pre>{JSON.stringify(record.context, null, 2)}</pre>
       </details>
     </div>

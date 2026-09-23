@@ -303,6 +303,12 @@ table.metrics td.num { text-align: right; }
 
 .empty { color: var(--text-muted); font-size: 12px; padding: 8px 0; }
 
+/* A field that is empty for a reason, not for want of a permission. */
+.muted {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .note {
   font-size: 11px;
   color: var(--text-muted);
