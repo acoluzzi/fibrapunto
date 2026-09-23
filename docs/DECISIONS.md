@@ -15,6 +15,12 @@ where the judgement is.
 **Status key** — `settled` · `open` (gate and date given) · `reversed` (kept for
 the record) · `deviation` (departs from the spec; also in [DEVIATIONS.md](DEVIATIONS.md))
 
+**On the numbers.** They are assigned in the order decisions were *made* and are
+stable thereafter — source files cite them (`DECISIONS #16`), so renumbering
+would silently break those references. Entries are grouped by topic rather than
+by number, so the sequence runs out of order where a later decision belongs
+beside an earlier one.
+
 ---
 
 ## Frame
@@ -382,6 +388,58 @@ check character.
 
 **Why.** Regex alone produces false positives, and a redaction demo that mangles
 an ordinary number in front of an audience discredits the whole pipeline.
+
+### 21. Four enforcement points; only the first is optional · `settled`
+
+**Decision.** Redaction is applied at four boundaries — inbound to the model,
+into the stored transcript, into the handover record, outbound to the customer.
+`REDACT_INBOUND` governs **only** the first.
+
+**Why.** The toggle exists to demonstrate §9's honest limitation (see 16). If
+storage redaction were conditional on it, flipping it during a demo would start
+writing raw IBANs to disk — the toggle would silently be a data-protection
+switch rather than a model-exposure switch, which is the opposite of what it is
+for. §11's argument about layers, applied to §9: each boundary defends itself.
+
+The fourth point looks redundant while inbound redaction is on, because the
+model never held the digits and structurally cannot echo them. It is the only
+guard left when the toggle is off — which is exactly the moment a missing one
+would be missed.
+
+**What it cost.** Redaction now runs up to four times on the same text. At these
+volumes that is not measurable, and the alternative — one carefully-placed call
+plus a comment asking future callers to be careful — is the class of control
+§8.1 criticises.
+
+**Enforced at the write boundary, not by the caller.** `store_transcript` is the
+only write path to `platform.turn` and redacts whatever it is given;
+`build_values` is the only INSERT path for a handover record and scrubs every
+free-text field. A column named `text_redacted` is documentation, and
+documentation is not an enforcement mechanism.
+
+### 22. Retention nulls the words and keeps the skeleton · `settled`
+
+**Decision.** The hourly sweep sets `text_redacted = NULL` and replaces trace
+event attributes, keeping the rows, their timings, their outcomes and the event
+names.
+
+**Why.** Three reasons, and the first is the one that decided it:
+
+- §1's metrics are computed over these rows. Deleting them would make every
+  historical number drift as the retention window moved, and **a measurement
+  that changes because time passed is not a measurement.**
+- §14 wants "the progression across runs". A run from six weeks ago has to stay
+  comparable to today's, which it cannot be if its denominator evaporated.
+- A data subject asking what is held gets a truthful, complete answer: a row
+  saying a conversation happened, when, and how it ended, with no content. That
+  is a better answer than a missing row, which is indistinguishable from never
+  having existed.
+
+**The non-obvious part.** Trace event *attributes* are purged wholesale rather
+than field by field. `text_redacted` is obviously content and gets handled
+carefully; an attributes blob accumulates whatever a call site passed it. Rather
+than trusting every present and future `emit()` to be careful, the sweep
+replaces the whole object.
 
 ---
 

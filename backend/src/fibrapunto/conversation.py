@@ -32,7 +32,7 @@ from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceRecorder
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import svc_agent
-from fibrapunto.privacy import detectors
+from fibrapunto.privacy import redaction
 from fibrapunto.router import policy
 from fibrapunto.router.classifier import classify
 from fibrapunto.settings import get_settings
@@ -126,18 +126,25 @@ class Conversation:
         # sent to the provider. The model still learns that an IBAN was pasted,
         # so it can tell the customer not to send one — but the digits never
         # leave this process.
-        if get_settings().redact_inbound:
-            text, kinds = detectors.redact(text)
-            if kinds:
-                for kind in kinds:
-                    if kind.value not in state.collected.sensitive_data_seen:
-                        state.collected.sensitive_data_seen.append(kind.value)
-                self.trace.emit(
-                    EventType.redaction_applied,
-                    turn_seq=state.turn_count + 1,
-                    # The KIND, never the value (§9).
-                    kinds=[k.value for k in kinds],
-                )
+        #
+        # `for_model` is the only optional enforcement point; the other three
+        # (storage, handover, outbound) apply regardless, so the toggle changes
+        # what the *model* sees and nothing else. See privacy/redaction.py.
+        text, kinds = redaction.for_model(text)
+        if kinds:
+            for kind in kinds:
+                if kind.value not in state.collected.sensitive_data_seen:
+                    state.collected.sensitive_data_seen.append(kind.value)
+            self.trace.emit(
+                EventType.redaction_applied,
+                turn_seq=state.turn_count + 1,
+                # False means the toggle is off and the model did receive the
+                # value — the trace should say so rather than implying a
+                # redaction that did not happen (§9's honest limitation).
+                redacted=get_settings().redact_inbound,
+                # The KIND, never the value (§9).
+                kinds=[k.value for k in kinds],
+            )
 
         state.record_turn(TurnRole.customer, text)
         self.trace.emit(EventType.turn_received, turn_seq=state.turn_count)
@@ -210,6 +217,20 @@ class Conversation:
                 substituted=guarded.substituted,
             )
         reply_text = guarded.text
+
+        # §9's fourth enforcement point: "never repeat such a value back in the
+        # conversation." Not a guard — a guard inspects and may block, this
+        # unconditionally removes — so it sits after the pipeline rather than
+        # inside it. Unreachable while inbound redaction is on, because the
+        # model never held the digits; it is the only thing left when the
+        # demo toggle is off, which is exactly when it would be missed.
+        reply_text, echoed = redaction.for_customer(reply_text)
+        if echoed:
+            self.trace.emit(
+                EventType.outbound_filter_applied,
+                turn_seq=state.turn_count,
+                kinds=[k.value for k in echoed],
+            )
 
         # Capability calls are recorded into state by the dispatcher; mirror
         # the new ones into the trace so the panel can interleave them with the

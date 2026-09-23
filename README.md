@@ -50,6 +50,7 @@ make perimeter-proof     # the same query under both identities, side by side
 | `docs/ARCHITECTURE.md` | How the code maps onto the spec's sections |
 | `docs/DEVIATIONS.md` | Where the implementation departs from the spec, and why |
 | `docs/FRICTION-LOG.md` | What fought back, with the cost in hours |
+| `docs/DEMO-SCRIPT.md` | Seven beats, twelve minutes, and what to say during each |
 | `docs/SCALING.md` | What breaks first as this grows, in what order, and what the fix costs |
 | `contracts/` | The three contracts: billing OpenAPI, capability definitions, the authorization perimeter |
 | `backend/` | The agent and the platform |

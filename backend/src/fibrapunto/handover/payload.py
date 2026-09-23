@@ -22,6 +22,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from fibrapunto.handover.routing import Routing
+from fibrapunto.privacy import redaction
 from fibrapunto.state.models import ConversationState
 
 
@@ -115,6 +116,11 @@ def build_values(
     INSERT grant on either. The reference comes from a sequence it may only
     USAGE (§12.4) and the agent-handled flag defaults true (§13). Both are the
     database's to decide, not ours.
+
+    Every free-text field is scrubbed here rather than at each call site (§9:
+    "never write it into a handover record or any other stored field"). This is
+    the single chokepoint for the INSERT, so it is the only place where the
+    guarantee holds regardless of which path assembled the values.
     """
     return {
         "record_type": routing.record_type,
@@ -124,8 +130,8 @@ def build_values(
         "claimed_contract_number": state.collected.contract_number,
         "contract_link_missing": not contract_linked,
         "customer_id": customer_id if contract_linked else None,
-        "subject": subject,
-        "collected_context": context,
-        "stated_reason": state.collected.stated_reason,
+        "subject": redaction.for_handover(subject),
+        "collected_context": redaction.for_handover(context),
+        "stated_reason": redaction.for_handover(state.collected.stated_reason),
         "origin_session_id": state.id,
     }

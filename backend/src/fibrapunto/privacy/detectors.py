@@ -187,5 +187,16 @@ def redact(text: str) -> tuple[str, list[SensitiveKind]]:
     return "".join(out), sorted({f.kind for f in findings})
 
 
+def find_kinds(text: str) -> list[SensitiveKind]:
+    """What kinds are present, without altering the text.
+
+    For the one path that must *know* a value was pasted while deliberately not
+    removing it — inbound redaction switched off (§9, DECISIONS #16). The
+    conversation still records that an IBAN was seen, so the agent still tells
+    the customer not to send one.
+    """
+    return sorted({f.kind for f in find(text)})
+
+
 def contains_sensitive(text: str) -> bool:
     return bool(find(text))

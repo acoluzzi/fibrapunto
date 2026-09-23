@@ -140,6 +140,24 @@ function Detail({ event }: { event: TraceEvent }) {
             <span aria-hidden="true">◆</span>
             {(event.kinds as string[]).join(", ")}
           </span>
+          {/* The toggle is off: the model did receive the value. The trace says
+              so rather than implying a redaction that did not happen. */}
+          {event.redacted === false && (
+            <span className="chip">non rimosso — inviato al modello</span>
+          )}
+        </div>
+      );
+
+    case "privacy.outbound_filter_applied":
+      return (
+        <div className="detail">
+          {/* §9's fourth enforcement point. Reaching this means the reasoning
+              layer produced a value it should never have held — which is only
+              possible with inbound redaction switched off. */}
+          <span className="badge critical">
+            <span aria-hidden="true">■</span>
+            rimosso dalla risposta: {(event.kinds as string[]).join(", ")}
+          </span>
         </div>
       );
 

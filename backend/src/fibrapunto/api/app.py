@@ -15,7 +15,8 @@ the platform schema, for §14 and §17.10.
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 from uuid import UUID
 
@@ -32,6 +33,7 @@ from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceStore, stream_events
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import PerimeterError, platform_admin, svc_agent
+from fibrapunto.privacy import retention
 from fibrapunto.prompts.loader import reload_all
 
 log = structlog.get_logger(__name__)
@@ -40,6 +42,7 @@ _sessions: dict[str, Conversation] = {}
 _store: TraceStore | None = None
 _gateway: CrmGateway | None = None
 _operator_pool = None
+_sweep: asyncio.Task | None = None
 
 
 @asynccontextmanager
@@ -68,7 +71,16 @@ async def lifespan(app: FastAPI):
         # cannot log it is worse.
         log.warning("trace.store_unavailable", error=str(exc))
         _store = None
+
+    # §9's retention period, applied without anyone remembering to apply it.
+    global _sweep
+    _sweep = asyncio.create_task(retention.sweep_forever(_operator_pool))
+
     yield
+
+    _sweep.cancel()
+    with suppress(asyncio.CancelledError):
+        await _sweep
     if _store:
         await _store.close()
     if _gateway:
@@ -134,11 +146,9 @@ async def send_turn(conversation_id: str, request: SendTurn) -> AgentReply:
 
     if _store:
         await _store.store_events(convo.trace.events)
-        # NOTE: turn text is deliberately not stored yet. §9 requires
-        # transcripts to be stored redacted, and the redaction pipeline lands
-        # on day 10. Writing raw text now and cleaning it later would mean raw
-        # customer text in the database for six days, which is the thing §9
-        # exists to prevent.
+        # Redaction happens at the write boundary (§9), so what lands on disk is
+        # redacted regardless of whether inbound redaction was on for the model.
+        await _store.store_transcript(convo.state)
         convo.trace.events.clear()
 
     return reply
@@ -230,6 +240,37 @@ async def reload_prompts() -> dict[str, Any]:
         "prompts": {
             key.value: domain.prompt.short_sha for key, domain in DOMAINS.items() if domain.enabled
         },
+    }
+
+
+@app.get("/api/retention")
+async def retention_status() -> dict[str, Any]:
+    """§9: "a retention period short enough to be defensible".
+
+    Surfaced rather than only logged, because "what is your retention period and
+    can you show me it is being applied" is a question with an auditor behind
+    it. `overdue` is the number that matters: anything but zero means the sweep
+    is not keeping up.
+    """
+    if _operator_pool is None:
+        raise HTTPException(503, "database unavailable")
+    return await retention.retention_status(_operator_pool)
+
+
+@app.post("/api/_admin/purge-now")
+async def purge_now() -> dict[str, Any]:
+    """Run the sweep immediately, for the demo and for tests.
+
+    The hourly sweep is the mechanism; this is how you show it working without
+    waiting an hour or falsifying a clock.
+    """
+    if _operator_pool is None:
+        raise HTTPException(503, "database unavailable")
+    result = await retention.purge_expired(_operator_pool)
+    return {
+        "conversations": result.conversations,
+        "turns": result.turns,
+        "events": result.events,
     }
 
 
