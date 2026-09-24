@@ -37,6 +37,9 @@ export function App() {
   return (
     <div className="app">
       <ControlStrip
+        conversations={session.conversations}
+        activeId={session.sessionId}
+        onSelect={session.select}
         onNewConversation={session.start}
         theme={theme}
         onTheme={toggleTheme}
