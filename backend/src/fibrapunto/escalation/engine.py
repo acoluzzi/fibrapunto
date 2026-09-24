@@ -20,6 +20,8 @@ considered.
 
 from __future__ import annotations
 
+import re
+
 import structlog
 
 from fibrapunto.capabilities.outcomes import (
@@ -52,7 +54,8 @@ def closing_message(
         case HandoverCreated():
             body = (
                 f"I've opened case no. {result.reference}. "
-                f"{result.queue_label} will get back to you {result.response_window}."
+                f"{_sentence_case(result.queue_label)} will get back to you "
+                f"{result.response_window}."
             )
             if state.collected.stated_reason:
                 body += " I've recorded the request with today's date."
@@ -88,6 +91,11 @@ def closing_message(
             )
 
 
+def _sentence_case(text: str) -> str:
+    """ "a colleague in billing operations" opens a sentence in the template."""
+    return text[:1].upper() + text[1:]
+
+
 def _with_availability(body: str, state: ConversationState) -> str:
     """§12.4's other case: the record exists, but nobody is there.
 
@@ -103,6 +111,59 @@ def _with_availability(body: str, state: ConversationState) -> str:
         return body
 
     return f"{body} Please note we're closed at the moment: we're open {service_window_text()}."
+
+
+_COMMITMENT = re.compile(
+    r"\b(?:case|reference|ticket)\s+(?:no\.?|number|#)|\bget\s+back\s+to\s+you"
+    r"|\b(?:contact|call|phone|email|reach)\s+you\b|\bbe\s+in\s+touch\b"
+    r"|\breach\s+out\b|\bworking\s+days?\b",
+    re.IGNORECASE,
+)
+_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+
+
+def without_commitments(
+    reply: str,
+    result: HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
+) -> str:
+    """The model's reply, minus the sentences the closing template owns.
+
+    The model is told not to write the case number or the response time; this
+    is what makes that true rather than requested. Whole sentences go: one that
+    names the reference, the queue, a response time or a promise of contact is
+    a commitment, and the templated version is appended right after — keeping
+    the model's version would mean two, possibly contradicting, promises.
+    """
+    markers = [
+        getattr(result, "reference", None),
+        getattr(result, "queue_label", None),
+        getattr(result, "response_window", None),
+    ]
+    kept = [
+        sentence
+        for sentence in _SENTENCE.split(reply.strip())
+        if sentence
+        and not _COMMITMENT.search(sentence)
+        and not any(m and m.lower() in sentence.lower() for m in markers)
+    ]
+    return " ".join(kept)
+
+
+def close(
+    reply: str,
+    result: HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
+    state: ConversationState,
+) -> str:
+    """The reply the customer receives on the turn a case is opened or fails.
+
+    Whatever the model said that is not a commitment, then the template. Also
+    where the conversation's status leaves `active`: `closing_message` sets
+    handed_over or escalated_no_record, so §1's outcome counts read a status
+    the code set rather than one inferred from the text.
+    """
+    closing = closing_message(result, state)
+    body = without_commitments(reply, result)
+    return f"{body} {closing}" if body else closing
 
 
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:

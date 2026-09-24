@@ -56,8 +56,44 @@ class RoutingOutcome:
     decision: RoutingDecision | None
 
 
+# The answer to a read-back, as opposed to a bare acknowledgement. Looser at the
+# end — "Yes, that's correct" and "yes please, go ahead" are both agreement —
+# and refused outright if the reply also objects to something.
+_AFFIRMATIVE = re.compile(
+    r"^\W*(?:y(?:es|eah|ep|up)|correct|exactly|confirmed|agreed|sure|ok(?:ay)?|"
+    r"(?:that(?:'s| is) )?(?:right|correct)|go ahead|please do|sounds good|perfect)\b",
+    re.IGNORECASE,
+)
+_OBJECTION = re.compile(r"\b(?:but|not|no|wrong|except|actually|isn't|wasn't)\b", re.IGNORECASE)
+_NEGATIVE = re.compile(r"^\W*(?:no|nope|not really|that(?:'s| is) (?:not|wrong)|wrong)\b", re.I)
+
+
 def is_acknowledgement(text: str) -> bool:
     return bool(_ACKNOWLEDGEMENT.match(text.strip()))
+
+
+def is_affirmative(text: str) -> bool:
+    """Did the customer agree to the summary read back to them?
+
+    Deliberately conservative: anything that also objects ("yes but the amount
+    is wrong") is not agreement, and goes back to the model to revise.
+    """
+    text = text.strip()
+    return bool(_AFFIRMATIVE.match(text)) and not _OBJECTION.search(text)
+
+
+def is_negative(text: str) -> bool:
+    return bool(_NEGATIVE.match(text.strip()))
+
+
+def answers_read_back(text: str) -> bool:
+    """A reply that answers the pending summary rather than raising a topic.
+
+    Wider than `is_acknowledgement`: "Yes, that's correct" is not a bare
+    acknowledgement, and classified on its own it can land in fallback — where
+    the case would be opened under the wrong routing, or not at all.
+    """
+    return is_acknowledgement(text) or is_affirmative(text) or is_negative(text)
 
 
 def apply(
@@ -68,7 +104,7 @@ def apply(
 
     # The confirmation lock, checked before anything else — including before the
     # classifier's opinion is consulted at all.
-    if state.pending_confirmation and is_acknowledgement(message):
+    if state.pending_confirmation and answers_read_back(message):
         log.info("router.locked_by_pending_confirmation", domain=current.value)
         return RoutingOutcome(current, False, "confirmation_lock", decision)
 

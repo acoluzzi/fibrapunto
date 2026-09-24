@@ -49,6 +49,7 @@ class EventType(StrEnum):
     outbound_filter_applied = "privacy.outbound_filter_applied"
 
     escalation_triggered = "escalation.triggered"
+    handover_confirmation_received = "handover.confirmation_received"
     handover_created = "handover.created"
 
     agent_reply = "agent.reply"

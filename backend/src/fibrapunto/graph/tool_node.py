@@ -25,6 +25,7 @@ So this node does three things the prebuilt one does not:
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import structlog
@@ -32,10 +33,18 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from fibrapunto.capabilities.billing_lookup import billing_lookup
 from fibrapunto.capabilities.create_handover_record import create_handover_record
-from fibrapunto.capabilities.outcomes import BillingRejected, HandoverFailed
+from fibrapunto.capabilities.outcomes import (
+    BillingRejected,
+    HandoverAwaitingConfirmation,
+    HandoverCreated,
+    HandoverCreatedWithoutContractLink,
+    HandoverFailed,
+)
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.capabilities.transfer_to_human import transfer_to_human
-from fibrapunto.domains.registry import Domain
+from fibrapunto.domains.registry import Domain, DomainKey
+from fibrapunto.escalation import triggers
+from fibrapunto.handover import routing
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import Principal, svc_agent
@@ -43,6 +52,7 @@ from fibrapunto.state.models import (
     BillingFacts,
     ContractCandidate,
     ConversationState,
+    PendingConfirmation,
 )
 
 log = structlog.get_logger(__name__)
@@ -63,6 +73,13 @@ class ToolDispatcher:
         # acting — there is no ambient identity anywhere in this codebase.
         self._gateway = gateway
         self._principal = principal or svc_agent()
+        self.last_handover: (
+            HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed | None
+        ) = None
+        """The handover outcome of the current turn, if any. Read by the turn
+        loop to append the templated closing message; reset each turn."""
+        self.last_trigger: str | None = None
+        """The trigger recorded on the last case opened, for the trace."""
 
     async def run(
         self, message: AIMessage, domain: Domain, state: ConversationState
@@ -119,21 +136,17 @@ class ToolDispatcher:
                 self._absorb_billing(result, args, state)
 
             case "create_handover_record":
-                if self._gateway is None:
-                    # No CRM connection. §12.4: say it could not be registered
-                    # rather than claiming it was.
-                    log.error("handover.no_gateway")
-                    result = HandoverFailed(incident_id="no-gateway")
+                trigger = _trigger_for(state)
+                if _needs_read_back(state, trigger):
+                    result = self._await_confirmation(state, args, recorder)
                 else:
-                    result = await create_handover_record(
-                        state=state,
-                        gateway=self._gateway,
-                        principal=self._principal,
+                    result = await self._open_case(
+                        state,
+                        recorder,
                         subject=args.get("summary", ""),
-                        trigger=_trigger_for(state),
+                        trigger=trigger,
                         stated_reason=args.get("stated_reason"),
                         disputed_point=args.get("disputed_point"),
-                        recorder=recorder,
                     )
 
             case "transfer_to_human":
@@ -148,6 +161,84 @@ class ToolDispatcher:
                 result = BillingRejected(reason="format_invalid")
 
         return result.model_dump(mode="json")
+
+    async def open_confirmed_case(
+        self, state: ConversationState
+    ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
+        """Open the case the customer has just agreed to (§4.1 instruction 5).
+
+        Called by the turn loop, not by the model: the customer's "yes" is the
+        event, and the summary they agreed to is the one stored when the model
+        proposed it — not whatever the model might write on this turn.
+        """
+        pending = state.pending_confirmation
+        assert pending is not None and pending.satisfied  # guarded by the caller
+        return await self._open_case(
+            state,
+            _StateRecorder(state),
+            subject=pending.summary,
+            trigger=_trigger_for(state),
+            stated_reason=pending.stated_reason,
+            disputed_point=pending.disputed_point,
+        )
+
+    async def _open_case(
+        self,
+        state: ConversationState,
+        recorder: _StateRecorder,
+        *,
+        subject: str,
+        trigger: str,
+        stated_reason: str | None,
+        disputed_point: str | None,
+    ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
+        self.last_trigger = trigger
+        if self._gateway is None:
+            # No CRM connection. §12.4: say it could not be registered rather
+            # than claiming it was.
+            log.error("handover.no_gateway")
+            result: Any = HandoverFailed(incident_id="no-gateway")
+        else:
+            result = await create_handover_record(
+                state=state,
+                gateway=self._gateway,
+                principal=self._principal,
+                subject=subject,
+                trigger=trigger,
+                stated_reason=stated_reason,
+                disputed_point=disputed_point,
+                recorder=recorder,
+            )
+        if not isinstance(result, HandoverFailed):
+            state.pending_confirmation = None
+        self.last_handover = result
+        return result
+
+    def _await_confirmation(
+        self, state: ConversationState, args: dict[str, Any], recorder: _StateRecorder
+    ) -> HandoverAwaitingConfirmation:
+        """Hold the dispute until the customer agrees to its summary.
+
+        Replaces any earlier unconfirmed summary: if the customer said "no, it
+        is about X", the model's next proposal is the one to read back.
+        """
+        summary = (args.get("summary") or "").strip()
+        state.pending_confirmation = PendingConfirmation(
+            summary=summary,
+            asked_at_turn=state.turn_count,
+            stated_reason=args.get("stated_reason"),
+            disputed_point=args.get("disputed_point"),
+        )
+        recorder.record(
+            CapabilityCall(
+                capability="create_handover_record",
+                outcome="awaitingConfirmation",
+                started_at=datetime.now(UTC),
+                duration_ms=0,
+            )
+        )
+        log.info("handover.awaiting_confirmation", turn=state.turn_count)
+        return HandoverAwaitingConfirmation(summary=summary)
 
     def _absorb_billing(self, result: Any, args: dict[str, Any], state: ConversationState) -> None:
         """Move what the lookup learned into CollectedState.
@@ -242,19 +333,37 @@ class _StateRecorder:
 
 
 def _trigger_for(state: ConversationState) -> str:
-    """Why this handover is being opened (§12.2).
+    """Why this handover is being opened (§12.2), evaluated **now**.
 
-    Prefers the trigger the engine actually computed, so the record says
-    "conditional:service_unavailable" when that is what happened rather than a
-    category inferred from the domain. §12.5 reads this distribution to tell an
-    integration problem from an agent problem, and a field that always says the
-    same thing tells it nothing.
+    Computed at the moment the case is opened, from the state as it stands —
+    including the lookup that failed earlier in this same turn. Reading the
+    trigger the turn loop stored after the *previous* reply labelled a case
+    opened in the same turn as an outage "amount_dispute", which is exactly
+    the misreading §12.5 warns about: an integration problem recorded as an
+    agent problem, invisible in the distribution it exists to feed.
     """
-    if state.pending_trigger:
-        return state.pending_trigger
-
-    from fibrapunto.domains.registry import DomainKey
-
+    trigger = triggers.evaluate(state)
+    if trigger:
+        return trigger.kind.value
     if state.current_domain is DomainKey.cancellation:
-        return "categorical:cancellation"
-    return "categorical:amount_dispute"
+        return triggers.TriggerKind.categorical_cancellation.value
+    return triggers.TriggerKind.categorical_amount_dispute.value
+
+
+def _needs_read_back(state: ConversationState, trigger: str) -> bool:
+    """§4.1 instruction 5 applies to disputes, refunds and credits — not to
+    every billing handover.
+
+    A case opened because the billing system is down, the contract is absent,
+    the customer asked for a person or the conversation stopped progressing is
+    instruction 6 or §12.1: offered and opened, with no read-back. Only a case
+    whose reason is the dispute itself waits for the customer's agreement.
+    """
+    if state.collected.handover_reference:
+        return False  # already open; the capability returns the existing one
+    if routing.for_domain(state.current_domain).record_type != "billing_dispute":
+        return False
+    if trigger != triggers.TriggerKind.categorical_amount_dispute.value:
+        return False
+    pending = state.pending_confirmation
+    return not (pending and pending.satisfied)

@@ -8,6 +8,8 @@ same property that makes §1's completeness target reachable in the first place.
 
 from __future__ import annotations
 
+import json
+
 import asyncpg
 import pytest
 from fibrapunto.capabilities.create_handover_record import create_handover_record
@@ -177,12 +179,11 @@ async def test_an_incomplete_record_is_never_written(gateway, clean_db):
     """§1 wants completeness at 100%, which is only reachable if a thin record
     cannot be written at all."""
     state = state_for(DomainKey.cancellation)
-    state.collected.told_to_customer = []  # §12.2's required field, missing
 
-    result = await create(state, gateway)
+    result = await create(state, gateway, subject="")  # a required field, missing
 
     assert isinstance(result, HandoverFailed)
-    assert "what_customer_was_told" in result.missing_fields
+    assert "subject" in result.missing_fields
     assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 0
 
 
@@ -193,9 +194,8 @@ async def test_a_failed_handover_carries_no_reference_at_all(gateway, clean_db):
     there is nothing for the reasoning layer to mistake for one.
     """
     state = state_for(DomainKey.cancellation)
-    state.collected.told_to_customer = []
 
-    result = await create(state, gateway)
+    result = await create(state, gateway, subject="")
     assert not hasattr(result, "reference")
     assert "give no case number" in result.guidance.lower()
 
@@ -307,6 +307,24 @@ def test_what_the_customer_was_told_is_required_either_way():
         subject="Something",
     )
     assert "what_customer_was_told" in missing
+
+
+async def test_a_first_turn_case_records_what_the_customer_is_told(gateway, clean_db):
+    """On the customer's first message the agent has said nothing yet, so the
+    field §12.2 requires was empty and the record could never be written.
+    It now carries what the closing template tells them, and why."""
+    state = state_for(DomainKey.cancellation)
+    state.collected.told_to_customer = []
+
+    result = await create(state, gateway)
+
+    assert isinstance(result, HandoverCreated), getattr(result, "missing_fields", result)
+    told = json.loads(
+        await clean_db.fetchval("SELECT collected_context::text FROM crm.handover_record")
+    )["what_customer_was_told"]
+    assert told[0].startswith("[recorded by the system]")
+    assert "cancellation request is being passed on" in told[0]
+    assert "will get back to them" in told[0]
 
 
 # --- one conversation, one case ----------------------------------------------

@@ -21,6 +21,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from typing import Any
 
+from fibrapunto.handover import routing
 from fibrapunto.handover.routing import Routing
 from fibrapunto.privacy import redaction
 from fibrapunto.state.models import ConversationState
@@ -46,7 +47,7 @@ def build_context(state: ConversationState, trigger: str) -> dict[str, Any]:
         "escalation_trigger": trigger,
         # §12.2: "what the agent already told the customer, so the human does
         # not contradict it."
-        "what_customer_was_told": collected.told_to_customer,
+        "what_customer_was_told": collected.told_to_customer or _told_this_turn(state, trigger),
         "conversation_id": str(state.id),
         "turn_count": state.turn_count,
         "opened_at": datetime.now(UTC).isoformat(),
@@ -81,6 +82,44 @@ def build_context(state: ConversationState, trigger: str) -> dict[str, Any]:
         context["sensitive_data_seen"] = collected.sensitive_data_seen
 
     return context
+
+
+# Why the case was opened, in the words of what the customer hears. Keyed by
+# trigger value, as recorded in `escalation_trigger`.
+_TOLD_BECAUSE = {
+    "conditional:service_unavailable": (
+        "The billing system was not responding, so no amount or date could be given."
+    ),
+    "conditional:contract_not_found": "No contract with that number was found in billing.",
+    "customer:human_requested": "They asked for a person, and are being passed to a colleague.",
+    "customer:distress": "They are being passed to a colleague.",
+    "categorical:cancellation": "Their cancellation request is being passed on.",
+}
+
+
+def _told_this_turn(state: ConversationState, trigger: str) -> list[str]:
+    """What the customer is told on a turn that opens a case before the agent
+    has said anything else — the customer's first turn.
+
+    `told_to_customer` is filled after each reply, so on the first turn it is
+    empty, and a required-but-empty field made every first-turn case fail
+    validation: no record, the company never told (§12.4's worst branch).
+
+    Not a guess at the model's wording. The closing sentence is a template the
+    turn loop always sends when a case opens (escalation/engine.py), so what it
+    says is known before it is sent; the reason comes from the trigger the case
+    records. Marked as system-recorded so the operator can tell it from a
+    transcript line.
+    """
+    route = routing.for_domain(state.current_domain)
+    lines = ["[recorded by the system] Case opened on the customer's first message."]
+    if trigger in _TOLD_BECAUSE:
+        lines.append(_TOLD_BECAUSE[trigger])
+    lines.append(
+        f"Given the case number, and told {route.queue_label} will get back to them "
+        f"{route.response_window}."
+    )
+    return [" ".join(lines)]
 
 
 def add_cancellation_fields(

@@ -90,15 +90,20 @@ class ContractCandidate(BaseModel):
 class PendingConfirmation(BaseModel):
     """§4.1 instruction 5: read the summary back and wait.
 
-    A structural gate rather than a hope. `create_handover_record` for a billing
-    dispute checks `satisfied` — so the customer's own agreement is what makes
-    the record trustworthy to the operator who receives it, and the model cannot
-    skip the step by being persuasive about it.
+    A structural gate rather than a hope. Set by the tool node when the model
+    tries to open a billing dispute before the customer has agreed to the
+    summary; while it is set, the router keeps a bare "yes" in this domain, and
+    the customer's affirmative answer opens the case from what is stored here —
+    so the customer's own agreement is what makes the record trustworthy to the
+    operator who receives it, and the model cannot skip the step by being
+    persuasive about it.
     """
 
     summary: str
     asked_at_turn: int
     satisfied: bool = False
+    stated_reason: str | None = None
+    disputed_point: str | None = None
 
 
 class CollectedState(BaseModel):

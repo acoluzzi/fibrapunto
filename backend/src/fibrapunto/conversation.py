@@ -20,6 +20,7 @@ import time
 import structlog
 from pydantic import BaseModel
 
+from fibrapunto.capabilities.outcomes import HandoverFailed
 from fibrapunto.credentials.store import BILLING_API_TOKEN, FileSecretStore
 from fibrapunto.domains.registry import DomainKey, get
 from fibrapunto.escalation import engine, triggers
@@ -151,7 +152,7 @@ class Conversation:
 
         # 1. Classify. The model proposes a domain; policy decides.
         decision = None
-        if not (state.pending_confirmation and policy.is_acknowledgement(text)):
+        if not (state.pending_confirmation and policy.answers_read_back(text)):
             # The confirmation lock short-circuits before the call — a "Sì"
             # needs no classification, and skipping it saves a round trip on
             # the turn where latency is most visible.
@@ -193,30 +194,47 @@ class Conversation:
             prompt_sha=domain.prompt.short_sha,
         )
 
-        # 2. Run the domain. Only this domain's capabilities are bound (§17.1).
-        reply_text, _ = await run_domain_turn(domain, state, self._dispatcher)
+        self._dispatcher.last_handover = None
+        reference_before = state.collected.handover_reference
 
-        # §11: the output-boundary guards. One repair attempt, then substitute.
-        guarded = pipeline.resolve(reply_text, state)
-        if guarded.violations:
-            repaired, _ = await run_domain_turn(
-                domain,
-                state,
-                self._dispatcher,
-                extra_instruction=pipeline.repair_instruction(guarded.violations),
-            )
-            guarded = pipeline.resolve(reply_text, state, repaired_reply=repaired)
+        # 2a. §4.1 instruction 5: the customer's answer to a read-back. An
+        # agreement opens the case — by code, from the summary they agreed to —
+        # and the reply is the closing template. No model call: there is
+        # nothing left to reason about, and the sentence the customer is left
+        # with is a commitment (§12.3).
+        reply_text: str | None = None
+        extra_instruction: str | None = None
+        pending = state.pending_confirmation
+        if pending and not pending.satisfied:
+            if policy.is_affirmative(text):
+                pending.satisfied = True
+                self.trace.emit(
+                    EventType.handover_confirmation_received,
+                    turn_seq=state.turn_count,
+                    asked_at_turn=pending.asked_at_turn,
+                )
+                result = await self._dispatcher.open_confirmed_case(state)
+                if isinstance(result, HandoverFailed) and result.missing_fields:
+                    # Agreed, but the record is not yet complete (§13). Back to
+                    # the model to collect what is missing; the summary stays
+                    # agreed, so the next attempt is not gated again.
+                    extra_instruction = (
+                        "The customer confirmed the summary, but the case could "
+                        "not be opened yet: these details are missing: "
+                        f"{', '.join(result.missing_fields)}. Ask for them."
+                    )
+                    self._dispatcher.last_handover = None
+                else:
+                    reply_text = engine.closing_message(result, state)
+            elif policy.is_negative(text):
+                # The summary was wrong. The model revises it, and its next
+                # proposal is read back afresh.
+                state.pending_confirmation = None
 
-        for violation in guarded.violations:
-            self.trace.emit(
-                EventType.guardrail_triggered,
-                turn_seq=state.turn_count,
-                guard=violation.guard.value,
-                problems=violation.problems,
-                blocking=violation.blocking,
-                substituted=guarded.substituted,
-            )
-        reply_text = guarded.text
+        # 2b. Run the domain. Only this domain's capabilities are bound (§17.1).
+        if reply_text is None:
+            reply_text = await self._model_turn(domain, extra_instruction)
+            reply_text = self._closing(reply_text, reference_before)
 
         # §9's fourth enforcement point: "never repeat such a value back in the
         # conversation." Not a guard — a guard inspects and may block, this
@@ -243,6 +261,15 @@ class Conversation:
                 capability=call.capability,
                 outcome=call.outcome,
                 incident_id=call.incident_id,
+            )
+
+        if state.collected.handover_reference != reference_before:
+            self.trace.emit(
+                EventType.handover_created,
+                turn_seq=state.turn_count,
+                reference=state.collected.handover_reference,
+                trigger=self._dispatcher.last_trigger,
+                confirmed=bool(pending and pending.satisfied),
             )
 
         # Did this turn actually advance anything? Measured against collected
@@ -306,6 +333,53 @@ class Conversation:
             model_served=state.agent_model_served,
             prompt_sha=state.prompt_sha,
         )
+
+    async def _model_turn(self, domain, extra_instruction: str | None) -> str:
+        """The domain's model turn, through the output guards (§11)."""
+        state = self.state
+        reply_text, _ = await run_domain_turn(
+            domain, state, self._dispatcher, extra_instruction=extra_instruction
+        )
+
+        # §11: the output-boundary guards. One repair attempt, then substitute.
+        guarded = pipeline.resolve(reply_text, state)
+        if guarded.violations:
+            repaired, _ = await run_domain_turn(
+                domain,
+                state,
+                self._dispatcher,
+                extra_instruction=pipeline.repair_instruction(guarded.violations),
+            )
+            guarded = pipeline.resolve(reply_text, state, repaired_reply=repaired)
+
+        for violation in guarded.violations:
+            self.trace.emit(
+                EventType.guardrail_triggered,
+                turn_seq=state.turn_count,
+                guard=violation.guard.value,
+                problems=violation.problems,
+                blocking=violation.blocking,
+                substituted=guarded.substituted,
+            )
+        return guarded.text
+
+    def _closing(self, reply_text: str, reference_before: str | None) -> str:
+        """Append the templated closing when this turn opened a case (§12.3).
+
+        Only for a case opened *this turn*, or a real failure to open one. A
+        repeated call that returned the existing case is not news, and a
+        failure for missing fields is the model's cue to collect them, not the
+        end of the conversation.
+        """
+        result = self._dispatcher.last_handover
+        if result is None:
+            return reply_text
+        if isinstance(result, HandoverFailed):
+            if result.missing_fields:
+                return reply_text
+        elif self.state.collected.handover_reference == reference_before:
+            return reply_text
+        return engine.close(reply_text, result, self.state)
 
     def snapshot(self) -> dict:
         return self.state.snapshot()

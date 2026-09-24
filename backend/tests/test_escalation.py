@@ -285,7 +285,9 @@ def test_the_computed_trigger_is_what_lands_in_the_record():
     from fibrapunto.graph.tool_node import _trigger_for
 
     s = with_outcome("serviceUnavailable")
-    s.pending_trigger = TriggerKind.service_unavailable.value
+    # Evaluated from the state at the moment of opening — no value carried
+    # over from the previous turn is involved.
+    assert s.pending_trigger is None
     assert _trigger_for(s) == "conditional:service_unavailable"
 
 

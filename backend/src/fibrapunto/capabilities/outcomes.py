@@ -185,18 +185,33 @@ BILLING_OUTCOMES: frozenset[str] = frozenset(
 # --- create handover record (§5, §13) ----------------------------------------
 
 
+# The closing sentence — case number, who picks it up, by when — is a
+# commitment, so it is templated (escalation/engine.py) and appended by code
+# after the model's reply. The model is told not to write it; if it does anyway,
+# its version is removed before the template goes on.
+_CLOSING_IS_TEMPLATED = (
+    "The case is registered. The sentence giving the customer the case number "
+    "and when they will be contacted is added automatically after your reply: "
+    "do NOT write the case number, the response time, or that someone will "
+    "contact them. Say only what else the customer needs to know."
+)
+
+
 class HandoverCreated(BaseModel):
     """The record exists and carries a reference the customer can be given."""
 
     outcome: Literal["created"] = "created"
     reference: str = CustomerVisible(
-        "The case number, assigned by the system. Give it to the customer exactly as it is."
+        "The case number, assigned by the system. Given to the customer by the closing template."
     )
     queue_label: str = CustomerVisible(
         "The team picking it up, in words the customer will understand."
     )
     response_window: str = CustomerVisible(
         "When the customer will be contacted by. Do not promise anything different."
+    )
+    guidance: str = InternalOnly(
+        "Operating instruction for the reasoning layer.", default=_CLOSING_IS_TEMPLATED
     )
 
 
@@ -214,9 +229,9 @@ class HandoverCreatedWithoutContractLink(BaseModel):
     guidance: str = InternalOnly(
         "Operating instruction for the reasoning layer.",
         default=(
-            "The case was opened but could not be linked to a contract. Tell "
-            "the customer: they need to know a colleague will ask them to "
-            "confirm the number. Do not pretend everything is fine."
+            "The case was opened but could not be linked to a contract. The "
+            "closing sentence tells the customer a colleague will ask them to "
+            "confirm the number. " + _CLOSING_IS_TEMPLATED
         ),
     )
 
@@ -251,9 +266,34 @@ class HandoverFailed(BaseModel):
     )
 
 
+class HandoverAwaitingConfirmation(BaseModel):
+    """§4.1 instruction 5: the case is not opened until the customer confirms.
+
+    Returned instead of opening a billing dispute when the customer has not yet
+    agreed to the one-sentence summary. The summary is stored in
+    `ConversationState.pending_confirmation`; the customer's "yes" on the next
+    turn is what opens the case — by code, from the stored summary, so the
+    model cannot skip the read-back by being persuasive about it.
+    """
+
+    outcome: Literal["awaitingConfirmation"] = "awaitingConfirmation"
+    summary: str = CustomerVisible("The one-sentence summary to read back to the customer.")
+    guidance: str = InternalOnly(
+        "Operating instruction for the reasoning layer.",
+        default=(
+            "No case has been opened yet. Read this summary back to the "
+            "customer in one sentence and ask them to confirm it is correct. "
+            "Do NOT say that a case has been opened or that anyone will "
+            "contact them."
+        ),
+    )
+
+
 HandoverResult = Annotated[
     HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
     Field(discriminator="outcome"),
 ]
 
-HANDOVER_OUTCOMES: frozenset[str] = frozenset({"created", "createdWithoutContractLink", "failed"})
+HANDOVER_OUTCOMES: frozenset[str] = frozenset(
+    {"created", "createdWithoutContractLink", "failed", "awaitingConfirmation"}
+)

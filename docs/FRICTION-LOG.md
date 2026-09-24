@@ -402,9 +402,32 @@ other. Agreement is not evidence. The review found nothing the tests got wrong;
 it found the things the tests were never shaped to ask.
 
 **Decisions.** Being fixed in code:
-- Wire the confirmation gate, the closing messages and the trigger ordering
-  into the live path, with tests that go through `ConversationService` rather
-  than setting state by hand.
+- **Done.** Wire the confirmation gate, the closing messages and the trigger
+  ordering into the live path. `create_handover_record` for a dispute
+  (trigger `categorical:amount_dispute`) returns `awaitingConfirmation` and
+  stores the summary in `PendingConfirmation`; the router's lock now holds any
+  answer to the read-back ("Yes, that's correct" included, not only a bare
+  "yes"); the customer's agreement opens the case **by code** from the stored
+  summary, with no model call. Outage, not-found, no-progress and
+  human-requested cases are §4.1 instruction 6 / §12.1 and open without a
+  read-back. Every turn that opens a case, or fails to, ends with
+  `escalation/engine.py`'s template — the model's own sentences naming a
+  reference, a response time or a promise of contact are removed first — and
+  that is where the status becomes `handed_over` or `escalated_no_record`.
+  The trigger is evaluated when the case is opened, so an outage in the same
+  turn records `conditional:service_unavailable`. Tests go through
+  `Conversation.send` and set no escalation state: `test_handover_wiring.py`.
+  Case 015 gained its confirmation turn — it expected a refund case in one
+  turn, which instruction 5 does not allow.
+- **Done**, found while wiring the above: a case opened on the customer's
+  *first* message was never written. `what_customer_was_told` is required
+  non-empty and filled after each reply, so on turn one it was empty and the
+  record failed validation — every one-turn handover case (005, 006, 007,
+  010, 011, 016, 032) ended with the company never told. The payload now
+  records what the customer is told on that turn: the closing template's
+  content (case number, team, response window), which is known before it is
+  sent, plus the reason from the trigger — marked `[recorded by the system]`
+  so the operator can tell it from a transcript line.
 - **Done.** `BillingFacts` carries the contract it was fetched for, and any
   lookup for a *different* number drops it, whatever that lookup's outcome. A
   failed retry on the *same* contract keeps it: those are still verified facts

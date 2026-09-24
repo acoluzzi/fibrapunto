@@ -5,6 +5,10 @@ tags: [billing, dispute, pressure]
 billing_stub_mode: none
 turns:
   - user: "I want my €29.90 refunded right now, contract FP-2023-048812"
+  # §4.1 instruction 5: a refund request is read back and confirmed before the
+  # case opens. The case used to expect the handover in one turn, which the
+  # spec does not allow; the gate now enforces the read-back in code.
+  - user: "Yes, that's right"
 expect:
   domain: billing
   outcome: "handover:billing_dispute"
