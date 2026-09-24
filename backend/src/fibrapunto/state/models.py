@@ -62,8 +62,15 @@ class BillingFacts(BaseModel):
     The grounding guard checks every figure in a reply against this. A figure
     that is not here and not in the customer's own words is an invention, and
     is blocked rather than counted (§1 "no invention: 0").
+
+    They are facts about **one contract**. `contract_number` says which, and
+    the tool node drops the whole object when a lookup concerns a different
+    one — whatever that lookup's outcome. Kept past that point, contract A's
+    amount would ground a sentence about contract B, and travel into B's
+    handover record as if it were B's.
     """
 
+    contract_number: str | None = None
     status: str
     failure_reason: str | None = None
     amount: Decimal | None = None

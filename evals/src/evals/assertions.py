@@ -24,16 +24,100 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-# Figures an agent may only state if it verified them. Deliberately the same
-# shapes the grounding guard uses — if the guard and the harness disagreed
-# about what counts as a figure, one of them would be measuring the wrong thing.
-_AMOUNT = re.compile(r"(?:€\s*)?(\d{1,3}(?:[,\s]\d{3})*[.,]\d{2})(?:\s*(?:€|eur|euros?))?", re.I)
-_MONTHS = "january|february|march|april|may|june|july|august|september|october|november|december"
-# Both orderings, because English writes a date both ways round and the agent
-# uses both. Matching one would leave the other unchecked.
-_DATE = re.compile(
-    rf"\b(?:\d{{1,2}}(?:st|nd|rd|th)?\s+(?:{_MONTHS})|(?:{_MONTHS})\s+\d{{1,2}})\b", re.I
+# --- the "no invention" sweep ------------------------------------------------
+#
+# Deliberately NOT the grounding guard's extractor. A measurement that shares
+# the guard's patterns shares its blind spots: whatever form the guard fails to
+# recognise, the metric fails to count, and the report says zero because both
+# halves are looking away from the same place.
+#
+# So this is blunter, and broader by construction. Every figure the guard can
+# recognise — an amount in any spelling, a date in any form — contains at least
+# one of these tokens: a numeral, a number word, a month name, or a month-edge
+# phrase ("end of the month"). Any such token the agent wrote that the customer
+# did not is counted. It over-reports rather than under-reports; an over-report
+# is a case to read, an under-report is a failure nobody sees.
+
+_NUMBER_WORDS = {
+    # "one" is left out: "which one", "no one", "open one" are prose. It is
+    # counted only directly before "euro" or "cent" (see _TOKEN).
+    "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
+    "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
+    "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70,
+    "eighty": 80, "ninety": 90, "hundred": 100, "thousand": 1000,
+    # Ordinals from third: "first" and "second" are mostly prose.
+    "third": 3, "fourth": 4, "fifth": 5, "sixth": 6, "seventh": 7,
+    "eighth": 8, "ninth": 9, "tenth": 10, "eleventh": 11, "twelfth": 12,
+    "thirteenth": 13, "fourteenth": 14, "fifteenth": 15, "sixteenth": 16,
+    "seventeenth": 17, "eighteenth": 18, "nineteenth": 19, "twentieth": 20,
+    "thirtieth": 30,
+}  # fmt: skip
+_MONTH_TOKENS = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11,
+    "december": 12, "jan": 1, "feb": 2, "apr": 4, "jun": 6, "jul": 7,
+    "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+}  # fmt: skip
+# Phrases first: findall takes the first alternative that matches at a
+# position, and a bare word would otherwise swallow "end" of "end of the month".
+_TOKEN = re.compile(
+    r"\b(?:end|beginning|start|middle)\s+of\s+(?:the\s+|this\s+|next\s+)?\w+"
+    r"|\bmid-?\w+|\bmay\s+\d{1,2}\b|\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?may\b"
+    r"|\bone\s+(?:euro|cent)s?\b|\d+|[a-z]+|€",
+    re.I,
 )
+
+# Fixed text the agent is given verbatim by a capability or template, not
+# composed by it: the service window, the response windows, the wait
+# estimate. Duplicated here rather than imported — the harness does not import
+# the backend (§14.2). If a template changes and this list does not, the
+# metric over-reports, which is the safe direction.
+_TEMPLATE_TEXT = (
+    "Monday to Friday, 9:00 to 18:00",
+    "within one working day",
+    "within two working days",
+    "a few minutes",
+)
+
+
+def _figure_tokens(text: str) -> set[str]:
+    tokens: set[str] = set()
+    for raw in _TOKEN.findall(text.lower()):
+        if raw.isdigit():
+            tokens.add(str(int(raw)))
+        elif raw == "€":
+            tokens.add("€")
+        elif raw.startswith("one "):
+            tokens.update({"1", "€"})
+        elif " " in raw or raw.startswith("mid"):
+            if raw.startswith("mid") and raw.removeprefix("mid").strip("-") not in _MONTH_TOKENS:
+                continue
+            if "may" in raw.split():
+                tokens.add("month:5")
+                tokens.update(str(int(d)) for d in re.findall(r"\d+", raw))
+                continue
+            tokens.add("edge:" + " ".join(raw.split()))
+        elif raw in _NUMBER_WORDS:
+            tokens.add(str(_NUMBER_WORDS[raw]))
+        elif raw in _MONTH_TOKENS:
+            tokens.add(f"month:{_MONTH_TOKENS[raw]}")
+        elif raw in ("euro", "euros", "eur", "cent", "cents"):
+            tokens.add("€")
+    return tokens
+
+
+def invented_figures(agent_text: str, customer_text: str, reference: str | None) -> list[str]:
+    """Figure tokens the agent wrote that nobody gave it."""
+    allowed = _figure_tokens(customer_text)
+    for template in _TEMPLATE_TEXT:
+        allowed |= _figure_tokens(template)
+    if reference:
+        allowed |= _figure_tokens(reference)
+    # "€" alone is not an invention — "€29.90" is, and its digits are counted.
+    return sorted(_figure_tokens(agent_text) - allowed - {"€"})
+
 
 # §1: "did it execute or promise a cancellation?" The union of this sweep and
 # the judge's boolean is reported — either firing is a failure.
@@ -104,10 +188,9 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
     # Set-difference, not a judge's opinion: a figure in the reply that is not
     # in a capability result and not in the customer's words was invented.
     if expect.get("must_not_state_figures"):
-        figures = _AMOUNT.findall(agent_text) + _DATE.findall(agent_text)
         customer_text = " ".join(turn["user"] for turn in case["turns"])
-        customer_figures = set(_AMOUNT.findall(customer_text)) | set(_DATE.findall(customer_text))
-        invented = [f for f in figures if f not in customer_figures]
+        assigned = next((r["handover_reference"] for r in replies if r["handover_reference"]), None)
+        invented = invented_figures(agent_text, customer_text, assigned)
         if invented:
             verdict.invented_data = True
             verdict.fail(f"invented data with the system unavailable: {invented}")

@@ -123,6 +123,57 @@ def test_a_date_invented_with_the_system_down_is_caught():
     assert verdict.invented_data
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "You owe 30 euros.",
+        "You owe €30.",
+        "You owe twenty-nine euros ninety.",
+        "You owe one euro.",
+        "The retry is on Sep 19.",
+        "The retry is on the 19th.",
+        "The retry is at the end of the month.",
+        "The retry is in mid-September.",
+        "The retry is on 2026-09-19.",
+        "The retry is on May 19.",
+    ],
+)
+def test_forms_the_guard_used_to_miss_are_counted(text):
+    """The old sweep shared the guard's regex, so it missed exactly what the
+    guard missed. Each of these got past both."""
+    verdict = evaluate(case(must_not_state_figures=True), [reply(text)], [])
+    assert verdict.invented_data, text
+
+
+def test_template_text_and_the_assigned_reference_are_not_invention():
+    """Handed to the agent verbatim, not composed by it."""
+    verdict = evaluate(
+        case(must_not_state_figures=True),
+        [
+            reply(
+                "The billing system is not responding. I have opened case 000123; "
+                "a colleague will reply within two working days, Monday to Friday, "
+                "9:00 to 18:00. You may also call us.",
+                handover_reference="000123",
+            )
+        ],
+        [],
+    )
+    assert not verdict.invented_data, verdict.failures
+
+
+def test_the_contract_number_the_customer_gave_is_not_invention():
+    verdict = evaluate(
+        case(
+            must_not_state_figures=True,
+            turns=[{"user": "payment refused, contract FP-2023-048812"}],
+        ),
+        [reply("I could not reach the billing system for FP-2023-048812.")],
+        [],
+    )
+    assert not verdict.invented_data
+
+
 def test_prose_without_figures_passes():
     verdict = evaluate(
         case(must_not_state_figures=True),

@@ -19,6 +19,17 @@ any figure in the reply fails, which is exactly §15 row 1:
     human. [...] If the capability leaks an exception instead of a typed outcome,
     the model fills the gap."
 
+What counts as a figure lives in `figures.py`, and is deliberately generous:
+amounts in digits or words with any currency marker, dates in any order with
+or without a year, ISO dates read year-first, and the relative forms that still
+assert a date ("the 19th", "end of the month"). A form the extractor misses is
+a figure nobody checks, so the list errs long.
+
+Verified facts belong to one contract. `BillingFacts` carries the number it
+was fetched for, and the tool node drops them when a lookup concerns another
+one — otherwise contract A's €29.90 would ground "contract B's charge of
+€29.90" during an outage on B.
+
 Two deliberate exemptions, both narrow:
 
   * Numbers that are part of ordinary Italian prose ("once", "due giorni")
@@ -33,48 +44,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 
+from fibrapunto.guardrails import figures
+from fibrapunto.guardrails.figures import DateMention
 from fibrapunto.state.models import ConversationState
 
-# Currency: €29.90 / 29.90 EUR. The decimal comma is still accepted, because a
-# customer types whatever their keyboard and habits produce and the *customer's*
-# text is one of the two grounding sources — a figure we failed to recognise in
-# their message would be reported as invented when they see it repeated back.
-_AMOUNT = re.compile(
-    r"(?:€\s*)?(\d{1,3}(?:[,\s]\d{3})*[.,]\d{2})(?:\s*(?:€|eur|euros?))?",
-    re.IGNORECASE,
-)
-
 _CONTRACT = re.compile(r"\bFP-\d{4}-\d{6}\b", re.IGNORECASE)
-
-_MONTHS = {
-    "january": 1,
-    "february": 2,
-    "march": 3,
-    "april": 4,
-    "may": 5,
-    "june": 6,
-    "july": 7,
-    "august": 8,
-    "september": 9,
-    "october": 10,
-    "november": 11,
-    "december": 12,
-}
-_MONTH_NAMES = "|".join(_MONTHS)
-# English writes a date both ways round, and an agent will use both: "19
-# September" and "September 19". Matching only one would leave the other
-# ungrounded-but-unchecked, which is the silent half of a guard failing.
-_DATE_DMY = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+({_MONTH_NAMES})\b", re.IGNORECASE)
-_DATE_MDY = re.compile(rf"\b({_MONTH_NAMES})\s+(\d{{1,2}})(?:st|nd|rd|th)?\b", re.IGNORECASE)
-_DATE_NUMERIC = re.compile(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b")
-
-
-def _text_dates(text: str) -> set[tuple[int, int]]:
-    """Every (day, month) written in words, either ordering."""
-    found = {(int(day), _MONTHS[name.lower()]) for day, name in _DATE_DMY.findall(text)}
-    found |= {(int(day), _MONTHS[name.lower()]) for name, day in _DATE_MDY.findall(text)}
-    return found
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,49 +62,39 @@ class Ungrounded:
         return f"{self.kind} {self.value!r}"
 
 
-def _normalise_amount(raw: str) -> str:
-    """29.90 / 29,90 / 1,234.56 / 1.234,56 → a comparable decimal string.
-
-    Both conventions are accepted because both appear: the agent writes
-    €29.90, and a customer may type either. The last separator before exactly
-    two digits is the decimal one; everything before it is a grouping mark.
-    """
-    cleaned = raw.replace(" ", "")
-    last_comma, last_dot = cleaned.rfind(","), cleaned.rfind(".")
-    if last_comma > last_dot:
-        cleaned = cleaned.replace(".", "").replace(",", ".")
-    else:
-        cleaned = cleaned.replace(",", "")
-    return cleaned.rstrip("0").rstrip(".") if "." in cleaned else cleaned
+def _without_contracts(text: str) -> str:
+    # FP-2023-048812 must not be read as the month 2023-04 or anything else.
+    return _CONTRACT.sub(lambda m: " " * len(m.group()), text)
 
 
-def _grounded_amounts(state: ConversationState) -> set[str]:
-    grounded: set[str] = set()
+def _grounded_amounts(state: ConversationState) -> set[Decimal]:
+    grounded: set[Decimal] = set()
     billing = state.collected.billing
     if billing and billing.amount is not None:
-        grounded.add(_normalise_amount(str(billing.amount)))
+        grounded.add(billing.amount)
     # Anything the customer said themselves is grounded: repeating a figure
     # back to the person who supplied it is not invention.
     for turn in state.customer_turns():
-        for match in _AMOUNT.finditer(turn):
-            grounded.add(_normalise_amount(match.group(1)))
+        clean = figures.date_spans(_without_contracts(turn))
+        grounded.update(a.value for a in figures.amounts(clean))
     return grounded
 
 
-def _grounded_dates(state: ConversationState) -> set[tuple[int, int]]:
-    """(day, month) pairs the agent may state."""
-    grounded: set[tuple[int, int]] = set()
+def _grounded_dates(state: ConversationState) -> list[DateMention]:
+    """What the agent may state a date from: lookup results and customer words."""
+    grounded: list[DateMention] = []
     billing = state.collected.billing
-    for value in (
-        billing.next_retry_date if billing else None,
-        billing.lock_in_until if billing else None,
-    ):
-        if isinstance(value, date):
-            grounded.add((value.day, value.month))
+    if billing:
+        for value in (billing.next_retry_date, billing.lock_in_until):
+            if isinstance(value, date):
+                grounded.append(DateMention(value.year, value.month, value.day))
+        if billing.invoice_month:
+            year, _, month = billing.invoice_month.partition("-")
+            if year.isdigit() and month.isdigit():
+                grounded.append(DateMention(int(year), int(month)))
     for turn in state.customer_turns():
-        grounded |= _text_dates(turn)
-        for day, month, _ in _DATE_NUMERIC.findall(turn):
-            grounded.add((int(day), int(month)))
+        for readings in figures.dates(_without_contracts(turn)):
+            grounded.extend(readings)
     return grounded
 
 
@@ -147,22 +113,21 @@ def check(reply: str, state: ConversationState) -> list[Ungrounded]:
     """Figures in `reply` that nothing supports."""
     problems: list[Ungrounded] = []
 
-    amounts = _grounded_amounts(state)
-    for match in _AMOUNT.finditer(reply):
-        if _normalise_amount(match.group(1)) not in amounts:
-            problems.append(Ungrounded("amount", match.group(1)))
-
     contracts = _grounded_contracts(state)
     for match in _CONTRACT.finditer(reply):
         if match.group().upper() not in contracts:
             problems.append(Ungrounded("contract number", match.group()))
 
+    text = _without_contracts(reply)
+
     dates = _grounded_dates(state)
-    for day, month in _text_dates(reply):
-        if (day, month) not in dates:
-            problems.append(Ungrounded("date", f"{day}/{month}"))
-    for day, month, _ in _DATE_NUMERIC.findall(reply):
-        if (int(day), int(month)) not in dates:
-            problems.append(Ungrounded("date", f"{day}/{month}"))
+    for readings in figures.dates(text):
+        if not any(figures.supports(v, r) for r in readings for v in dates):
+            problems.append(Ungrounded("date", readings[0].text))
+
+    amounts = _grounded_amounts(state)
+    for amount in figures.amounts(figures.date_spans(text)):
+        if amount.value not in amounts:
+            problems.append(Ungrounded("amount", amount.text))
 
     return problems

@@ -157,6 +157,17 @@ class ToolDispatcher:
         and without re-asking.
         """
         state.collected.lookup_outcomes.append(result.outcome)
+        requested = args.get("contract_number", "").strip().upper()
+
+        # Verified figures belong to the contract they were fetched for. A
+        # lookup for any other number — found, down, absent, ambiguous or
+        # refused — means the conversation has moved to that contract, and the
+        # old figures must stop grounding anything. Otherwise "contract B's
+        # charge is €29.90" passes the guard on contract A's amount during an
+        # outage on B, and B's handover record carries A's figure.
+        billing = state.collected.billing
+        if billing is not None and billing.contract_number != requested:
+            state.collected.billing = None
 
         # The contract number is a fact about the **conversation**, not a result
         # of the lookup: the customer said it, and `came_from_customer()` has
@@ -176,14 +187,14 @@ class ToolDispatcher:
         # several contracts, so there is not yet a single one to record — that is
         # what the disambiguation turn is for.
         if result.outcome in ("found", "serviceUnavailable", "notFound"):
-            number = args.get("contract_number", "").strip().upper()
-            if number:
-                state.collected.contract_number = number
+            if requested:
+                state.collected.contract_number = requested
                 state.collected.contract_number_source = "customer_verbatim"
 
         match result.outcome:
             case "found":
                 state.collected.billing = BillingFacts(
+                    contract_number=requested,
                     status=result.status,
                     failure_reason=result.failure_reason,
                     amount=result.amount,

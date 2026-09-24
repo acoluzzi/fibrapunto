@@ -405,16 +405,28 @@ it found the things the tests were never shaped to ask.
 - Wire the confirmation gate, the closing messages and the trigger ordering
   into the live path, with tests that go through `ConversationService` rather
   than setting state by hand.
-- Key `BillingFacts` by contract number and clear it on any outcome other than
-  `found`; widen the figure patterns and parse ISO dates.
+- **Done.** `BillingFacts` carries the contract it was fetched for, and any
+  lookup for a *different* number drops it, whatever that lookup's outcome. A
+  failed retry on the *same* contract keeps it: those are still verified facts
+  about that contract, which is narrower than the "any outcome but `found`"
+  first planned. Figure extraction moved to `guardrails/figures.py`: amounts in
+  digits or words with any currency marker, dates as (year, month, day) with
+  only the parts the text names, years checked, ISO read year-first, and "the
+  19th" / "end of the month" / "mid-September" as mentions. The eval metric no
+  longer shares any of it: `evals/assertions.py` counts every numeral, number
+  word, month name and month-edge phrase the customer did not write — blunter,
+  and a superset of what the guard sees, so a guard blind spot now shows up as
+  a failed case instead of a clean zero. Tests: `test_grounding_coverage.py`.
 - Bound the IBAN and card matches by length and checksum instead of greed, and
   add "value followed by a word" cases to the tests.
 - Validate tool arguments inside the typed boundary; make one-case idempotency
   per record type, backed by a unique constraint.
 
 Stated rather than fixed, because the fix belongs to a production build: the
-operator view has no authentication, and the promises guard is a list of known
-phrasings, not a classifier.
+promises guard is a list of known phrasings, not a classifier. The operator
+view now has a demo gate — one shared password, a signed session cookie, ports
+bound to localhost (`api/auth.py`) — but a real deployment puts it in a
+separate service behind SSO, never on the chat's origin.
 
 **The general lesson.** A guardrail and the metric that measures it must not
 share an implementation, and a test that sets up the state it then checks
