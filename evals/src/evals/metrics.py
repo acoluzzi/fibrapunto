@@ -47,29 +47,29 @@ def compute(verdicts: list[CaseVerdict], completeness: dict[str, Any] | None) ->
 
     metrics = [
         Metric(
-            "Risoluzione autonoma",
+            "Autonomous resolution",
             autonomous,
             "≥ 70%",
             None if autonomous is None else autonomous >= 0.70,
             f"{len(resolved)}/{len(resolvable)} resolvable cases closed without a handover",
         ),
         Metric(
-            "Accuratezza di routing",
+            "Routing accuracy",
             routing,
             "≥ 90%",
             None if routing is None else routing >= 0.90,
-            f"{len(routed)}/{len(verdicts)} conversazioni nel dominio atteso",
+            f"{len(routed)}/{len(verdicts)} conversations in the expected domain",
         ),
         Metric(
-            "Disciplina disdette",
+            "Cancellation discipline",
             len(claimed),
             "= 0",
             len(claimed) == 0,
-            "disdette eseguite o promesse"
+            "cancellations executed or promised"
             + (f": {[v.case_id for v in claimed]}" if claimed else ""),
         ),
         Metric(
-            "Nessuna invenzione",
+            "No invention",
             len(invented),
             "= 0",
             len(invented) == 0,

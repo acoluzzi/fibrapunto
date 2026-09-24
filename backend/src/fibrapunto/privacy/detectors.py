@@ -26,10 +26,10 @@ class SensitiveKind(StrEnum):
     iban = "IBAN"
     card = "card number"
     cvv = "CVV"
-    # Kept: the codice fiscale is an Italian identifier, and Fibrapunto is an
-    # Italian operator whose customers have one. Detecting it is a real
-    # requirement regardless of the language the conversation happens in.
-    codice_fiscale = "codice fiscale"
+    # A national tax identifier: 16 characters, with a check letter computed
+    # from the other fifteen. The customers of this operator have one, and a
+    # customer pasting it is personal data like any other here.
+    national_tax_id = "tax ID"
     password = "password"
 
 
@@ -70,22 +70,22 @@ _IBAN_LENGTHS = {
 _CVV = re.compile(
     r"(?:\bcvv2?\b|\bcv2\b|\bcvc2?\b|\bcsc\b|security (?:code|number)|verification (?:code|number)"
     r"|code on the back|(?:three|3|four|4)[ -]digits? (?:on|at) the back|digits on the back"
-    r"|codice di sicurezza)\D{0,15}(\d{3,4})\b",
+    r")\D{0,15}(\d{3,4})\b",
     re.IGNORECASE,
 )
 # A bare 3–4 digit number right after a card number, optionally after its
 # expiry: "4111 … 1111 12/27 123". Nobody types a card, then a short number,
 # for any other reason.
 _CVV_AFTER_CARD = re.compile(
-    r"^[\s,;:.-]*(?:(?:exp(?:iry|ires)?\.?|valid (?:to|until)|scad(?:enza)?)\s*:?\s*)?"
+    r"^[\s,;:.-]*(?:(?:exp(?:iry|ires)?\.?|valid (?:to|until))\s*:?\s*)?"
     r"(?:\d{1,2}\s*[/-]\s*\d{2,4}[\s,;:.-]*)?(?:(?:and\s+)?(?:cvv|cvc|code)\s*:?\s*)?"
     r"(\d{3,4})\b(?![/.-]\d)",
     re.IGNORECASE,
 )
-_CODICE_FISCALE = re.compile(r"\b[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]\b", re.IGNORECASE)
+_NATIONAL_TAX_ID = re.compile(r"\b[A-Z]{6}\d{2}[A-EHLMPR-T]\d{2}[A-Z]\d{3}[A-Z]\b", re.IGNORECASE)
 _PASSWORD = re.compile(
     r"\b(?:password|pass\s?word|passcode|passphrase|pwd|pin|login|access code)"
-    r"\s*(?:is|è|e'|:|=)\s*(\S{4,})",
+    r"\s*(?:is|:|=)\s*(\S{4,})",
     re.IGNORECASE,
 )
 
@@ -111,7 +111,7 @@ _DIGIT_WORD_RUN = re.compile(
 
 
 def _iban_valid(candidate: str) -> bool:
-    """mod-97, per ISO 13616. An Italian IBAN is 27 characters."""
+    """mod-97, per ISO 13616."""
     value = re.sub(r"\s", "", candidate).upper()
     if not 15 <= len(value) <= 34:
         return False
@@ -137,7 +137,7 @@ def _luhn_valid(candidate: str) -> bool:
     return total % 10 == 0
 
 
-_CF_ODD = {
+_TAX_ID_ODD = {
     **{str(i): v for i, v in enumerate([1, 0, 5, 7, 9, 13, 15, 17, 19, 21])},
     **{
         c: v
@@ -175,18 +175,20 @@ _CF_ODD = {
         )
     },
 }
-_CF_EVEN = {
+_TAX_ID_EVEN = {
     **{str(i): i for i in range(10)},
     **{c: i for i, c in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ")},
 }
 
 
-def _codice_fiscale_valid(candidate: str) -> bool:
+def _national_tax_id_valid(candidate: str) -> bool:
     value = candidate.upper()
     if len(value) != 16:
         return False
     try:
-        total = sum(_CF_ODD[c] if i % 2 == 0 else _CF_EVEN[c] for i, c in enumerate(value[:15]))
+        total = sum(
+            _TAX_ID_ODD[c] if i % 2 == 0 else _TAX_ID_EVEN[c] for i, c in enumerate(value[:15])
+        )
     except KeyError:
         return False
     return "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[total % 26] == value[15]
@@ -291,9 +293,9 @@ def find(text: str) -> list[Finding]:
         if after:
             findings.append(Finding(SensitiveKind.cvv, end + after.start(1), end + after.end(1)))
 
-    for match in _CODICE_FISCALE.finditer(text):
-        if _codice_fiscale_valid(match.group()):
-            findings.append(Finding(SensitiveKind.codice_fiscale, match.start(), match.end()))
+    for match in _NATIONAL_TAX_ID.finditer(text):
+        if _national_tax_id_valid(match.group()):
+            findings.append(Finding(SensitiveKind.national_tax_id, match.start(), match.end()))
 
     for match in _PASSWORD.finditer(text):
         findings.append(Finding(SensitiveKind.password, match.start(1), match.end(1)))

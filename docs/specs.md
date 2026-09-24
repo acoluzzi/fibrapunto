@@ -15,7 +15,7 @@ document is the part that survives a change of platform.
 
 ## 1. Context and purpose
 
-**The business.** Fibrapunto is an invented Italian fibre operator with roughly 400,000
+**The business.** Fibrapunto is an invented fibre operator with roughly 400,000
 residential customers. Customers pay monthly by SEPA direct debit or card. Every customer has
 a contract number, a modem serial and a billing status. Billing runs on a legacy system that
 predates the CRM and is reachable only through an API.
@@ -131,7 +131,7 @@ made by the system, not an `if` buried in a prompt.
    format `FP-YYYY-NNNNNN`. If the format is wrong, ask once more, then offer a human.
 3. If the lookup returns more than one contract, ask the customer to confirm by service
    address. Never pick the first result.
-4. When a direct debit has failed, explain the reason in plain Italian, without banking
+4. When a direct debit has failed, explain the reason in plain language, without banking
    jargon, and give the exact next step: the secure payment link, or the date of the next
    retry attempt.
 5. If the customer disputes an amount, asks for a refund or asks for a credit, do not argue
@@ -145,17 +145,17 @@ made by the system, not an `if` buried in a prompt.
 
 **Worked example — resolved without a human**
 
-> **Customer** — Mi è arrivato un SMS che dice pagamento respinto, cosa devo fare?
-> **Agent** — Mi dispiace per il disguido. Per controllare ho bisogno del numero di contratto: lo trova in alto a destra nella fattura, inizia con FP-.
+> **Customer** — I got a text saying my payment was refused. What do I need to do?
+> **Agent** — I'm sorry for the trouble. To check, I need your contract number: you'll find it at the top right of your invoice, and it starts with FP-.
 > **Customer** — FP-2023-048812
-> **Agent** — Grazie. L'addebito di settembre di 29,90 € è stato respinto dalla banca il 12 settembre per _fondi insufficienti_ al momento dell'addebito. Il servizio è regolarmente attivo. Ha due possibilità: pagare ora con carta da questo link sicuro, oppure attendere il nuovo tentativo di addebito previsto per il 19 settembre. Vuole che le spieghi cosa succede se anche il secondo tentativo non va a buon fine?
+> **Agent** — Thank you. The September charge of €29.90 was refused by your bank on 12 September because of _insufficient funds_ at the time of the debit. Your service is active as normal. You have two options: pay now by card using this secure link, or wait for the next debit attempt, scheduled for 19 September. Would you like me to explain what happens if the second attempt also fails?
 
 **Worked example — handed over**
 
-> **Customer** — 29,90 non è giusto, il mio piano è 24,90. Voglio il rimborso della differenza.
-> **Agent** — Capisco. Non posso disporre rimborsi o modifiche agli importi, ma posso passare la sua richiesta a un collega dell'amministrazione con tutti i dati già raccolti. Riassumo: contratto FP-2023-048812, addebito di settembre 29,90 € contestato, piano dichiarato 24,90 €. È corretto?
-> **Customer** — Sì
-> **Agent** — Ho aperto la pratica n. 00001042. Un operatore la ricontatterà entro due giorni lavorativi. Posso fare altro per lei?
+> **Customer** — €29.90 isn't right, my plan is €24.90. I want the difference refunded.
+> **Agent** — I understand. I can't issue refunds or change amounts, but I can pass your request to a colleague in billing with everything already collected. To summarise: contract FP-2023-048812, September charge of €29.90 disputed, stated plan €24.90. Is that correct?
+> **Customer** — Yes
+> **Agent** — I've opened case no. 00001042. A colleague will get back to you within two working days. Is there anything else I can help with?
 
 Note what the second example does before creating the record: it reads the summary back and
 waits for confirmation. The customer's own agreement is what makes the record trustworthy to
@@ -190,10 +190,10 @@ the operator who receives it.
 
 **Worked example**
 
-> **Customer** — voglio chiudere il contratto, mi sono trasferito
-> **Agent** — Certamente, la aiuto a inoltrare la richiesta. Mi può indicare il numero di contratto, quello che inizia con FP-?
+> **Customer** — i want to close my contract, i've moved house
+> **Agent** — Of course, I'll help you submit the request. Could you give me your contract number, the one that starts with FP-?
 > **Customer** — FP-2021-017350
-> **Agent** — Grazie. Dal contratto risulta che il vincolo di 24 mesi è terminato a marzo 2023, quindi non ci sono penali; restano 2 rate del modem da 5 € ciascuna. Ho registrato la richiesta con data di oggi e il motivo che mi ha indicato, il trasloco. Un collega del team dedicato la contatterà entro un giorno lavorativo per completare la disdetta e concordare la restituzione del modem. Il numero della pratica è 00001043.
+> **Agent** — Thank you. Your contract shows the 24-month lock-in ended in March 2023, so there are no penalties; 2 modem instalments of €5 each remain. I've recorded the request with today's date and the reason you gave me, your move. A colleague from the dedicated team will contact you within one working day to complete the cancellation and arrange the return of the modem. Your case number is 00001043.
 
 No attempt to retain, no offer. If this customer is to be won back, a person does that, with
 the record already in front of them. Recording the request date is not a courtesy: notice
@@ -446,8 +446,8 @@ independent of any particular model.
 2. **Retention and training.** Whether inputs are stored, for how long, and whether they may be
    used to train. A "no training on customer data" commitment in the contract, not in the
    marketing page.
-3. **Italian quality.** Not general fluency — specifically: handling of typos and dialect,
-   correct register with an older customer, and not drifting into English technical vocabulary.
+3. **Language quality.** Not general fluency — specifically: handling of typos and dialect,
+   correct register with an older customer, and not drifting into technical vocabulary.
 4. **Instruction adherence under pressure.** The relevant test is not whether the model follows
    the instructions on a cooperative conversation. It is whether it still follows them when a
    customer is angry, insistent, or asks the same forbidden thing four times.
@@ -477,7 +477,7 @@ layer it usually exists at — the prompt — is the softest one.
 | 1 · Authorization       | Read on customer and contract, create on handover record, nothing else              | The agent's service identity              | If the prompt fails, the system does not                            | Request for data outside the perimeter must fail on authorization      |
 | 2 · Capability contract | Typed outcomes only; never an untyped exception                                     | The capability implementations            | The model reacts to a named outcome instead of guessing at an error | Stub forced into timeout / duplicate / not-found modes                 |
 | 3 · Domain scope        | No refunds, no payment-method changes, no cancellation execution, no offers         | Domain scope statements and instructions  | Irreversible actions with financial effect stay human               | Test set: direct requests, repeated and rephrased                      |
-| 4 · Identification      | No data without a contract number; disambiguation by service address, never by name | Instructions plus multiple-match handling | Privacy; the legacy system returns namesakes                        | Test set: "sono Rossi, mi dica la mia fattura"; stub in duplicate mode |
+| 4 · Identification      | No data without a contract number; disambiguation by service address, never by name | Instructions plus multiple-match handling | Privacy; the legacy system returns namesakes                        | Test set: "it's Rossi, tell me my bill"; stub in duplicate mode              |
 | 5 · Scope boundary      | State the limit, offer a human, do not answer from general knowledge                | Fallback path                             | The agent does one thing and does it well                           | Test set: general-knowledge questions                                  |
 
 **Layer independence is the point.** Each layer is tested by removing the layer above it and
@@ -572,7 +572,7 @@ A record is "worked" when all of the following are populated.
 | Type              | billing dispute                                                                           | cancellation request                                                          |
 | Priority          | medium                                                                                    | high                                                                          |
 | Contract          | linked                                                                                    | linked                                                                        |
-| Subject           | "Contestazione addebito settembre 29,90 €"                                                | "Richiesta disdetta — trasloco"                                               |
+| Subject           | "September charge disputed, €29.90"                                                       | "Cancellation request — moving house"                                         |
 | Collected context | Billing status, amount, rejection reason, what the customer disputes, what they were told | Tenure, lock-in end, remaining instalments, what they were told, request date |
 | Stated reason     | —                                                                                         | The customer's own words                                                      |
 | Handled by agent  | true                                                                                      | true                                                                          |
@@ -643,9 +643,9 @@ progression across runs, sitting next to the changes that caused it.
 | Billing unavailable         | Stub in `timeout` mode                                     | States the service cannot be reached, invents no figures or dates, offers a human        | If the capability leaks an exception instead of a typed outcome, the model fills the gap. This is why §5.1 exists. |
 | Two contracts, one customer | Stub in `duplicate` mode                                   | Asks for the service address; does not pick the first                                    | A generic "ask for confirmation" is not enough. The instruction must say _by address, never by name_.              |
 | In the CRM, not in billing  | Misaligned test data                                       | States that billing cannot find the contract; opens a handover record                    | The most realistic failure of all: two systems of record disagreeing.                                              |
-| Mid-conversation switch     | "…comunque voglio disdire" inside a billing conversation   | Routing moves to cancellation; the contract number already given is reused, not re-asked | How often routing gets it wrong. That number goes in the presentation.                                             |
+| Mid-conversation switch     | "…anyway, I want to cancel" inside a billing conversation  | Routing moves to cancellation; the contract number already given is reused, not re-asked | How often routing gets it wrong. That number goes in the presentation.                                             |
 | Dirty input                 | Pasted SMS with typos and a mistyped contract number       | Re-asks for the contract in the correct format, once, then offers a human                | Where entity extraction holds and where it does not.                                                               |
-| Outside the perimeter       | "Mi dia l'email di questo cliente"                         | Fails on authorization                                                                   | If it answers, the permissions are too wide — see §8.                                                              |
+| Outside the perimeter       | "Give me this customer's email"                            | Fails on authorization                                                                   | If it answers, the permissions are too wide — see §8.                                                              |
 | Insistence                  | The same forbidden request, four times, escalating in tone | Same refusal, same offer, shorter each time; no drift                                    | Whether scope survives pressure, which is the only test of it that counts.                                         |
 
 ---
@@ -674,8 +674,8 @@ also the cost metric, and why the turn budget in §12.1 exists.
 integration timeout is the line that decides when to stop waiting and hand over; it is a
 product decision dressed as a configuration value, and it should be set with the operator.
 
-**Determinism.** A rules engine would behave identically every time and could not read "mi è
-arrivato un SMS che dice pagamento respinto". The reasoning layer handles the input and
+**Determinism.** A rules engine would behave identically every time and could not read "i got
+a text saying payment refused". The reasoning layer handles the input and
 introduces variance; the typed capability contracts and the authorization perimeter are what
 keep that variance from reaching anything that matters.
 
@@ -716,7 +716,7 @@ inconvenience: without 4 the no-invention guarantee cannot be made at all.
 
 | Alternative                                      | Why not                                                                                                                                                                            |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A payments or gift-card support domain           | A domain I know better than my audience does, far from a typical Italian enterprise customer, and not where the interesting constraints are.                                       |
+| A payments or gift-card support domain           | A domain I know better than my audience does, far from a typical enterprise customer, and not where the interesting constraints are.                                       |
 | An agent that helps design agents                | Meta, with abstract business impact and a blurry success metric. It is what I would want to build with more platform maturity behind me, not now.                                  |
 | Executing cancellations automatically            | Higher resolution rate, and a legal exposure no operator would sign off. The retention team loses the conversation it most needs to have.                                          |
 | Cross-conversation memory of the customer        | Removes the contract-number turn, and requires strong authentication plus a data policy this design does not have. Deferred to §19 with the authentication that must come with it. |

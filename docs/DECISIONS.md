@@ -106,8 +106,8 @@ and carries a `guidance` field marked internal-only:
 class BillingServiceUnavailable(BaseModel):
     outcome: Literal["serviceUnavailable"] = "serviceUnavailable"
     guidance: str = InternalOnly(
-        "Il sistema di fatturazione non risponde. Dillo chiaramente, non fornire "
-        "nessun importo né data, e offri l'apertura di una pratica.")
+        "The billing system is not responding. Tell the customer plainly, "
+        "give NO amount and NO date, and offer to open a case.")
 ```
 
 **Why.** §5.2 requires a description on every output, and §5.1's argument is that
@@ -123,7 +123,7 @@ authority for failure handling.
 ### 5. The model decides what is said; code decides what happens · `settled`
 
 **Decision.** Escalation triggers, queue, priority, and the handover payload are
-computed from typed state. The model contributes the Italian, the one-sentence
+computed from typed state. The model contributes the wording, the one-sentence
 summary, and the judgement of what the customer means.
 
 **Why.** §12.1 is explicit that categorical escalations "are not judgement calls
@@ -342,7 +342,7 @@ capability results. Completeness comes from a SQL view that recomputes it
 independently of the code path that wrote the row. A model's opinion is not
 needed for any of those, and is weaker than code for all of them.
 
-**What the judge is for.** Register, tone, whether the Italian is any good — and
+**What the judge is for.** Register, tone, whether the writing is any good — and
 the §14.2 audit: **disagreements between assertion and judge are the audit of
 the judge**, dumped by `make eval-audit`.
 
@@ -366,7 +366,7 @@ programmatic interface never gets exercised by the thing it exists for.
 ### 16. Inbound redaction on by default · `deviation` from §9
 
 **Decision.** `REDACT_INBOUND=true`. Detected IBANs and card numbers are replaced
-with `[[REDATTO:IBAN]]` before the turn leaves the process.
+with `[[REDACTED:IBAN]]` before the turn leaves the process.
 
 **Why.** §9 states an honest limitation: "by the time that rule applies, the text
 has already reached the model for that turn. Nothing in the agent's design can
@@ -383,7 +383,7 @@ stays so both behaviours can be demoed.
 
 ### 17. Detectors pair a pattern with a checksum · `settled`
 
-**Decision.** IBAN validated mod-97, card numbers by Luhn, codice fiscale by
+**Decision.** IBAN validated mod-97, card numbers by Luhn, national tax ID by
 check character.
 
 **Why.** Regex alone produces false positives, and a redaction demo that mangles

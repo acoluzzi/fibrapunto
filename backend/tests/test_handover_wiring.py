@@ -271,7 +271,6 @@ async def test_a_case_opened_on_the_first_message_is_written(monkeypatch):
     assert "within two working days" in reply.text, "the record says what the reply says"
 
 
-
 # --- one case per request type (§13) -----------------------------------------
 
 

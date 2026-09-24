@@ -88,8 +88,8 @@ def check_tool_call(role: ModelRole) -> bool:
 class RoutingDecision(BaseModel):
     """Stands in for the real router's schema (§4)."""
 
-    dominio: str = Field(description="billing | cancellation | fallback")
-    confidenza: float = Field(description="0.0 - 1.0")
+    domain: str = Field(description="billing | cancellation | fallback")
+    confidence: float = Field(description="0.0 - 1.0")
 
 
 def check_structured_output(role: ModelRole) -> bool:
@@ -113,9 +113,9 @@ def check_structured_output(role: ModelRole) -> bool:
         fail(f"request failed: {type(exc).__name__}: {exc}")
         return False
 
-    ok(f"parsed: dominio={result.dominio!r} confidenza={result.confidenza}")
-    if "cancel" not in result.dominio.lower():
-        note(f"{YELLOW}routed to {result.dominio!r}; expected cancellation{RESET}")
+    ok(f"parsed: domain={result.domain!r} confidence={result.confidence}")
+    if "cancel" not in result.domain.lower():
+        note(f"{YELLOW}routed to {result.domain!r}; expected cancellation{RESET}")
     return True
 
 

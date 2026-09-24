@@ -20,8 +20,7 @@ from fibrapunto.state.models import ConversationState
 
 # Each pattern is a claim the company would have to honour.
 #
-# English needs a wider net than Italian did. Italian marks a completed action
-# with a small set of verb forms; English says "I have cancelled", "I've
+# English says a completed action many ways: "I have cancelled", "I've
 # cancelled", "your contract has been cancelled", "that's been cancelled" and
 # "I went ahead and cancelled". So each entry matches the *aspect* — something
 # completed, by us, to their account — rather than one phrasing.

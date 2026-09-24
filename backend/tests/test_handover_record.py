@@ -202,7 +202,7 @@ async def test_a_failed_handover_carries_no_reference_at_all(gateway, clean_db):
 
 async def test_a_billing_dispute_routes_to_the_other_queue(gateway, clean_db):
     state = state_for(DomainKey.billing)
-    state.collected.billing = BillingFacts(status="failed", failure_reason="fondi")
+    state.collected.billing = BillingFacts(status="failed", failure_reason="insufficient funds")
     state.collected.told_to_customer = ["The charge was refused."]
     # §13 requires a billing dispute to record what is actually disputed —
     # supplied by the model, since only it knows what the customer objected to.
@@ -212,7 +212,7 @@ async def test_a_billing_dispute_routes_to_the_other_queue(gateway, clean_db):
         state=state,
         gateway=gateway,
         principal=svc_agent(),
-        subject="Contestazione addebito settembre",
+        subject="September charge disputed",
         trigger="categorical:amount_dispute",
     )
 

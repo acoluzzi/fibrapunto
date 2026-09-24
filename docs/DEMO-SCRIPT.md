@@ -8,20 +8,20 @@ impossible, not by making it rare.**
 
 ## The 45 minutes
 
-| | Minutes | What |
-|---|---|---|
-| **A** | 0–4 | Framing: the problem, and why the design document comes first |
-| **B** | 4–16 | The demo — seven beats, below |
-| **C** | 16–26 | Decisions, including the two Salesforce parallel slides |
-| **D** | 26–30 | What is measured, and what is not yet |
-| — | 30–45 | Questions |
+|       | Minutes | What                                                          |
+| ----- | ------- | ------------------------------------------------------------- |
+| **A** | 0–4     | Framing: the problem, and why the design document comes first |
+| **B** | 4–16    | The demo — seven beats, below                                 |
+| **C** | 16–26   | Decisions, including the two Salesforce parallel slides       |
+| **D** | 26–30   | What is measured, and what is not yet                         |
+| —     | 30–45   | Questions                                                     |
 
 Thirty minutes of content, fifteen of questions. If you overrun, **cut from C,
 never from B** — the demo is the evidence and the decisions can be compressed to
 the two slides plus one sentence each.
 
 No purely commercial profiles in the room, so the technical depth is fine and
-you can open on a `GRANT`. But Region Leads want to know *why it matters*, not
+you can open on a `GRANT`. But Region Leads want to know _why it matters_, not
 only how it works: every beat below has a line about the why, and those lines
 are the ones to keep when time is short.
 
@@ -58,15 +58,15 @@ perimeter row reads `denied` for `svc_agent`. If either is missing, `make reset`
 
 Three things, no slides needed beyond a title:
 
-1. **The problem.** An Italian broadband operator. Billing questions resolved
+1. **The problem.** A broadband operator. Billing questions resolved
    autonomously; cancellations never executed by the agent, only prepared for a
    human. Two domains that work, not three that half-work.
 2. **The design document came first**, and it is deliberately
    technology-agnostic — it names no platform, no vendor, no framework. That is
    what makes §17 a checklist an implementation either satisfies or does not.
 3. **The claim being made** is not "it chats well". It is that four things the
-   document asserts are *structural in the code rather than written in a
-   prompt*. The next twelve minutes are those four things.
+   document asserts are _structural in the code rather than written in a
+   prompt_. The next twelve minutes are those four things.
 
 > Do not read the spec's table of contents aloud. One sentence on the problem,
 > one on why the document exists, one on what is about to be shown.
@@ -116,7 +116,7 @@ The agent says the system is not responding and offers to open a case. It does
 **not** invent an amount.
 
 The point is not that it behaved well. Open the trace: the outcome is
-`serviceUnavailable`, a *typed* result carrying its own instruction, not an
+`serviceUnavailable`, a _typed_ result carrying its own instruction, not an
 exception string. And the grounding guard is standing behind it — with nothing
 verified this conversation, any figure at all would be blocked.
 
@@ -145,7 +145,7 @@ gives a reference number.
 
 > "Can you tell me the email address on the contract?"
 
-It cannot. Now show *why*, in the metrics panel: the same check under two
+It cannot. Now show _why_, in the metrics panel: the same check under two
 identities, `svc_agent` **denied** and `platform_admin` **allowed**. Be precise
 about what that row is: the policy file (`contracts/perimeter-policy.yaml`)
 evaluated in Python, which exists so a denial has a readable reason. The
@@ -227,13 +227,13 @@ compromise stops being evidence of anything.
 
 **2 · Why LangGraph, and where it was wrong (2 min).** Explicit graph, per-node
 tool binding, so §4's "a router plus a small number of bounded domains" is drawn
-rather than described. But its prebuilt `ToolNode` fails §5.1 in *both* branches
+rather than described. But its prebuilt `ToolNode` fails §5.1 in _both_ branches
 — one returns an error string to the model, the other re-raises — so the node is
 ours. That is the more interesting half: a guarantee written into a contract
 beats one inherited from a default you did not choose.
 
 **3 · Why Postgres was the highest-leverage choice (2 min).** Not about data. It
-is the only self-contained way to make §8's boundary fail on *authorization*
+is the only self-contained way to make §8's boundary fail on _authorization_
 rather than on an instruction. The trade-off is real and belongs in the friction
 log: the denial arrives as `permission denied for table customer`, which §8.1
 warns pushes engineers to widen permissions until the error stops. The
@@ -254,9 +254,7 @@ Open the metrics panel, then say the part that matters:
 
 **Four of §1's six metrics are computed by code, not by a judge**, because
 `AgentReply` reports which domain fired and which capabilities ran with which
-outcomes as *facts*. The judge — a different vendor from the agent, enforced by
-a database `CHECK` constraint — is asked only what a model can uniquely answer:
-register, tone, whether the Italian is any good.
+outcomes as _facts_.
 
 **Disagreements between the two are the audit of the judge**, not noise:
 `make eval-audit`.
@@ -278,15 +276,15 @@ replica #7.
 
 Prepared answers, because these are the predictable ones.
 
-| Question | Where the answer lives |
-|---|---|
-| "Why not build it on the platform?" | DECISIONS #1 — every claim is inspectable; a `GRANT` you can read beats a permission set you have to be shown |
-| "How do you stop it hallucinating a figure?" | beat 2 + beat 6 — the grounding guard, tested with no prompt at all |
-| "What happens when the model changes?" | §10 — model ids are config strings, `assert_served_model` on every call, `pinned_on` recorded |
-| "How would this scale?" | SCALING.md — replica #2, then #7, then two-stage routing before domain five |
-| "What did you get wrong?" | FRICTION-LOG.md entry 4 — the sequence grant the Python layer structurally cannot catch |
-| "Can anyone open the operator view?" | not without the operator password, and only from this laptop. Demo gate: in production it is a separate service behind SSO, never on the chat's origin |
-| "What is not finished?" | the status table at the bottom of this file. Say it plainly. |
+| Question                                     | Where the answer lives                                                                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| "Why not build it on the platform?"          | DECISIONS #1 — every claim is inspectable; a `GRANT` you can read beats a permission set you have to be shown                                          |
+| "How do you stop it hallucinating a figure?" | beat 2 + beat 6 — the grounding guard, tested with no prompt at all                                                                                    |
+| "What happens when the model changes?"       | §10 — model ids are config strings, `assert_served_model` on every call, `pinned_on` recorded                                                          |
+| "How would this scale?"                      | SCALING.md — replica #2, then #7, then two-stage routing before domain five                                                                            |
+| "What did you get wrong?"                    | FRICTION-LOG.md entry 4 — the sequence grant the Python layer structurally cannot catch                                                                |
+| "Can anyone open the operator view?"         | not without the operator password, and only from this laptop. Demo gate: in production it is a separate service behind SSO, never on the chat's origin |
+| "What is not finished?"                      | the status table at the bottom of this file. Say it plainly.                                                                                           |
 
 ---
 
@@ -300,7 +298,7 @@ credentials in chat and continues without it. The trace shows
 
 Then say the honest part, because it is in the spec and volunteering it is
 better than being asked: §9 admits that by the time that rule applies, the text
-has already reached the model. The mitigation is that redaction runs *before*
+has already reached the model. The mitigation is that redaction runs _before_
 the request leaves the process, and that the other three enforcement points —
 storage, handover record, outbound — are unconditional. `GET /api/retention`
 shows the retention period and, more usefully, `overdue: 0`.
@@ -312,7 +310,7 @@ make eval-quick      # deterministic assertions, no judge, free
 make eval-audit      # where the judge and the code disagreed
 ```
 
-§14.2's argument in one command: the disagreements *are* the audit of the judge.
+§14.2's argument in one command: the disagreements _are_ the audit of the judge.
 
 **"What would you do differently?"**
 
@@ -325,13 +323,13 @@ a sequence is not one.
 
 ## If something goes wrong
 
-| Symptom | Fix |
-|---|---|
-| Agent replies with the safe fallback repeatedly | a guard is firing; open the trace, it names which one |
-| Billing always fails | a `Provoke` TTL is still live — press **Provoke now → Restore**, or wait 120s |
-| Empty operator queue | `make reset`, then re-run beat 3 |
-| Chat does not stream | SSE needs `proxy_buffering off`; check the frontend container is the built image, not a stale one |
-| Model errors mentioning credits | OpenRouter balance — the agent cannot run without it |
+| Symptom                                         | Fix                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Agent replies with the safe fallback repeatedly | a guard is firing; open the trace, it names which one                                             |
+| Billing always fails                            | a `Provoke` TTL is still live — press **Provoke now → Restore**, or wait 120s                     |
+| Empty operator queue                            | `make reset`, then re-run beat 3                                                                  |
+| Chat does not stream                            | SSE needs `proxy_buffering off`; check the frontend container is the built image, not a stale one |
+| Model errors mentioning credits                 | OpenRouter balance — the agent cannot run without it                                              |
 
 **Do not** debug live. Every beat above except 1 and 3 works from a fresh
 `make demo`, so the recovery is to reset and pick up at the next beat.
@@ -342,10 +340,10 @@ a sequence is not one.
 
 Honest, because the alternative is finding out on stage.
 
-| Beat | Verified |
-|---|---|
-| 4, 5, 6 | yes — they are tests in the committed suite, and they are the ones you run on screen |
-| 7 | the record shape and its constraints are tested; the full path is not yet verified live |
+| Beat    | Verified                                                                                                                      |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 4, 5, 6 | yes — they are tests in the committed suite, and they are the ones you run on screen                                          |
+| 7       | the record shape and its constraints are tested; the full path is not yet verified live                                       |
 | 1, 2, 3 | **not yet verified end-to-end against a live model.** Blocked on OpenRouter credits; see the verification debt in the README. |
 
 `.github/workflows/ci.yml` runs lint, the artefact drift checks, the migrations

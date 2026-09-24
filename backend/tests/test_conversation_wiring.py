@@ -329,7 +329,7 @@ async def test_the_stable_block_does_not_vary_between_turns(monkeypatch):
         monkeypatch,
         [
             tool_call("billing_lookup", {"contract_number": CONTRACT}),
-            AIMessage("Respinto."),
+            AIMessage("Refused."),
         ],
     )
     convo = conversation()

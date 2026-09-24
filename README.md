@@ -1,6 +1,6 @@
 # Fibrapunto — a customer service agent for an invented fibre operator
 
-A working conversational agent, built in ten days, that resolves billing and direct-debit
+A working conversational agent, that resolves billing and direct-debit
 questions on its own and hands cancellation requests to a human with the case already worked.
 
 The design is in [docs/specs.md](docs/specs.md). It is deliberately technology-agnostic: it

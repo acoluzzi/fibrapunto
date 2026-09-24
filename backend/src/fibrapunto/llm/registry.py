@@ -82,9 +82,9 @@ class ModelSpec:
 #     is a budget nobody can defend.
 #
 # The numbers come from the spec's own worked examples: §4.1's replies are
-# roughly eighty words of Italian. These are generous against that, not tight.
+# roughly eighty words each. These are generous against that, not tight.
 MAX_TOKENS = {
-    ModelRole.agent: 1024,  # an Italian reply, possibly with a tool call
+    ModelRole.agent: 1024,  # a customer reply, possibly with a tool call
     ModelRole.router: 256,  # a small JSON object: domain, confidence, sentiment
     ModelRole.judge: 1024,  # the §14.2 schema, including a rationale
     ModelRole.persona: 512,  # one customer turn

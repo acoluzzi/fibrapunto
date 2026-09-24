@@ -162,7 +162,7 @@ outcomes as **facts** rather than things to infer from a transcript.
 
 The judge — a different vendor from the agent, asserted by a DB `CHECK`
 constraint and by `JudgeMisconfigured` at startup — answers only what a model
-can uniquely answer: register, tone, whether the Italian is any good.
+can uniquely answer: register, tone, whether the writing is any good.
 **Disagreements between the two are the audit of the judge** (§14.2), dumped by
 `make eval-audit`.
 

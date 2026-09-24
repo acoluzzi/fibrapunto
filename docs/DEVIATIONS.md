@@ -35,7 +35,7 @@ text has already reached the model for that turn. Nothing in the agent's design
 can prevent that, and pretending otherwise would be worse than admitting it."
 
 **Built.** `REDACT_INBOUND=true` by default. Detected IBANs, card numbers,
-CVVs, codici fiscali and passwords are replaced with `[[REDATTO:KIND]]` before
+CVVs, national tax IDs and passwords are replaced with `[[REDACTED:KIND]]` before
 the turn leaves the process.
 
 **Why.** The limitation is true *if you do not pre-redact*. With pre-redaction
@@ -85,68 +85,3 @@ warning naming this deviation on every run.
 **What would close it.** Twenty minutes of somebody outside the project, given
 the scenario and nothing else. It is the cheapest unbought improvement in the
 build, and it is listed first in the next-steps section for that reason.
-
----
-
-## 4. The agent answers in English, so §10 criterion 3 cannot be met as written
-
-**Spec.** §10 lists four criteria for choosing a model. The third is:
-
-> **Italian quality.** Not general fluency — specifically: handling of typos and
-> dialect, correct register with an older customer, and not drifting into
-> English technical vocabulary.
-
-§4's worked examples are Italian, and §9's detectors are built around Italian
-identifiers.
-
-**Built.** The agent, the instructions, the test set and the interface are all
-in English. The scenario is unchanged: Fibrapunto is still an Italian broadband
-operator, the contract format is still `FP-YYYY-NNNNNN`, amounts are still in
-euros, and the codice fiscale detector is still there — because the customers
-still have one.
-
-**Why.** The panel reads the conversation to judge it. A demo whose evidence
-nobody in the room can evaluate is not evidence, whatever it says about the
-agent. The trade-off is stated plainly rather than hidden: a criterion the spec
-asks for has been given up in exchange for the work being legible.
-
-**What was preserved, and what was lost.**
-
-`output_language.py` is the guard that measured criterion 3, and it was
-retargeted rather than deleted. The criterion has a *shape* — a reply degrades
-in two directions, and both are observable — and the shape survives translation
-even though the specifics do not:
-
-| Italian criterion | English equivalent | Kept? |
-|---|---|---|
-| no drift into English technical vocabulary | no drift into the **system's own** vocabulary: `serviceUnavailable`, "handover record", "the queue", "the lookup" | yes, and it is the stronger version — those words are in the prompt the model just read |
-| correct register (`lei` vs `tu`) with an older customer | no over-familiarity: "Hi there", "no worries", "absolutely" | yes, but lexically rather than grammatically, which is a weaker check |
-| handling of typos and dialect | still exercised by cases 024 and 026 | yes |
-
-The register check is the real loss. Italian marks it in the grammar, so a
-violation is unambiguous and cannot be argued about; English marks it in word
-choice, so the check is a list someone has to maintain and a model can be
-over-familiar without using any word on it.
-
-**What it cost.** About a day. The parts that were not string replacement:
-
-- **The acknowledgement pattern** in `router/policy.py`. It is what makes §4.1's
-  confirmation lock work, so "Sì|ok|confermo" had to become a set of English
-  affirmatives — functional code, not a label.
-- **The promises guard.** Italian marks a completed action with a small set of
-  verb forms. English says "I have cancelled", "I've cancelled", "your contract
-  has been cancelled" and "I went ahead and cancelled", so each pattern now
-  matches the aspect rather than one phrasing.
-- **Number and date formats.** `29,90 €` became `€29.90` and the month names
-  changed, across the grounding guard, the eval assertions and the fixtures. The
-  amount regex still accepts a decimal comma, because the *customer's* text is
-  one of the two grounding sources and a figure we failed to recognise in their
-  message would be reported as invented the moment it was read back to them.
-- **Date ordering.** English writes "19 September" and "September 19", and the
-  guard now matches both. Matching one would have left the other
-  ungrounded-but-unchecked, which is the silent half of a guard failing.
-
-**What would close it.** Nothing, honestly. The criterion is about Italian and
-the agent no longer speaks it. What is available instead is the honest version
-of the claim: the *mechanism* §10 criterion 3 asked for is in place and running,
-pointed at the failure modes the output language actually has.

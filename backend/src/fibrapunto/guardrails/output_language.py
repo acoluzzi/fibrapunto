@@ -1,24 +1,18 @@
 """The reply reads like a company, not like a system (§10 criterion 3).
 
-§10's third criterion is about **Italian** quality — "handling of typos and
-dialect, correct register with an older customer, and not drifting into English
-technical vocabulary". With the agent answering in English that criterion cannot
-be satisfied as written, and pretending otherwise would be worse than saying so.
-It is recorded in docs/DEVIATIONS.md.
+§10's third criterion is language quality — "handling of typos and dialect,
+correct register with an older customer, and not drifting into technical
+vocabulary". A reply degrades in two directions, and both are visible:
 
-What survives the translation is the *shape* of the criterion, and it is the
-half that mattered: a reply degrades in two directions, and both are visible.
+  * **Downwards into the machine.** The vocabulary of the system itself —
+    `serviceUnavailable`, "handover record", "the queue", "the lookup
+    returned". Every one of those is a real word in this codebase, which is
+    exactly why it leaks: the model has been reading them all prompt.
 
-  * **Downwards into the machine.** The Italian version watched for English
-    technical vocabulary. The English equivalent is the vocabulary of the
-    system itself — `serviceUnavailable`, "handover record", "the queue", "the
-    lookup returned". Every one of those is a real word in this codebase, which
-    is exactly why it leaks: the model has been reading them all prompt.
-
-  * **Sideways into familiarity.** Italian has `lei` and `tu`, and getting it
-    wrong with an older customer is a visible error. English has no such
-    grammatical marker, so the check is lexical: the greetings and fillers that
-    make a utility sound like a chatbot.
+  * **Sideways into familiarity.** Getting the register wrong with an older
+    customer is a visible error. English has no grammatical marker for it, so
+    the check is lexical: the greetings and fillers that make a utility sound
+    like a chatbot.
 
 Neither is blocking (see pipeline.BLOCKING). A reply that says "your handover
 record" is worse writing, not a false statement, and the repair pass rewords it.

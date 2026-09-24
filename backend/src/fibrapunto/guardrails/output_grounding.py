@@ -32,7 +32,7 @@ one — otherwise contract A's €29.90 would ground "contract B's charge of
 
 Two deliberate exemptions, both narrow:
 
-  * Numbers that are part of ordinary Italian prose ("once", "due giorni")
+  * Numbers that are part of ordinary prose ("once", "two working days")
     are not figures. The guard extracts *typed* values — currency, dates,
     contract numbers — not every digit.
   * The service window and response times come from templates, not from the

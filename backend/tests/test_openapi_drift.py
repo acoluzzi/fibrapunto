@@ -48,7 +48,7 @@ def test_registration_accepts_a_well_formed_response():
         200,
         {
             "status": "failed",
-            "failureReason": "fondi insufficienti",
+            "failureReason": "insufficient funds",
             "amount": "29.90",
             "invoiceMonth": "2026-09",
             "nextRetryDate": "2026-09-19",

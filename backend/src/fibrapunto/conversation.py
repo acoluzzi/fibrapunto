@@ -153,7 +153,7 @@ class Conversation:
         # 1. Classify. The model proposes a domain; policy decides.
         decision = None
         if not (state.pending_confirmation and policy.answers_read_back(text)):
-            # The confirmation lock short-circuits before the call — a "Sì"
+            # The confirmation lock short-circuits before the call — a "Yes"
             # needs no classification, and skipping it saves a round trip on
             # the turn where latency is most visible.
             decision = await classify(text, [t.text for t in state.turns], state.current_domain)

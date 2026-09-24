@@ -72,7 +72,7 @@ async def test_reset_clears_records_created_since(owner_conn):
             (record_type, priority, queue, contract_number, subject,
              collected_context, origin_session_id, contract_link_missing)
         VALUES ('billing_dispute', 'medium', 'billing_operations', 'FP-2023-048812',
-                'Contestazione di prova', '{}'::jsonb, gen_random_uuid(), false)
+                'Test dispute', '{}'::jsonb, gen_random_uuid(), false)
         """
     )
     assert await owner_conn.fetchval("SELECT count(*) FROM crm.handover_record") == 1

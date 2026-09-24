@@ -77,10 +77,10 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
         <div className="section-title">State</div>
         <table className="metrics">
           <tbody>
-            <Row label="Dominio" value={last?.domain ?? "—"} />
-            <Row label="Contratto" value={last?.contract_number ?? "—"} />
-            <Row label="Pratica" value={last?.handover_reference ?? "—"} />
-            <Row label="Esito" value={last?.status ?? "—"} />
+            <Row label="Domain" value={last?.domain ?? "—"} />
+            <Row label="Contract" value={last?.contract_number ?? "—"} />
+            <Row label="Case" value={last?.handover_reference ?? "—"} />
+            <Row label="Outcome" value={last?.status ?? "—"} />
           </tbody>
         </table>
 

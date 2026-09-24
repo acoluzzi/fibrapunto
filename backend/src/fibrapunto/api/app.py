@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Fibrapunto — assistente",
+    title="Fibrapunto — assistant",
     version="0.1.0",
     lifespan=lifespan,
 )

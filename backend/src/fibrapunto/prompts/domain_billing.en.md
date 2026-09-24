@@ -8,11 +8,8 @@ capabilities: [billing_lookup, create_handover_record, transfer_to_human]
 §4.1. These instructions are the spec's own words, expanded only where a model
 needs the rule made operational rather than stated.
 
-This file used to be an Italian translation with the English original pinned in
-a comment, so the two could be diffed. Now that the agent answers in English the
-translation layer is gone, and the instructions below *are* the spec. If you
-change one here, change §4.1 too — or record why they differ in
-docs/DEVIATIONS.md.
+The instructions below *are* the spec. If you change one here, change §4.1
+too — or record why they differ in docs/DEVIATIONS.md.
 -->
 
 ## What you handle here

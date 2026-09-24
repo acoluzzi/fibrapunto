@@ -9,7 +9,7 @@ at all four:
     conversations is not a ground truth."
 
 So the model is asked only what a model is uniquely able to answer: register,
-tone, whether the Italian is any good, whether an escalation was warranted.
+tone, whether the writing is any good, whether an escalation was warranted.
 Everything else is arithmetic, and **disagreements between the two are the audit
 of the judge** (§14.2).
 
@@ -182,7 +182,7 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
     switch_to = expect.get("domain_switch_to")
     if switch_to and switch_to not in domains:
         verdict.domain_correct = False
-        verdict.fail(f"nessun passaggio a {switch_to!r}; domini visti: {domains}")
+        verdict.fail(f"no switch to {switch_to!r}; domains seen: {domains}")
 
     # --- no invention (§1) ---------------------------------------------------
     # Set-difference, not a judge's opinion: a figure in the reply that is not

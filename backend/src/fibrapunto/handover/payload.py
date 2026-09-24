@@ -4,7 +4,7 @@
     customer has already said."
 
 The payload is assembled from `CollectedState`, not from a model call. The model
-contributes two things — the one-sentence Italian subject and the customer's
+contributes two things — the one-sentence subject and the customer's
 stated reason in their own words — and nothing else. Everything factual comes
 from what the capabilities actually returned.
 

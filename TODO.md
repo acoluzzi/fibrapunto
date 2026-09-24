@@ -1,5 +1,4 @@
 - Run at least one 'make eval' to populate metrics
-- Remove all italian language references
 - Think of business impact
 - Model choice is not explained
 - Explain How I built this.

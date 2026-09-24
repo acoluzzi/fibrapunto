@@ -151,7 +151,7 @@ class BillingClient:
             amount = Decimal(str(body["amount"])) if body.get("amount") is not None else None
         except (InvalidOperation, TypeError):
             # A malformed amount is exactly the kind of thing that must not
-            # become a plausible-looking figure in an Italian sentence.
+            # become a plausible-looking figure in a reply.
             log.error("billing.bad_amount", incident_id=incident_id, raw=body.get("amount"))
             return BillingServiceUnavailable(incident_id=incident_id)
 

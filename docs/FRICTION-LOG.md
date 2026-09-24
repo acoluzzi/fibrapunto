@@ -121,12 +121,12 @@ refusal was the lucky version; discovering it as an invoice is the other one.
 rather than assuming the model slug was wrong.
 
 **Decision.** An explicit output budget per role, in `llm/registry.py`, derived
-from the spec's own worked examples — §4.1's replies are roughly eighty words of
-Italian:
+from the spec's own worked examples — §4.1's replies are roughly eighty words
+each:
 
 | Role | Budget | Why |
 | --- | --- | --- |
-| agent | 1024 | an Italian reply, possibly with a tool call |
+| agent | 1024 | a customer reply, possibly with a tool call |
 | router | 256 | a small JSON object: domain, confidence, sentiment |
 | judge | 1024 | the §14.2 schema, including a rationale |
 | persona | 512 | one customer turn |
@@ -271,7 +271,7 @@ degrades gracefully will hide its own misconfiguration.
 lists "what the customer disputes" among a billing dispute's fields, and the
 completeness matrix required it unconditionally. But the billing domain routes
 *every* escalation to `record_type = billing_dispute`, including conversations
-where nothing is disputed. Here the customer asked "quanto devo?", the lookup
+where nothing is disputed. Here the customer asked "how much do I owe?", the lookup
 never succeeded, and no figure had ever existed to dispute.
 
 So the record failed validation, and therefore **was never written, and
@@ -390,8 +390,7 @@ positives; combined with greedy matching they produce false negatives.
 
 **7e — The documents had drifted from the build.** A three-day git history
 under a "ten days" narrative, "every run that has ever been made" with no eval
-run committed, Italian metric labels and `[[REDATTO:…]]` after the English
-switch, a "fuzzed" boundary that is five parametrised exceptions. None of it is
+run committed, untranslated metric labels and placeholders, a "fuzzed" boundary that is five parametrised exceptions. None of it is
 a code defect; all of it is checkable in seconds by anyone with the repository,
 and each one costs more credibility than the defect it describes.
 

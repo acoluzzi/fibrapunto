@@ -238,7 +238,7 @@ def test_a_failed_record_produces_no_reference_and_no_claim():
 
     assert "wasn't able to register" in message.lower()
     assert "freephone" in message or "customer area" in message
-    assert "pratica n." not in message, "a reference was stated that does not exist"
+    assert "case no." not in message, "a reference was stated that does not exist"
     assert s.status is ConversationStatus.escalated_no_record, (
         "a failed handover must not be counted as handed_over — that would make "
         "a failure look like a success in §1's metrics"

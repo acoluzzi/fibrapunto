@@ -62,7 +62,7 @@ export function ChatPanel({ messages, busy, disabled, onSend }: Props) {
           onChange={(event) => setDraft(event.target.value)}
           placeholder={disabled ? 'Start a conversation' : 'Type here…'}
           disabled={disabled || busy}
-          aria-label="Messaggio"
+          aria-label="Message"
         />
         <button
           className="primary"

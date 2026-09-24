@@ -14,7 +14,7 @@ What happens when a guard fires, in order:
   1. **Repair.** One targeted re-ask, naming the specific problem. Most
      violations are the model being helpful in a way it was not asked to be, and
      a specific instruction fixes them.
-  2. **Substitute.** If the repair also fails, a hand-written Italian fallback
+  2. **Substitute.** If the repair also fails, a hand-written fallback
      replaces the reply entirely. §16 accepts model variance on *reading* the
      customer; it does not accept it on what the company says.
 

@@ -38,17 +38,17 @@ VALID_CARD = "4111 1111 1111 1111"
 
 
 def grounded_state() -> ConversationState:
-    """A conversation where 29,90 € and 19 September are verified facts."""
+    """A conversation where €29.90 and 19 September are verified facts."""
     state = ConversationState(current_domain=DomainKey.billing)
     state.collected.contract_number = "FP-2023-048812"
     state.collected.billing = BillingFacts(
         status="failed",
-        failure_reason="fondi insufficienti",
+        failure_reason="insufficient funds",
         amount=Decimal("29.90"),
         next_retry_date=date(2026, 9, 19),
     )
     state.turns.append(
-        Turn(role=TurnRole.customer, text="contratto FP-2023-048812, pagamento respinto")
+        Turn(role=TurnRole.customer, text="contract FP-2023-048812, payment refused")
     )
     return state
 
@@ -229,10 +229,9 @@ def test_the_blocklist_is_derived_from_the_models():
 
 
 def test_internal_vocabulary_is_flagged():
-    """§10 criterion 3, retargeted — see docs/DEVIATIONS.md. The Italian guard
-    watched for English technical words leaking in; the English one watches for
-    the system's own vocabulary, which is what the model has been reading for
-    three thousand tokens and will reach for if the reply gets lazy."""
+    """§10 criterion 3. The guard watches for the system's own vocabulary,
+    which is what the model has been reading for three thousand tokens and
+    will reach for if the reply gets lazy."""
     violations = pipeline.inspect(
         "The lookup timed out, so I've queued a handover record.", grounded_state()
     )
@@ -240,9 +239,9 @@ def test_internal_vocabulary_is_flagged():
 
 
 def test_the_over_familiar_register_is_flagged():
-    """The base identity forbids chumminess. English has no lei/tu, so the check
-    is lexical rather than grammatical — but an older customer greeted with "Hi
-    there" is the same error the Italian guard was written for."""
+    """The base identity forbids chumminess. English has no grammatical marker
+    for register, so the check is lexical — an older customer greeted with "Hi
+    there" is the error it exists for."""
     violations = pipeline.inspect("Hey! No worries, I can sort that for you.", grounded_state())
     assert any(v.guard is GuardName.language for v in violations)
 
