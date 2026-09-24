@@ -84,9 +84,7 @@ def client(timeout_s: float = 5.0) -> BillingClient:
 # --- every stub mode, through the capability ---------------------------------
 
 
-@pytest.mark.parametrize(
-    "mode", ["normal", "timeout", "duplicate", "notfound", "slow", "not-a-real-mode"]
-)
+@pytest.mark.parametrize("mode", ["normal", "timeout", "slow", "not-a-real-mode"])
 async def test_every_mode_yields_a_named_outcome(patched_httpx, mode):
     recorder = Recorder()
     result = await billing_lookup(
@@ -98,6 +96,21 @@ async def test_every_mode_yields_a_named_outcome(patched_httpx, mode):
     )
     assert result.outcome in VALID_OUTCOMES
     assert recorder.calls[0].outcome == result.outcome
+
+
+@pytest.mark.parametrize(
+    ("number", "expected"),
+    [("FP-2099-999999", "notFound"), ("FP-2019-002217", "multipleMatches")],
+)
+async def test_absent_and_duplicated_contracts_come_from_the_data(patched_httpx, number, expected):
+    recorder = Recorder()
+    result = await billing_lookup(
+        number,
+        client=client(timeout_s=0.5),
+        customer_turns=[f"my contract is {number}"],
+        recorder=recorder,
+    )
+    assert result.outcome == expected
 
 
 # --- failures the stub cannot produce ----------------------------------------

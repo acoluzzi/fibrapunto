@@ -32,9 +32,10 @@ from mock_billing.settings import get_settings
 class TestMode(StrEnum):
     normal = "normal"
     timeout = "timeout"
-    duplicate = "duplicate"
-    notfound = "notfound"
     slow = "slow"
+    # No `notfound` or `duplicate`: those are facts about a contract, so they
+    # live in the data (fixtures/billing.yaml). A mode is only for what data
+    # cannot express — the system being slow or not answering at all.
 
 
 @dataclass

@@ -85,8 +85,13 @@ async def test_found(patched_httpx):
     assert result.failure_reason == "insufficient funds at the time of the charge"
 
 
+# Absent and duplicated contracts are data, not modes: the numbers decide.
+UNKNOWN = "FP-2099-999999"
+DUPLICATED = "FP-2019-002217"
+
+
 async def test_not_found(patched_httpx):
-    result = await make_client().lookup(CONTRACT, test_mode="notfound")
+    result = await make_client().lookup(UNKNOWN)
     assert isinstance(result, BillingNotFound)
     assert "invent no contract data" in result.guidance.lower()
 
@@ -102,9 +107,10 @@ async def test_contract_in_crm_but_not_in_billing(patched_httpx):
 
 
 async def test_multiple_matches(patched_httpx):
-    result = await make_client().lookup(CONTRACT, test_mode="duplicate")
+    result = await make_client().lookup(DUPLICATED)
     assert isinstance(result, BillingMultipleMatches)
     assert len(result.matches) == 2
+    assert len({m.service_address for m in result.matches}) == 2
     assert all(m.service_address for m in result.matches), (
         "disambiguation is by address; a match without one is useless (§4.1.3)"
     )
@@ -172,16 +178,24 @@ async def test_contract_violation_becomes_service_unavailable(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "mode", ["normal", "timeout", "duplicate", "notfound", "slow", "bogus-mode"]
+    ("mode", "number"),
+    [
+        ("normal", "FP-2023-048812"),
+        ("normal", UNKNOWN),
+        ("normal", DUPLICATED),
+        ("timeout", "FP-2023-048812"),
+        ("slow", "FP-2023-048812"),
+        ("bogus-mode", "FP-2023-048812"),
+    ],
 )
-async def test_no_mode_ever_raises(patched_httpx, mode):
+async def test_no_mode_ever_raises(patched_httpx, mode, number):
     """The whole point, stated as one assertion.
 
     Whatever the far side does, the reasoning layer receives a named outcome.
     An unknown test mode is included because a caller typo must not become an
     exception either.
     """
-    result = await make_client(timeout_s=1.0).lookup(CONTRACT, test_mode=mode)
+    result = await make_client(timeout_s=1.0).lookup(number, test_mode=mode)
     assert hasattr(result, "outcome")
     assert result.outcome in {
         "found",
@@ -190,6 +204,13 @@ async def test_no_mode_ever_raises(patched_httpx, mode):
         "multipleMatches",
         "rejected",
     }
+
+
+async def test_a_valid_number_is_never_ambiguous_by_accident(patched_httpx):
+    """With the duplicate *mode* gone, the only way to a multiple match is a
+    number the data holds twice. A normal contract is found, always."""
+    for number in ("FP-2023-048712", "FP-2021-017350", "FP-2023-048812"):
+        assert isinstance(await make_client().lookup(number), BillingFound)
 
 
 async def test_the_contract_declares_every_outcome_we_map():

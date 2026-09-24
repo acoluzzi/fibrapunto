@@ -454,15 +454,15 @@ async def test_a_successful_lookup_with_nothing_pending_is_resolved(monkeypatch)
 
 async def test_waiting_on_an_address_is_not_resolved(monkeypatch):
     routed_to(monkeypatch, "billing")
-    convo = conversation(FakeCrm(), test_mode="duplicate")
+    convo = conversation(FakeCrm())
     scripted(
         monkeypatch,
         [
-            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            tool_call("billing_lookup", {"contract_number": "FP-2019-002217"}),
             AIMessage("Which address is it for?"),
         ],
     )
-    reply = await convo.send(f"check my bill, {CONTRACT}")
+    reply = await convo.send("check my bill, FP-2019-002217")
     assert reply.status == ConversationStatus.active.value
 
 

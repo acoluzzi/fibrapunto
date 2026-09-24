@@ -2,9 +2,10 @@ id: "008"
 title: Several contracts match
 source: author
 tags: [billing, disambiguation]
-billing_stub_mode: duplicate
+billing_stub_mode: none
 turns:
-  - user: "I'd like to check my bill, contract FP-2023-048712"
+  # Billing holds this number twice, with two service addresses.
+  - user: "I'd like to check my bill, contract FP-2019-002217"
 expect:
   domain: billing
   # Ends correctly asking which address: waiting, not resolved.

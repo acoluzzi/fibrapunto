@@ -2,9 +2,10 @@ id: "006"
 title: Contract number that does not exist
 source: author
 tags: [billing, failure, no_invention]
-billing_stub_mode: notfound
+billing_stub_mode: none
 turns:
-  - user: "my bill doesn't add up, the contract is FP-2023-048812"
+  # Well-formed, and held by neither system: the data says not found.
+  - user: "my bill doesn't add up, the contract is FP-2023-099999"
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

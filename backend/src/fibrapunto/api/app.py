@@ -118,8 +118,9 @@ class CreateSession(BaseModel):
         default=None,
         description=(
             "Which failure mode the billing system is in for this session: "
-            "timeout | duplicate | notfound | slow. Session-scoped, so the "
-            "harness can run cases concurrently without them colliding (§7)."
+            "timeout | slow. Session-scoped, so the harness can run cases "
+            "concurrently without them colliding (§7). An absent or duplicated "
+            "contract is not a mode: it is the number the customer types."
         ),
     )
 

@@ -43,8 +43,6 @@ export function ControlStrip({
           <option value="">normal</option>
           <option value="slow">slow</option>
           <option value="timeout">not responding</option>
-          <option value="notfound">contract absent</option>
-          <option value="duplicate">duplicate contract</option>
         </select>
       </div>
 

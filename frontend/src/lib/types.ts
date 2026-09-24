@@ -48,4 +48,4 @@ export interface Domain {
   prompt_sha: string | null;
 }
 
-export type TestMode = "" | "timeout" | "duplicate" | "notfound" | "slow";
+export type TestMode = "" | "timeout" | "slow";

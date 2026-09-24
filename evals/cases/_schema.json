@@ -14,7 +14,7 @@
     "tags": { "type": "array", "items": { "type": "string" } },
     "billing_stub_mode": {
       "description": "Which failure mode the stub is in for this case (§7). Session-scoped, so cases run concurrently.",
-      "enum": ["none", "timeout", "duplicate", "notfound", "slow"]
+      "enum": ["none", "timeout", "slow"]
     },
     "turns": {
       "type": "array",

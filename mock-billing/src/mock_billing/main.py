@@ -128,8 +128,9 @@ async def get_billing(
         str | None,
         Header(
             description=(
-                "Solo per collaudo: timeout | duplicate | notfound | slow. "
-                "It is not part of production behaviour."
+                "Testing only: timeout | slow. It is not part of production "
+                "behaviour. A missing or duplicated contract is not a mode — it "
+                "is the data: look up a number that is absent, or held twice."
             )
         ),
     ] = None,
@@ -153,15 +154,11 @@ async def get_billing(
             headers={"X-Billing-Mode": mode.value},
         )
 
-    if mode is TestMode.notfound:
-        return JSONResponse(
-            status_code=404,
-            content=BillingError(error="CONTRACT_NOT_FOUND").model_dump(by_alias=True),
-            headers={"X-Billing-Mode": mode.value},
-        )
-
-    if mode is TestMode.duplicate:
-        matches = MultipleMatches(matches=[ContractMatch(**m) for m in _data["duplicate_matches"]])
+    # What the data says. A number billing holds more than once is ambiguous
+    # for whoever types it (§15 row 2); a number it does not hold is a 404.
+    duplicated = _data.get("duplicates", {}).get(contract_number)
+    if duplicated:
+        matches = MultipleMatches(matches=[ContractMatch(**m) for m in duplicated])
         return JSONResponse(
             status_code=300,
             content=matches.model_dump(by_alias=True),

@@ -74,11 +74,13 @@ contracts:
     lock_in_until: null
     remaining_instalments: 0
 
-# Returned in `duplicate` test mode (§7, §15 row 2). The legacy system returns
-# namesakes, which is why §4.1 instruction 3 says to disambiguate by service
-# address and never by name, and never to pick the first result.
-duplicate_matches:
-  - contract_number: FP-2023-048712
-    service_address: Via Garibaldi 12, Bologna
-  - contract_number: FP-2021-017350
-    service_address: Via del Mare 8, Rimini
+# Contract numbers billing holds more than once (§7, §15 row 2). A lookup of
+# one returns every record, and §4.1 instruction 3 applies: ask the customer to
+# confirm by service address, never by name, never pick the first. This is
+# data, not a test mode: whoever types the number gets the ambiguity.
+duplicates:
+  FP-2019-002217:
+    - contract_number: FP-2019-002217
+      service_address: Via Zamboni 33, Bologna        # before the move
+    - contract_number: FP-2019-002217
+      service_address: Via Indipendenza 7, Bologna    # after it

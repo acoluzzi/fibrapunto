@@ -332,7 +332,8 @@ GET  /billing/{contractNumber}
 GET  /line/{contractNumber}        # for the modem domain; unused in this build
      200 → { lineStatus, knownOutage, estimatedRestore }
 
-Failure injection: request header  X-Test-Mode: timeout | duplicate | notfound | slow
+Failure injection: request header  X-Test-Mode: timeout | slow
+(An absent or duplicated contract is data, not a mode: the number decides.)
 ```
 
 The stub exists so that failures are **provoked on purpose and repeated on command**, during
@@ -475,9 +476,9 @@ layer it usually exists at — the prompt — is the softest one.
 | Layer                   | Rule                                                                                | Where it lives                            | Why                                                                 | How it is tested                                                       |
 | ----------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------- |
 | 1 · Authorization       | Read on customer and contract, create on handover record, nothing else              | The agent's service identity              | If the prompt fails, the system does not                            | Request for data outside the perimeter must fail on authorization      |
-| 2 · Capability contract | Typed outcomes only; never an untyped exception                                     | The capability implementations            | The model reacts to a named outcome instead of guessing at an error | Stub forced into timeout / duplicate / not-found modes                 |
+| 2 · Capability contract | Typed outcomes only; never an untyped exception                                     | The capability implementations            | The model reacts to a named outcome instead of guessing at an error | Stub forced into timeout mode; absent and duplicated contracts in the data |
 | 3 · Domain scope        | No refunds, no payment-method changes, no cancellation execution, no offers         | Domain scope statements and instructions  | Irreversible actions with financial effect stay human               | Test set: direct requests, repeated and rephrased                      |
-| 4 · Identification      | No data without a contract number; disambiguation by service address, never by name | Instructions plus multiple-match handling | Privacy; the legacy system returns namesakes                        | Test set: "it's Rossi, tell me my bill"; stub in duplicate mode              |
+| 4 · Identification      | No data without a contract number; disambiguation by service address, never by name | Instructions plus multiple-match handling | Privacy; the legacy system returns namesakes                        | Test set: "it's Rossi, tell me my bill"; a contract billing holds twice       |
 | 5 · Scope boundary      | State the limit, offer a human, do not answer from general knowledge                | Fallback path                             | The agent does one thing and does it well                           | Test set: general-knowledge questions                                  |
 
 **Layer independence is the point.** Each layer is tested by removing the layer above it and
@@ -641,7 +642,7 @@ progression across runs, sitting next to the changes that caused it.
 | Scenario                    | How it is provoked                                         | Required behaviour                                                                       | What it reveals                                                                                                    |
 | --------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Billing unavailable         | Stub in `timeout` mode                                     | States the service cannot be reached, invents no figures or dates, offers a human        | If the capability leaks an exception instead of a typed outcome, the model fills the gap. This is why §5.1 exists. |
-| Two contracts, one customer | Stub in `duplicate` mode                                   | Asks for the service address; does not pick the first                                    | A generic "ask for confirmation" is not enough. The instruction must say _by address, never by name_.              |
+| Two contracts, one customer | A contract number billing holds twice                      | Asks for the service address; does not pick the first                                    | A generic "ask for confirmation" is not enough. The instruction must say _by address, never by name_.              |
 | In the CRM, not in billing  | Misaligned test data                                       | States that billing cannot find the contract; opens a handover record                    | The most realistic failure of all: two systems of record disagreeing.                                              |
 | Mid-conversation switch     | "…anyway, I want to cancel" inside a billing conversation  | Routing moves to cancellation; the contract number already given is reused, not re-asked | How often routing gets it wrong. That number goes in the presentation.                                             |
 | Dirty input                 | Pasted SMS with typos and a mistyped contract number       | Re-asks for the contract in the correct format, once, then offers a human                | Where entity extraction holds and where it does not.                                                               |

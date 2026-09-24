@@ -30,8 +30,9 @@ def _crm_contracts() -> set[str]:
 
 
 def _billing_contracts() -> set[str]:
+    """Every number billing answers for — single records and duplicates."""
     data = yaml.safe_load(BILLING_FIXTURES.read_text(encoding="utf-8"))
-    return set(data["contracts"])
+    return set(data["contracts"]) | set(data.get("duplicates", {}))
 
 
 def test_exactly_one_contract_is_in_the_crm_but_not_in_billing():
@@ -88,10 +89,15 @@ def test_duplicate_matches_disambiguate_by_address():
     never by name. Two candidates sharing an address would make the instruction
     impossible to follow."""
     billing = yaml.safe_load(BILLING_FIXTURES.read_text(encoding="utf-8"))
-    matches = billing["duplicate_matches"]
-    assert len(matches) >= 2
-    addresses = [m["service_address"] for m in matches]
-    assert len(set(addresses)) == len(addresses), (
-        "Two candidates share a service address, so the customer cannot tell "
-        "them apart by the only criterion the instructions allow."
-    )
+    duplicates = billing["duplicates"]
+    assert duplicates, "the multiple-match case lives in the data now"
+    for number, matches in duplicates.items():
+        assert len(matches) >= 2, f"{number} is listed as duplicated but has one record"
+        addresses = [m["service_address"] for m in matches]
+        assert len(set(addresses)) == len(addresses), (
+            f"Two records for {number} share a service address, so the customer "
+            f"cannot tell them apart by the only criterion the instructions allow."
+        )
+        assert number not in billing["contracts"], (
+            f"{number} is both a single record and a duplicate; it must be one or the other"
+        )

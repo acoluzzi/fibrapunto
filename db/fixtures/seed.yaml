@@ -1,6 +1,6 @@
 # The CRM side of the test data (§6.2).
 #
-# Six contracts across three customers, one customer holding two, three plans,
+# Seven contracts across three customers, one customer holding three, three plans,
 # and a mix of expired, active and absent lock-in periods. The set is small on
 # purpose: every record is here to exercise a specific behaviour, and there is
 # nothing here that does not earn its place.
@@ -50,6 +50,20 @@ contracts:
     activation_date: 2021-01-20
     lock_in_until: 2023-01-20           # expired
     service_address: Via del Mare 8, Rimini      # the second home
+    status: active
+
+  # Billing holds this number TWICE — a record duplicated when the customer
+  # moved, one row with the old address and one with the new (§15 row 2). The
+  # multiple-match case comes from this data, not from a switch: look it up
+  # and billing answers with both. Disambiguation is by service address.
+  - contract_number: FP-2019-002217
+    customer: rossi
+    modem_serial: FP-MDM-0002217
+    plan_name: Fibra 300
+    monthly_fee_eur: 24.90
+    activation_date: 2019-06-03
+    lock_in_until: null
+    service_address: Via Indipendenza 7, Bologna
     status: active
 
   # The worked example of §4.1: September direct debit rejected for insufficient
