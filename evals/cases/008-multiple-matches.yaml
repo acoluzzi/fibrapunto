@@ -7,7 +7,8 @@ turns:
   - user: "I'd like to check my bill, contract FP-2023-048712"
 expect:
   domain: billing
-  outcome: resolved
+  # Ends correctly asking which address: waiting, not resolved.
+  outcome: awaiting_customer
   capabilities:
     - { name: billing_lookup, outcome: multipleMatches }
 judge_notes: >

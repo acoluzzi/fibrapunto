@@ -29,7 +29,7 @@
         "domain": { "enum": ["billing", "cancellation", "fallback"] },
         "domain_switch_to": { "type": ["string", "null"] },
         "outcome": {
-          "description": "resolved | handover:<type> | refusal | transfer | no_record",
+          "description": "resolved (backend status must be 'resolved') | answered (needs must_contain_any) | awaiting_customer | handover:<type> | refusal | transfer | no_record. Only resolved and answered count toward autonomous resolution.",
           "type": "string"
         },
         "asked_for_contract_number_first": { "type": "boolean" },
@@ -42,6 +42,11 @@
           }
         },
         "must_not_contain": { "type": "array", "items": { "type": "string" } },
+        "must_contain_any": {
+          "description": "Success for an 'answered' case: at least one phrase must appear in the agent's replies.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "must_not_state_figures": {
           "description": "§1's no-invention metric: with the stub down, ANY figure is invented.",
           "type": "boolean"

@@ -429,3 +429,51 @@ async def test_an_unanswered_offer_lapses_and_cannot_hijack_a_later_yes(monkeypa
 
     assert [r["record_type"] for r in crm.records] == ["cancellation_request"]
     assert crm.context()["escalation_trigger"] == "categorical:cancellation"
+
+
+# --- §1 outcome 1: `resolved` is a state the code checks ----------------------
+
+
+async def test_a_successful_lookup_with_nothing_pending_is_resolved(monkeypatch):
+    routed_to(monkeypatch, "billing")
+    convo = conversation(FakeCrm())
+    scripted(monkeypatch, [AIMessage("What is your contract number?")])
+    first = await convo.send("my payment was refused")
+    assert first.status == ConversationStatus.active.value, "asking is not resolving"
+
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("Your €29.90 debit was refused; the next attempt is on 19 September."),
+        ],
+    )
+    reply = await convo.send(CONTRACT)
+    assert reply.status == ConversationStatus.resolved.value
+
+
+async def test_waiting_on_an_address_is_not_resolved(monkeypatch):
+    routed_to(monkeypatch, "billing")
+    convo = conversation(FakeCrm(), test_mode="duplicate")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("Which address is it for?"),
+        ],
+    )
+    reply = await convo.send(f"check my bill, {CONTRACT}")
+    assert reply.status == ConversationStatus.active.value
+
+
+async def test_an_outage_with_an_offer_pending_is_not_resolved(monkeypatch):
+    _, reply = await _outage_without_an_offer(monkeypatch, FakeCrm())
+    assert reply.status == ConversationStatus.active.value
+
+
+async def test_a_handover_is_final(monkeypatch):
+    crm = FakeCrm()
+    convo, _ = await _outage_without_an_offer(monkeypatch, crm)
+    scripted(monkeypatch, [])
+    reply = await convo.send("yes")
+    assert reply.status == ConversationStatus.handed_over.value

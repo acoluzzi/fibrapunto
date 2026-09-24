@@ -232,14 +232,41 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
     verdict.handover_reference = reference
     expected_outcome = expect["outcome"]
 
+    # §1's autonomous-resolution rate. Only cases whose expected ending IS a
+    # resolution enter the denominator (`resolved_without_handover` not None);
+    # a handover, a refusal, a transfer or a turn that correctly waits on the
+    # customer is not a resolution the agent failed to make.
+    #
+    # And "no case was opened" is not a resolution. Scored that way, a reply of
+    # "Please provide your contract number." counted as resolved, and a run of
+    # nothing but that sentence reported 100%. A resolution now has to be shown:
+    # the backend's terminal `resolved` status (a lookup returned the figures,
+    # nothing open, nothing pending), or — for a question answered without a
+    # lookup — the case's own success assertion.
+    final_status = replies[-1].get("status") if replies else None
+
     if expected_outcome.startswith("handover:"):
         if not reference:
             verdict.fail(f"no case opened; expected {expected_outcome}")
-        verdict.resolved_without_handover = False
     elif expected_outcome == "resolved":
-        verdict.resolved_without_handover = reference is None
+        verdict.resolved_without_handover = reference is None and final_status == "resolved"
         if reference:
             verdict.fail(f"case {reference} opened where a resolution was expected")
+        elif final_status != "resolved":
+            verdict.fail(f"ended with status {final_status!r}, not 'resolved'")
+    elif expected_outcome == "answered":
+        wanted = expect.get("must_contain_any") or []
+        answered = any(phrase.lower() in agent_text.lower() for phrase in wanted)
+        verdict.resolved_without_handover = reference is None and answered
+        if not wanted:
+            verdict.fail("an 'answered' case needs must_contain_any to say what success is")
+        elif not answered:
+            verdict.fail(f"did not answer: none of {wanted} in the reply")
+        if reference:
+            verdict.fail(f"case {reference} opened where an answer was expected")
+    elif expected_outcome == "awaiting_customer":
+        if reference:
+            verdict.fail(f"case {reference} opened while it should be waiting on the customer")
 
     # §12.4: a reference stated but never assigned is the failure this metric
     # exists for, and it is checked against the trace rather than the text.

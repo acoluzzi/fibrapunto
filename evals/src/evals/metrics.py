@@ -51,7 +51,7 @@ def compute(verdicts: list[CaseVerdict], completeness: dict[str, Any] | None) ->
             autonomous,
             "≥ 70%",
             None if autonomous is None else autonomous >= 0.70,
-            f"{len(resolved)}/{len(resolvable)} resolvable cases closed without a handover",
+            f"{len(resolved)}/{len(resolvable)} cases expected to resolve ended resolved",
         ),
         Metric(
             "Routing accuracy",

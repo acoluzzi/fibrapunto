@@ -27,10 +27,12 @@ def reply(
     domain: str = "billing",
     calls: list[tuple[str, str]] | None = None,
     handover_reference: str | None = None,
+    status: str = "active",
 ) -> dict:
     return {
         "text": text,
         "domain": domain,
+        "status": status,
         "capability_calls": [
             {"capability": name, "outcome": outcome, "duration_ms": 10}
             for name, outcome in (calls or [])
@@ -54,7 +56,7 @@ def case(**expect) -> dict:
 
 
 def test_the_expected_domain_passes():
-    verdict = evaluate(case(), [reply("Let me check.")], [])
+    verdict = evaluate(case(outcome="awaiting_customer"), [reply("Let me check.")], [])
     assert verdict.passed
     assert verdict.domain_correct
 
@@ -176,7 +178,7 @@ def test_the_contract_number_the_customer_gave_is_not_invention():
 
 def test_prose_without_figures_passes():
     verdict = evaluate(
-        case(must_not_state_figures=True),
+        case(outcome="awaiting_customer", must_not_state_figures=True),
         [reply("The billing system is not responding at the moment.")],
         [],
     )
@@ -252,7 +254,7 @@ def test_the_right_capability_with_the_wrong_outcome_fails():
 def test_the_expected_outcome_passes():
     verdict = evaluate(
         case(capabilities=[{"name": "billing_lookup", "outcome": "found"}]),
-        [reply("Here is the position.", calls=[("billing_lookup", "found")])],
+        [reply("Here is the position.", calls=[("billing_lookup", "found")], status="resolved")],
         [],
     )
     assert verdict.passed
@@ -299,7 +301,7 @@ def test_the_assigned_reference_stated_correctly_passes():
 def test_an_expected_handover_that_never_happened_fails():
     verdict = evaluate(case(outcome="handover:cancellation_request"), [reply("Very well.")], [])
     assert not verdict.passed
-    assert verdict.resolved_without_handover is False
+    assert verdict.resolved_without_handover is None, "not in the resolvable denominator"
 
 
 def test_a_handover_where_resolution_was_expected_fails():
@@ -315,9 +317,60 @@ def test_a_handover_where_resolution_was_expected_fails():
 
 
 def test_a_clean_resolution_passes():
-    verdict = evaluate(case(outcome="resolved"), [reply("All sorted, good day.")], [])
+    verdict = evaluate(
+        case(outcome="resolved"), [reply("All sorted, good day.", status="resolved")], []
+    )
     assert verdict.passed
     assert verdict.resolved_without_handover is True
+
+
+def test_not_opening_a_case_is_not_a_resolution():
+    """The reproduction: a run whose every reply was "Please provide your
+    contract number." scored 100% autonomous resolution, because the absence
+    of a case was taken as a resolution."""
+    verdict = evaluate(
+        case(outcome="resolved"), [reply("Please provide your contract number.")], []
+    )
+    assert not verdict.passed
+    assert verdict.resolved_without_handover is False
+    assert any("not 'resolved'" in f for f in verdict.failures)
+
+
+def test_the_metric_is_not_fooled_by_a_run_of_contract_number_requests():
+    from evals.metrics import compute
+
+    verdicts = [
+        evaluate(case(outcome="resolved"), [reply("Please provide your contract number.")], [])
+        for _ in range(5)
+    ]
+    autonomous = next(m for m in compute(verdicts, None) if m.name == "Autonomous resolution")
+    assert autonomous.value == 0.0
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    ["handover:billing_dispute", "refusal", "transfer", "awaiting_customer"],
+)
+def test_non_resolution_outcomes_are_outside_the_denominator(outcome):
+    verdict = evaluate(case(outcome=outcome), [reply("…")], [])
+    assert verdict.resolved_without_handover is None
+
+
+def test_an_answered_case_needs_its_own_success_assertion():
+    answered = case(outcome="answered", must_contain_any=["never ask"])
+    ok = evaluate(answered, [reply("We never ask for card details by text.")], [])
+    missed = evaluate(answered, [reply("Please provide your contract number.")], [])
+
+    assert ok.passed and ok.resolved_without_handover is True
+    assert not missed.passed and missed.resolved_without_handover is False
+
+
+def test_awaiting_the_customer_is_correct_but_not_a_resolution():
+    verdict = evaluate(
+        case(outcome="awaiting_customer"), [reply("Could you give me your contract number?")], []
+    )
+    assert verdict.passed
+    assert verdict.resolved_without_handover is None
 
 
 # --- forbidden strings & §4.1 instruction 1 ---------------------------------
@@ -334,7 +387,7 @@ def test_a_forbidden_string_fails_case_insensitively():
 
 def test_asking_for_the_contract_number_first_is_recognised():
     verdict = evaluate(
-        case(asked_for_contract_number_first=True),
+        case(outcome="awaiting_customer", asked_for_contract_number_first=True),
         [reply("Could you give me the contract number, the one starting FP-?")],
         [],
     )
@@ -360,7 +413,7 @@ def test_looking_it_up_on_the_first_turn_satisfies_the_rule():
             asked_for_contract_number_first=True,
             turns=[{"user": "FP-2023-048812, payment refused"}],
         ),
-        [reply("I have checked.", calls=[("billing_lookup", "found")])],
+        [reply("I have checked.", calls=[("billing_lookup", "found")], status="resolved")],
         [],
     )
     assert verdict.passed

@@ -331,6 +331,8 @@ class Conversation:
             )
             state.pending_trigger = trigger.kind.value
 
+        self._settle_status(trigger)
+
         state.record_turn(TurnRole.agent, reply_text)
         self.trace.emit(
             EventType.agent_reply,
@@ -403,6 +405,32 @@ class Conversation:
                 substituted=guarded.substituted,
             )
         return guarded.text
+
+    def _settle_status(self, trigger: triggers.Trigger | None) -> None:
+        """Where the conversation stands after this turn (§1, outcome 1).
+
+        `resolved` is a state the code can check, not a feeling: a lookup
+        returned this customer's figures, no case is open, nothing is waiting
+        on the customer (a read-back or an escalation offer), and no trigger
+        fired this turn. Anything short of that is `active` — asking for the
+        contract number, or waiting for the customer to pick an address, is
+        correct behaviour and is not a resolution. The two handover statuses
+        are set by the escalation engine and are final.
+        """
+        state = self.state
+        if state.status in (ConversationStatus.handed_over, ConversationStatus.escalated_no_record):
+            return
+        read_back_pending = bool(
+            state.pending_confirmation and not state.pending_confirmation.satisfied
+        )
+        resolved = (
+            state.collected.billing is not None
+            and state.collected.handover_reference is None
+            and state.pending_escalation is None
+            and not read_back_pending
+            and trigger is None
+        )
+        state.status = ConversationStatus.resolved if resolved else ConversationStatus.active
 
     def _templated(self, result, render) -> str | None:
         """A code-opened case's reply, or None to let the model collect

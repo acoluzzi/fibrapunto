@@ -478,6 +478,18 @@ it found the things the tests were never shaped to ask.
   boundary defends itself" was false at exactly the boundary that lives
   longest. One line; `test_a_raw_iban_in_state_never_reaches_the_record`.
 
+- **Done.** The autonomous-resolution metric counted any expected-`resolved`
+  case without a handover as resolved — a run whose every reply was "Please
+  provide your contract number." scored 100%. The backend never set
+  `status = resolved` at all. Now `Conversation._settle_status` sets it only
+  when a lookup returned the figures, no case is open, nothing is pending on
+  the customer and no trigger fired; the harness requires that status, or,
+  for a question answered without a lookup (`answered`), the case's own
+  `must_contain_any`. Only `resolved` and `answered` cases form the
+  denominator; handover, refusal, transfer and the new `awaiting_customer`
+  are outside it. Cases 003 and 008 end correctly waiting on the customer and
+  were relabelled; 028 became `answered`.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports
