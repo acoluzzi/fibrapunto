@@ -106,6 +106,19 @@ class PendingConfirmation(BaseModel):
     disputed_point: str | None = None
 
 
+class PendingEscalation(BaseModel):
+    """An escalation offer the code made, awaiting the customer's answer (§12.1).
+
+    Set when a conditional or distress trigger fires and no case is open. The
+    customer's "yes" opens the case by code; their "no" is respected and the
+    same trigger is not offered again. The model may word the conversation
+    around it, but it does not decide whether the offer is made.
+    """
+
+    trigger: str
+    asked_at_turn: int
+
+
 class OpenedCase(BaseModel):
     reference: str
     contract_linked: bool
@@ -227,6 +240,17 @@ class ConversationState(BaseModel):
     the offer of a human."""
 
     offer_human_now: bool = False
+
+    human_requested: bool = False
+    """An explicit request for a person (§12.1), as opposed to anger. Honoured
+    immediately by code: the case opens on that turn, with no retention attempt.
+    Anger only brings the offer forward — conflating the two would open cases
+    for customers who never asked for one."""
+
+    pending_escalation: PendingEscalation | None = None
+    escalations_offered: list[str] = Field(default_factory=list)
+    """Triggers already offered once. A declined offer is not repeated every
+    turn — pressing a customer who said no is the loop §12.1 warns about."""
 
     pending_trigger: str | None = None
     """The escalation trigger that fired on the last turn (§12.1).

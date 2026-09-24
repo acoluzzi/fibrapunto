@@ -459,6 +459,25 @@ it found the things the tests were never shaped to ask.
   conversation actually opened. The earlier race test opened the case once
   before its `gather`, so it never raced two first calls; the new one does.
 
+- **Done**, found after the above: the triggers were still computed, logged
+  and ignored — on an outage or a not-found it was the model's choice whether
+  to offer a human. Now `Conversation._enforce` acts on them. Conditional and
+  distress triggers end the reply with a templated offer held in
+  `PendingEscalation`; "yes" opens the case by code with a templated subject
+  and the trigger that fired, "no" or moving on lets it lapse, and each
+  trigger is offered once. An explicit request for a person opens the case on
+  that turn with no model call, so no retention attempt is possible — and is
+  now told apart from anger, which only brings the offer forward (they had
+  shared one flag, so anger alone was recorded as `customer:human_requested`).
+  The trace's `escalation.triggered` event carries the `action` taken.
+  Categorical triggers remain enforced by structure: the cancellation domain's
+  only write is the handover, and a dispute cannot open without the read-back.
+- **Done.** The handover record re-serialised the *raw* context over the
+  redacted one on the line after `build_values`, so a value inbound redaction
+  missed — or was switched off for — was stored in the CRM. §9's "each
+  boundary defends itself" was false at exactly the boundary that lives
+  longest. One line; `test_a_raw_iban_in_state_never_reaches_the_record`.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

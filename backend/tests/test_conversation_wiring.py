@@ -277,16 +277,19 @@ async def test_an_acknowledgement_never_reroutes(monkeypatch):
 # --- §12.1 customer-initiated ------------------------------------------------
 
 
-async def test_an_explicit_request_for_a_person_is_marked_immediately(monkeypatch):
+async def test_an_explicit_request_for_a_person_is_honoured_by_code(monkeypatch):
+    """§12.1: honoured immediately, without a retention attempt. The model is
+    not called, so it cannot make one. (No CRM here, so the honest outcome is
+    the templated failure — the full path is in test_handover_wiring.py.)"""
     routed_to(monkeypatch, "billing", human=True)
-    model = scripted(monkeypatch, [AIMessage("I will put you through to a colleague now.")])
+    model = scripted(monkeypatch, [AIMessage("Before I do — can I help you myself?")])
 
     convo = conversation()
-    await convo.send("enough, put me through to a person")
+    reply = await convo.send("enough, put me through to a person")
 
-    assert convo.state.offer_human_now is True
-    rendered = "\n".join(str(m.content) for m in model.calls[0])
-    assert "colleague" in rendered.lower()
+    assert model.calls == []
+    assert "can I help you myself" not in reply.text
+    assert "wasn't able to register" in reply.text
 
 
 async def test_anger_shortens_the_answers(monkeypatch):

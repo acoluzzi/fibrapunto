@@ -22,7 +22,7 @@ the spec makes are **structural in the code rather than asserted in a prompt**:
 | A capability never raises an untyped error into the reasoning layer (§5.1) | `capabilities/runtime.py`        | `make test` — the stub is driven through every failure mode and fuzzed     |
 | The agent cannot read a customer's email (§8)                              | Postgres column grants           | `make perimeter-proof`, or connect as `fibrapunto_agent` in `psql` and try |
 | The agent never invents a billing figure (§1, §15)                         | `guardrails/output_grounding.py` | Flip the stub to `timeout` mid-conversation and watch                      |
-| Escalation is a designed subsystem, not a fallback (§12)                   | `escalation/triggers.py`         | `make eval` — trigger distribution is reported per run                     |
+| Escalation is a designed subsystem, not a fallback (§12)                   | `escalation/` + `conversation.py` | `make test` (`test_handover_wiring.py`) — triggers act, not just log; `make eval` reports their distribution |
 
 ## Running it
 

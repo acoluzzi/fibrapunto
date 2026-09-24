@@ -33,7 +33,7 @@ from fibrapunto.capabilities.transfer_to_human import (
     service_window_text,
     within_service_hours,
 )
-from fibrapunto.escalation.triggers import Trigger
+from fibrapunto.escalation.triggers import Trigger, TriggerKind
 from fibrapunto.state.models import ConversationState, ConversationStatus
 
 log = structlog.get_logger(__name__)
@@ -164,6 +164,85 @@ def close(
     closing = closing_message(result, state)
     body = without_commitments(reply, result)
     return f"{body} {closing}" if body else closing
+
+
+# --- §12.1: what a fired trigger makes the code do ---------------------------
+
+_OFFER = {
+    TriggerKind.service_unavailable: (
+        "I can open a case so a colleague picks this up once the billing system "
+        "is back. Would you like me to do that?"
+    ),
+    TriggerKind.contract_not_found: (
+        "I can open a case so a colleague can look into the contract with you. "
+        "Would you like me to do that?"
+    ),
+    TriggerKind.disambiguation_unresolved: (
+        "I can pass this to a colleague who can check your contract details with "
+        "you. Would you like me to open a case?"
+    ),
+    TriggerKind.format_invalid_after_reask: (
+        "I can pass this to a colleague who can find your contract with you. "
+        "Would you like me to open a case?"
+    ),
+    TriggerKind.no_progress: (
+        "I don't want to keep you going round in circles: I can pass this to a "
+        "colleague. Would you like me to open a case?"
+    ),
+    TriggerKind.turn_budget_exhausted: (
+        "I don't want to keep you going round in circles: I can pass this to a "
+        "colleague. Would you like me to open a case?"
+    ),
+    TriggerKind.distress: (
+        "If you'd prefer, I can pass this to a colleague straight away. Would you "
+        "like me to open a case?"
+    ),
+}
+
+_SUBJECT = {
+    TriggerKind.service_unavailable: "Billing system unavailable — customer's question unanswered",
+    TriggerKind.contract_not_found: "Contract not found in billing",
+    TriggerKind.disambiguation_unresolved: "Contract could not be identified among several",
+    TriggerKind.format_invalid_after_reask: "No valid contract number after one re-ask",
+    TriggerKind.no_progress: "Conversation not progressing — passed to a colleague",
+    TriggerKind.turn_budget_exhausted: "Turn budget exhausted without a successful lookup",
+    TriggerKind.distress: "Customer upset — asked to be passed to a colleague",
+    TriggerKind.human_requested: "Customer asked to speak to a person",
+}
+
+# Sentences in which the model offers, or promises, a colleague or a case.
+# Removed when the templated offer goes on, so the customer gets one offer —
+# the one the code holds and will act on — rather than two differently worded.
+_OFFER_SENTENCE = re.compile(
+    r"\b(?:open(?:ing)?\s+(?:a|the)\s+case|colleague|hand(?:ing)?\s+(?:you|this|it)\s+over"
+    r"|hand\s*over|put\s+you\s+through|speak\s+(?:to|with)\s+(?:a|someone)|a\s+person)\b",
+    re.IGNORECASE,
+)
+
+
+def subject_for(kind: TriggerKind | str) -> str:
+    """The case subject when code, not the model, opens the case."""
+    return _SUBJECT[TriggerKind(kind)]
+
+
+def offer(reply: str, kind: TriggerKind) -> str:
+    """The model's reply, then the offer the code will honour (§4.1 instr. 6)."""
+    kept = [s for s in _SENTENCE.split(reply.strip()) if s and not _OFFER_SENTENCE.search(s)]
+    body = " ".join(kept)
+    return f"{body} {_OFFER[kind]}" if body else _OFFER[kind]
+
+
+def honour_request(
+    result: HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
+    state: ConversationState,
+) -> str:
+    """§12.1: an explicit request for a person, "honoured immediately and without
+    resistance or a retention attempt". No model call, so no retention attempt
+    is possible."""
+    closing = closing_message(result, state)
+    if isinstance(result, HandoverFailed):
+        return closing
+    return f"Of course, I'll pass this to a colleague. {closing}"
 
 
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:

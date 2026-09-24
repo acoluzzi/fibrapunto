@@ -37,7 +37,12 @@ from fibrapunto.privacy import redaction
 from fibrapunto.router import policy
 from fibrapunto.router.classifier import classify
 from fibrapunto.settings import get_settings
-from fibrapunto.state.models import ConversationState, ConversationStatus, TurnRole
+from fibrapunto.state.models import (
+    ConversationState,
+    ConversationStatus,
+    PendingEscalation,
+    TurnRole,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -152,7 +157,8 @@ class Conversation:
 
         # 1. Classify. The model proposes a domain; policy decides.
         decision = None
-        if not (state.pending_confirmation and policy.answers_read_back(text)):
+        pending_answer = state.pending_confirmation or state.pending_escalation
+        if not (pending_answer and policy.answers_read_back(text)):
             # The confirmation lock short-circuits before the call — a "Yes"
             # needs no classification, and skipping it saves a round trip on
             # the turn where latency is most visible.
@@ -204,8 +210,36 @@ class Conversation:
         # with is a commitment (§12.3).
         reply_text: str | None = None
         extra_instruction: str | None = None
+
+        # 2a. §12.1: the answer to an escalation offer the code made. "Yes"
+        # opens the case by code; "no" is respected, and that trigger is not
+        # offered again.
+        escalation = state.pending_escalation
+        if escalation:
+            if policy.is_affirmative(text):
+                state.pending_escalation = None
+                result = await self._dispatcher.open_escalation_case(state, escalation.trigger)
+                reply_text = self._templated(result, engine.closing_message)
+            else:
+                # "No", or not an answer at all — the customer moved on. Either
+                # way the offer lapses: left pending, a later "yes" to something
+                # else (a cancellation read-back) would open this case instead.
+                state.pending_escalation = None
+
+        # 2b. §12.1: an explicit request for a person, "honoured immediately
+        # and without resistance or a retention attempt". The case opens by
+        # code on this turn; the model is not called, so it cannot try to keep
+        # the customer.
+        if reply_text is None and state.human_requested:
+            state.human_requested = False  # one attempt; a failure is stated, not retried
+            if state.collected.handover_reference is None:
+                result = await self._dispatcher.open_escalation_case(
+                    state, triggers.TriggerKind.human_requested.value
+                )
+                reply_text = self._templated(result, engine.honour_request)
+
         pending = state.pending_confirmation
-        if pending and not pending.satisfied:
+        if reply_text is None and pending and not pending.satisfied:
             if policy.is_affirmative(text):
                 pending.satisfied = True
                 self.trace.emit(
@@ -231,10 +265,20 @@ class Conversation:
                 # proposal is read back afresh.
                 state.pending_confirmation = None
 
-        # 2b. Run the domain. Only this domain's capabilities are bound (§17.1).
+        # 2c. Run the domain. Only this domain's capabilities are bound (§17.1).
+        templated = reply_text is not None
         if reply_text is None:
             reply_text = await self._model_turn(domain, extra_instruction)
             reply_text = self._closing(reply_text, reference_before)
+
+        # 3. §12.1: a fired trigger makes the code act, not only log. Evaluated
+        # here, before the reply leaves, so the offer is part of what the
+        # customer receives. Progress first: the no-progress trigger reads it.
+        triggers.update_progress(state, collected_before)
+        trigger = triggers.evaluate(state)
+        action = "none"
+        if trigger:
+            reply_text, action = self._enforce(trigger, reply_text, templated, reference_before)
 
         # §9's fourth enforcement point: "never repeat such a value back in the
         # conversation." Not a guard — a guard inspects and may block, this
@@ -272,12 +316,6 @@ class Conversation:
                 confirmed=bool(pending and pending.satisfied),
             )
 
-        # Did this turn actually advance anything? Measured against collected
-        # state, because a fluent apologetic turn that learned nothing is the
-        # loop §12.1 warns about (§12.1's no-progress trigger).
-        triggers.update_progress(state, collected_before)
-
-        trigger = triggers.evaluate(state)
         if trigger:
             engine.note_trigger(state, trigger)
             self.trace.emit(
@@ -287,6 +325,9 @@ class Conversation:
                 reason=trigger.reason,
                 immediate=trigger.immediate,
                 decided_by="code",
+                # What the code did about it — so the trace shows enforcement,
+                # not just detection.
+                action=action,
             )
             state.pending_trigger = trigger.kind.value
 
@@ -362,6 +403,50 @@ class Conversation:
                 substituted=guarded.substituted,
             )
         return guarded.text
+
+    def _templated(self, result, render) -> str | None:
+        """A code-opened case's reply, or None to let the model collect
+        missing details (§13) — a failure for missing fields is not the end."""
+        if isinstance(result, HandoverFailed) and result.missing_fields:
+            self._dispatcher.last_handover = None
+            return None
+        return render(result, self.state)
+
+    def _enforce(
+        self,
+        trigger: triggers.Trigger,
+        reply_text: str,
+        templated: bool,
+        reference_before: str | None,
+    ) -> tuple[str, str]:
+        """Act on a fired trigger. Returns the reply and what was done.
+
+        Conditional and distress triggers get an offer of a colleague, worded
+        by a template and held in state, so the customer's "yes" opens the case
+        by code. Offered once per trigger: a customer who said no is not asked
+        again every turn. Categorical triggers are enforced by structure — the
+        cancellation domain's only write is the handover, and a dispute cannot
+        open without the read-back gate — so there is nothing to add here.
+        """
+        state = self.state
+        if trigger.kind not in triggers.OFFERED:
+            return reply_text, "structural"
+        if state.collected.handover_reference is not None:
+            return reply_text, "case_open"
+        if state.collected.handover_reference != reference_before or templated:
+            return reply_text, "handled_this_turn"
+        if state.pending_confirmation and not state.pending_confirmation.satisfied:
+            return reply_text, "read_back_pending"  # one question at a time
+        if state.pending_escalation:
+            return reply_text, "offer_pending"
+        if trigger.kind.value in state.escalations_offered:
+            return reply_text, "already_offered"
+
+        state.pending_escalation = PendingEscalation(
+            trigger=trigger.kind.value, asked_at_turn=state.turn_count
+        )
+        state.escalations_offered.append(trigger.kind.value)
+        return engine.offer(reply_text, trigger.kind), "offered"
 
     def _closing(self, reply_text: str, reference_before: str | None) -> str:
         """Append the templated closing when this turn opened a case (§12.3).

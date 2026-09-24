@@ -79,7 +79,7 @@ def evaluate(state: ConversationState) -> Trigger | None:
     settings = get_settings()
 
     # --- customer-initiated (§12.1) -----------------------------------------
-    if state.offer_human_now and state.collected.handover_reference is None:
+    if state.human_requested and state.collected.handover_reference is None:
         return Trigger(
             TriggerKind.human_requested,
             "The customer asked to speak to a person.",
@@ -138,7 +138,30 @@ def evaluate(state: ConversationState) -> Trigger | None:
             f"{state.turn_count} turns without a single successful lookup.",
         )
 
+    # --- customer-initiated, softer (§12.1) ---------------------------------
+    # Anger brings the offer forward; it does not open a case unasked.
+    if state.offer_human_now and state.collected.handover_reference is None:
+        return Trigger(TriggerKind.distress, "The customer is upset or angry.")
+
     return None
+
+
+OFFERED: frozenset[TriggerKind] = frozenset(
+    {
+        TriggerKind.service_unavailable,
+        TriggerKind.contract_not_found,
+        TriggerKind.disambiguation_unresolved,
+        TriggerKind.format_invalid_after_reask,
+        TriggerKind.no_progress,
+        TriggerKind.turn_budget_exhausted,
+        TriggerKind.distress,
+    }
+)
+"""Triggers the code answers with an offer of a colleague, made and held by
+code (§4.1 instruction 6, §12.1). The categorical ones are enforced by
+structure instead: the cancellation domain has no tool but the handover, and a
+dispute cannot open without the read-back gate. `human_requested` is not
+offered — it is honoured."""
 
 
 def update_progress(state: ConversationState, before: CollectedState) -> None:

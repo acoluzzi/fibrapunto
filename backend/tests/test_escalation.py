@@ -183,14 +183,22 @@ def test_a_new_lookup_counts_as_progress_even_when_it_failed():
 def test_an_explicit_request_for_a_person_outranks_everything():
     """§12.1: "honoured immediately and without resistance or a retention
     attempt." It must not queue behind a categorical trigger."""
-    s = state(DomainKey.cancellation, offer_human_now=True)
+    s = state(DomainKey.cancellation, human_requested=True, offer_human_now=True)
     trigger = triggers.evaluate(s)
     assert trigger.kind is TriggerKind.human_requested
     assert trigger.immediate is True
 
 
-def test_the_request_stops_being_pending_once_a_record_exists():
+def test_anger_alone_is_distress_not_a_request():
+    """Anger brings the offer forward; it must not open a case unasked."""
     s = state(offer_human_now=True)
+    trigger = triggers.evaluate(s)
+    assert trigger.kind is TriggerKind.distress
+    assert trigger.immediate is False
+
+
+def test_the_request_stops_being_pending_once_a_record_exists():
+    s = state(human_requested=True, offer_human_now=True)
     s.collected.handover_reference = "00001042"
     assert triggers.evaluate(s) is None
 

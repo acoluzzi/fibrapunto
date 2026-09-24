@@ -195,6 +195,12 @@ def _turn_constraints(state: ConversationState) -> str:
             "- Offer to hand over to a colleague **now**, without trying to keep "
             "them and without asking why."
         )
+    if state.pending_escalation:
+        lines.append(
+            "- You have offered to open a case for a colleague and are waiting "
+            "for the customer's answer. Do not open it yourself, and do not "
+            "offer again."
+        )
     if state.pending_confirmation and not state.pending_confirmation.satisfied:
         lines.append(
             f"- You have asked the customer to confirm this summary and are "

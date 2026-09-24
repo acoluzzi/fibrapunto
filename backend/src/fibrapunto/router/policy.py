@@ -104,7 +104,7 @@ def apply(
 
     # The confirmation lock, checked before anything else — including before the
     # classifier's opinion is consulted at all.
-    if state.pending_confirmation and answers_read_back(message):
+    if (state.pending_confirmation or state.pending_escalation) and answers_read_back(message):
         log.info("router.locked_by_pending_confirmation", domain=current.value)
         return RoutingOutcome(current, False, "confirmation_lock", decision)
 
@@ -144,6 +144,7 @@ def apply_sentiment(state: ConversationState, decision: RoutingDecision | None) 
         return
 
     if decision.explicit_human_request:
+        state.human_requested = True
         state.offer_human_now = True
         state.terse = True
         log.info("router.human_requested")

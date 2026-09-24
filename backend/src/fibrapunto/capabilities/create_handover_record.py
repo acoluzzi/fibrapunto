@@ -121,7 +121,12 @@ async def create_handover_record(
         return HandoverFailed(missing_fields=missing)
 
     values = payload.build_values(state, route, subject, context, customer_id, contract_linked)
-    values["collected_context"] = json.dumps(context, default=str, ensure_ascii=False)
+    # Serialise the context build_values already scrubbed — never `context`
+    # itself. Re-dumping the raw dict here silently undid the redaction, so any
+    # value inbound redaction missed or was switched off for reached the CRM.
+    values["collected_context"] = json.dumps(
+        values["collected_context"], default=str, ensure_ascii=False
+    )
 
     reference = await gateway.create_handover_record(principal, values)
     state.collected.handover_reference = reference

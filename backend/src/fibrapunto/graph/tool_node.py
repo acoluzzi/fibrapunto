@@ -43,7 +43,7 @@ from fibrapunto.capabilities.outcomes import (
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.capabilities.transfer_to_human import transfer_to_human
 from fibrapunto.domains.registry import Domain, DomainKey
-from fibrapunto.escalation import triggers
+from fibrapunto.escalation import engine, triggers
 from fibrapunto.handover import routing
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.perimeter.gateway import CrmGateway
@@ -180,6 +180,24 @@ class ToolDispatcher:
             trigger=_trigger_for(state),
             stated_reason=pending.stated_reason,
             disputed_point=pending.disputed_point,
+        )
+
+    async def open_escalation_case(
+        self, state: ConversationState, trigger: str
+    ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
+        """Open the case a fired trigger calls for (§12.1), by code.
+
+        For an explicit request for a person, and for a "yes" to an offer the
+        code made. The subject is templated per trigger and the trigger is the
+        one that fired — not re-derived, and not the model's choice.
+        """
+        return await self._open_case(
+            state,
+            _StateRecorder(state),
+            subject=engine.subject_for(trigger),
+            trigger=trigger,
+            stated_reason=None,
+            disputed_point=None,
         )
 
     async def _open_case(

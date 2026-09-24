@@ -441,3 +441,28 @@ async def test_the_database_refuses_a_second_case_of_the_same_type(clean_db):
     await clean_db.execute(row, state.id)
     with pytest.raises(asyncpg.UniqueViolationError):
         await clean_db.execute(row, state.id)
+
+
+# --- §9 point 3: the record defends itself -----------------------------------
+
+
+async def test_a_raw_iban_in_state_never_reaches_the_record(gateway, clean_db):
+    """Inbound redaction off, or a form the detector missed on the way in: the
+    value sits in collected state. The handover boundary must scrub it anyway.
+
+    It did not. `build_values` redacted the context, and the next line
+    re-serialised the raw one over it."""
+    iban = "IT60X0542811101000000123456"
+    state = state_for(DomainKey.cancellation)
+    state.collected.told_to_customer = [f"Please don't send your IBAN {iban} in chat."]
+    state.collected.stated_reason = f"moving house, my IBAN is {iban}"
+
+    result = await create(state, gateway)
+
+    assert isinstance(result, HandoverCreated), getattr(result, "missing_fields", result)
+    row = await clean_db.fetchrow(
+        "SELECT collected_context::text AS context, stated_reason FROM crm.handover_record"
+    )
+    assert iban not in row["context"]
+    assert iban not in row["stated_reason"]
+    assert "[[REDACTED:IBAN]]" in row["context"]

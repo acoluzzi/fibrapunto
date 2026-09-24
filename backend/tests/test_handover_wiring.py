@@ -297,3 +297,135 @@ async def test_cancelling_after_a_dispute_opens_a_cancellation_case(monkeypatch)
     assert reply.handover_reference == "000124"
     assert "case no. 000124" in reply.text
     assert "retention" in reply.text.lower()
+
+
+# --- §12.1: triggers enforced by code -----------------------------------------
+
+
+async def _outage_without_an_offer(monkeypatch, crm: FakeCrm) -> tuple[Conversation, object]:
+    """Billing down, and the model neither offers nor opens a case."""
+    routed_to(monkeypatch, "billing")
+    convo = conversation(crm, test_mode="timeout")
+    scripted(monkeypatch, [AIMessage("What is your contract number?")])
+    await convo.send("how much do I owe?")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("The billing system is not responding right now. Please try again later."),
+        ],
+    )
+    reply = await convo.send(CONTRACT)
+    return convo, reply
+
+
+async def test_an_outage_always_ends_with_an_offer_of_a_colleague(monkeypatch):
+    """§4.1 instruction 6. It used to be the model's choice whether to offer."""
+    convo, reply = await _outage_without_an_offer(monkeypatch, FakeCrm())
+
+    assert "open a case" in reply.text
+    assert convo.state.pending_escalation is not None
+    assert convo.state.pending_escalation.trigger == "conditional:service_unavailable"
+
+
+async def test_yes_to_the_offer_opens_the_case_by_code(monkeypatch):
+    crm = FakeCrm()
+    convo, _ = await _outage_without_an_offer(monkeypatch, crm)
+
+    routed_to(monkeypatch, "fallback", confidence=0.99)
+    model = scripted(monkeypatch, [])
+    reply = await convo.send("yes please")
+
+    assert model.calls == [], "the answer to the offer does not need the model"
+    assert reply.handover_reference == REFERENCE
+    assert crm.context()["escalation_trigger"] == "conditional:service_unavailable"
+    assert crm.records[0]["subject"].startswith("Billing system unavailable")
+    assert f"case no. {REFERENCE}" in reply.text
+
+
+async def test_no_to_the_offer_is_respected_and_not_repeated(monkeypatch):
+    crm = FakeCrm()
+    convo, _ = await _outage_without_an_offer(monkeypatch, crm)
+
+    scripted(monkeypatch, [AIMessage("Understood.")])
+    await convo.send("no thanks")
+    assert convo.state.pending_escalation is None
+
+    scripted(monkeypatch, [AIMessage("It is still not responding, I'm afraid.")])
+    reply = await convo.send("is it working now?")
+
+    assert crm.records == []
+    assert "open a case" not in reply.text, "a declined offer is not pressed again"
+
+
+async def test_the_model_offer_is_replaced_by_the_held_one(monkeypatch):
+    """One offer, the one the code will act on — not two differently worded."""
+    routed_to(monkeypatch, "billing")
+    convo = conversation(FakeCrm(), test_mode="timeout")
+    scripted(monkeypatch, [AIMessage("What is your contract number?")])
+    await convo.send("how much do I owe?")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage(
+                "The billing system is not responding. Shall I hand this over to "
+                "a colleague who will sort it out today?"
+            ),
+        ],
+    )
+    reply = await convo.send(CONTRACT)
+
+    assert "sort it out today" not in reply.text
+    assert reply.text.count("?") == 1
+
+
+async def test_a_request_for_a_person_opens_the_case_immediately(monkeypatch):
+    crm = FakeCrm()
+    routed_to(monkeypatch, "billing", human=True)
+    model = scripted(monkeypatch, [AIMessage("Before that, let me try to help.")])
+    convo = conversation(crm)
+
+    reply = await convo.send("I want to talk to a person, now")
+
+    assert model.calls == [], "no model call, so no retention attempt"
+    assert reply.handover_reference == REFERENCE
+    assert crm.context()["escalation_trigger"] == "customer:human_requested"
+    assert reply.text.startswith("Of course")
+
+
+async def test_anger_brings_the_offer_forward_but_opens_nothing(monkeypatch):
+    crm = FakeCrm()
+    routed_to(monkeypatch, "billing", sentiment="angry")
+    scripted(monkeypatch, [AIMessage("I understand. What is your contract number?")])
+    convo = conversation(crm)
+
+    reply = await convo.send("this is the third time I'm writing!!")
+
+    assert crm.records == []
+    assert convo.state.pending_escalation.trigger == "customer:distress"
+    assert "open a case" in reply.text
+
+
+async def test_an_unanswered_offer_lapses_and_cannot_hijack_a_later_yes(monkeypatch):
+    """Demo beats 2 → 3: the outage offer is ignored, the customer asks to
+    cancel, and their "yes" to the cancellation must not open the outage case."""
+    crm = FakeCrm()
+    convo, _ = await _outage_without_an_offer(monkeypatch, crm)
+
+    routed_to(monkeypatch, "cancellation")
+    scripted(monkeypatch, [AIMessage("I can help with that. Can you confirm you want to cancel?")])
+    await convo.send("You know what, forget it. I want to cancel.")
+    assert convo.state.pending_escalation is None
+
+    scripted(
+        monkeypatch,
+        [
+            tool_call("create_handover_record", {"summary": "Wants to cancel."}),
+            AIMessage("Done."),
+        ],
+    )
+    await convo.send("Yes, that's correct")
+
+    assert [r["record_type"] for r in crm.records] == ["cancellation_request"]
+    assert crm.context()["escalation_trigger"] == "categorical:cancellation"
