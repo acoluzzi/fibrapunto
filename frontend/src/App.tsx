@@ -21,6 +21,9 @@ export function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
+  /* A provoke that fails silently looks exactly like one that worked until the
+   * agent answers normally, on stage. Say so in the strip instead. */
+  const [provokeError, setProvokeError] = useState<string | null>(null);
 
   if (window.location.pathname.startsWith("/operator")) {
     return <Operator />;
@@ -40,16 +43,26 @@ export function App() {
         onTestMode={session.setTestMode}
         onStart={session.start}
         onReset={session.reset}
-        onProvoke={(mode: TestMode) => api.billingMode(mode).catch(() => undefined)}
+        onProvoke={(mode: TestMode) =>
+          api
+            .billingMode(mode)
+            .then(() => setProvokeError(null))
+            .catch((e: Error) =>
+              setProvokeError(`Billing control unreachable: ${e.message}`),
+            )
+        }
         theme={theme}
         onTheme={toggleTheme}
       />
 
-      {session.error && (
-        <div style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}>
-          {session.error}
+      {[session.error, provokeError].filter(Boolean).map((message) => (
+        <div
+          key={message}
+          style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}
+        >
+          {message}
         </div>
-      )}
+      ))}
 
       <div className="panels">
         <ChatPanel

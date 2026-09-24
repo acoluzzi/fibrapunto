@@ -62,7 +62,7 @@ class TriggerKind(StrEnum):
 class Trigger:
     kind: TriggerKind
     reason: str
-    """One line, in Italian, for the handover record's context."""
+    """One line, for the handover record's context."""
 
     immediate: bool = False
     """True when the turn must stop and escalate rather than letting the domain

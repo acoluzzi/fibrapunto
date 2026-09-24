@@ -92,7 +92,7 @@ domain, not to the agent.
 
 ## 2 · Break the billing system mid-conversation · ~2 min
 
-Press **Provoke now → fault** in the control strip. Then, in the chat:
+Press **Provoke now → Failure** in the control strip. Then, in the chat:
 
 > "So how much do I have to pay?"
 
@@ -298,7 +298,7 @@ a sequence is not one.
 | Symptom | Fix |
 |---|---|
 | Agent replies with the safe fallback repeatedly | a guard is firing; open the trace, it names which one |
-| Billing always fails | a `Provoke` TTL is still live — press **restore**, or wait 120s |
+| Billing always fails | a `Provoke` TTL is still live — press **Provoke now → Restore**, or wait 120s |
 | Empty operator queue | `make reset`, then re-run beat 3 |
 | Chat does not stream | SSE needs `proxy_buffering off`; check the frontend container is the built image, not a stale one |
 | Model errors mentioning credits | OpenRouter balance — the agent cannot run without it |

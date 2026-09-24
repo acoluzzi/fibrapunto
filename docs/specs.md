@@ -1,6 +1,6 @@
 # Fibrapunto Assistant — design specification
 
-A customer service agent for a fictional Italian broadband operator.
+A customer service agent for a fictional broadband operator.
 
 This document is deliberately **technology-agnostic**. It describes what the agent does, what
 it must never do, how it is bounded, and how it is measured — without naming a platform, a
@@ -21,7 +21,7 @@ a contract number, a modem serial and a billing status. Billing runs on a legacy
 predates the CRM and is reachable only through an API.
 
 **The user.** A residential customer writing from the app or the website. They may be twenty
-or seventy. They write in Italian, often with typos, often pasting the text of an SMS they
+or seventy. They write in English, often with typos, often pasting the text of an SMS they
 received and asking what it means.
 
 **The job to be done.** Resolve alone what can be resolved alone — a rejected direct debit, a

@@ -2,7 +2,7 @@
 
 Once escalation is decided, the sentences that carry legal or contractual weight
 stop being model output. Reference numbers, response-time commitments and the
-registration of a request date are **hand-written Italian templates with slot
+registration of a request date are **hand-written templates with slot
 filling**, because §16 is explicit about where model variance is acceptable:
 
     "The reasoning layer handles the input and introduces variance; the typed

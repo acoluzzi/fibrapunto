@@ -30,7 +30,7 @@ class Visibility(StrEnum):
 def CustomerVisible(description: str, **kwargs: Any) -> Any:  # noqa: N802
     """A value the agent may tell the customer.
 
-    The description is written for the model, in Italian, because §5.2 is
+    The description is written for the model, because §5.2 is
     explicit that the reasoning layer reads these to decide what to do with what
     comes back — "a vague description is not a documentation problem; it is a
     defect that surfaces at runtime as a hallucination".

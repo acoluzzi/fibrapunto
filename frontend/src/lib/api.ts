@@ -54,11 +54,14 @@ export const api = {
     req<any>(`/api/operator/records/${reference}`),
 
   // §7: provoke a failure mid-conversation, from a button rather than a
-  // terminal. The TTL means a forgotten mode expires on its own.
+  // terminal. Same-origin through the proxy (vite / nginx) because the stub
+  // sends no CORS headers; a direct call to :8081 is blocked by the browser.
+  // No ttl_seconds: the stub's default (120s) is the one the demo script
+  // and `make billing-mode` quote, so there is a single number to keep true.
   billingMode: (mode: TestMode) =>
-    fetch("http://localhost:8081/_control/mode", {
+    req<{ mode: string; expires_in_s: number }>("/billing/_control/mode", {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ mode: mode || "normal", ttl_seconds: 180 }),
+      body: JSON.stringify({ mode: mode || "normal" }),
     }),
 };

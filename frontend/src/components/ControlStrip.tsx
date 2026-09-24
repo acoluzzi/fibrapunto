@@ -61,8 +61,8 @@ export function ControlStrip({
         >
           Failure
         </button>
-        <button onClick={() => onProvoke('')} title="Reset">
-          Reset
+        <button onClick={() => onProvoke('')} title="Restore">
+          Restore
         </button>
       </div>
 

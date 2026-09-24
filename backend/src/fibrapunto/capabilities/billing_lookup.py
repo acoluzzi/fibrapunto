@@ -3,7 +3,7 @@
 The description below is what the model reads to decide whether to call this,
 and §5.2 is blunt about the stakes: "A vague description is not a documentation
 problem; it is a defect that surfaces at runtime as a hallucination." It is
-given verbatim from the spec, in Italian.
+given verbatim from the spec.
 
 Note what the signature does *not* contain: any credential. The client is
 constructed with a handle and resolves the value inside its transport (§17.7).

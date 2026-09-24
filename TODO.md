@@ -1,0 +1,10 @@
+- Run at least one 'make eval' to populate metrics
+- Remove all italian language references
+- Think of business impact
+- Model choice is not explained
+- Explain How I built this.
+- The "Failure" button most likely does nothing
+- Anyone can read customer email and phone without logging in
+- The "never invents a billing figure" guard can be bypassed:
+- Several subsystems exist but aren't connected:
+- Redaction misses ordinary input. I checked these myself:
