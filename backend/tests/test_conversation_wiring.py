@@ -451,3 +451,40 @@ async def test_the_final_no_tools_answer_is_checked_too(monkeypatch):
 
     with pytest.raises(ReasoningLayerUnavailable, match="was served"):
         await conversation().send("my bill")
+
+
+# --- the reply is always English -----------------------------------------------
+
+
+async def test_a_customer_writing_italian_never_gets_an_italian_reply(monkeypatch):
+    """The screenshot: Italian from the model, English from the templates. The
+    model is repaired once; if it answers in Italian again, the English
+    fallback goes out instead."""
+    routed_to(monkeypatch, "fallback")
+    italian = AIMessage(
+        "Posso aiutarla con la fatturazione e con le disdette. Per qualsiasi "
+        "altra richiesta, posso metterla in contatto con un collega."
+    )
+    model = scripted(monkeypatch, [italian, italian])
+
+    reply = await conversation().send("cosa sai fare?")
+
+    assert len(model.calls) == 2, "one repair attempt"
+    assert "Always reply in English" in str(model.calls[1][-1].content)
+    assert reply.text.startswith("I'm sorry — I can only help in English")
+
+
+async def test_a_repaired_english_reply_is_what_goes_out(monkeypatch):
+    routed_to(monkeypatch, "fallback")
+    scripted(
+        monkeypatch,
+        [
+            AIMessage("Posso aiutarla con la fatturazione e con le disdette del contratto."),
+            AIMessage(
+                "I can only help in English. I can help with billing and "
+                "cancellations, or put you through to a colleague."
+            ),
+        ],
+    )
+    reply = await conversation().send("cosa sai fare?")
+    assert reply.text.startswith("I can only help in English")

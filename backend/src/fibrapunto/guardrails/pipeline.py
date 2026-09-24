@@ -31,6 +31,7 @@ from enum import StrEnum
 import structlog
 
 from fibrapunto.guardrails import (
+    output_english,
     output_grounding,
     output_language,
     output_promises,
@@ -45,17 +46,26 @@ class GuardName(StrEnum):
     grounding = "grounding"
     visibility = "visibility"
     promises = "promises"
+    english = "english"
     language = "language"
 
 
-# Hardest first. Grounding and promises are the two whose §1 target is zero, so
-# they are checked before the stylistic ones — if a reply is going to be thrown
-# away, it should be for the reason that matters.
-ORDER = (GuardName.grounding, GuardName.promises, GuardName.visibility, GuardName.language)
+# English first: grounding and promises can only read English, so a reply in
+# another language would pass them unread — it must be caught before they run,
+# not after. Then the two whose §1 target is zero, then the stylistic ones.
+ORDER = (
+    GuardName.english,
+    GuardName.grounding,
+    GuardName.promises,
+    GuardName.visibility,
+    GuardName.language,
+)
 
 # A guard whose violation cannot be repaired by rewording. An invented figure
 # can be removed; an invented figure the model believes is real comes back.
-BLOCKING = frozenset({GuardName.grounding, GuardName.promises})
+# A reply in another language is here because every other check is blind to
+# it: sending one would send an unchecked reply.
+BLOCKING = frozenset({GuardName.english, GuardName.grounding, GuardName.promises})
 
 
 @dataclass(slots=True)
@@ -80,6 +90,13 @@ class GuardResult:
         return not self.violations
 
 
+# When the only thing wrong is the language. The generic fallback would tell
+# the customer a check failed, which is not what happened.
+ENGLISH_FALLBACK = (
+    "I'm sorry — I can only help in English. If you tell me what you need in "
+    "English, I'll do my best; or I can put you through to a colleague."
+)
+
 SAFE_FALLBACK = (
     "I'm sorry — I can't complete that check reliably, and I'd rather not give "
     "you information I can't confirm. If you'd like, I can put you through to "
@@ -90,6 +107,7 @@ SAFE_FALLBACK = (
 def inspect(reply: str, state: ConversationState) -> list[Violation]:
     """Run every guard. Returns what fired, in ORDER."""
     checks = {
+        GuardName.english: lambda: output_english.check(reply),
         GuardName.grounding: lambda: [str(p) for p in output_grounding.check(reply, state)],
         GuardName.promises: lambda: output_promises.check(reply, state),
         GuardName.visibility: lambda: output_visibility.check(reply, state),
@@ -115,6 +133,11 @@ def repair_instruction(violations: list[Violation]) -> str:
 
     for violation in violations:
         match violation.guard:
+            case GuardName.english:
+                lines.append(
+                    "- It is not in English. Always reply in English, whatever "
+                    "language the customer wrote in."
+                )
             case GuardName.grounding:
                 lines.append(
                     "- It contains figures that come from no check you made: "
@@ -185,8 +208,9 @@ def resolve(
             guards=[v.guard.value for v in violations],
             conversation_id=str(state.id),
         )
+        only_language = all(v.guard is GuardName.english for v in violations if v.blocking)
         return GuardResult(
-            text=SAFE_FALLBACK,
+            text=ENGLISH_FALLBACK if only_language else SAFE_FALLBACK,
             violations=violations,
             repaired=True,
             substituted=True,

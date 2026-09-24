@@ -225,6 +225,56 @@ def test_the_blocklist_is_derived_from_the_models():
     assert {"serviceUnavailable", "notFound", "createdWithoutContractLink"} <= (OUTCOME_LITERALS)
 
 
+# --- the reply is in English ------------------------------------------------
+#
+# Every guard that reads the reply is written for English. A reply in another
+# language passes all of them unread, so it is blocked before they run.
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Posso aiutarla con la fatturazione e con le disdette. Per qualsiasi "
+        "altra richiesta, posso metterla in contatto con un collega.",
+        "Ho annullato il suo contratto, riceverà una conferma via email.",
+        "Puedo ayudarle con la facturación y con las bajas de su contrato.",
+        "Je peux vous aider avec la facturation et les résiliations.",
+    ],
+)
+def test_a_reply_not_in_english_is_blocked(reply):
+    violations = pipeline.inspect(reply, grounded_state())
+    assert violations[0].guard is GuardName.english
+    assert violations[0].blocking
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "I can help with that. First I need your contract number.",
+        "Thank you.",
+        "Understood, FP-2023-048812. Checking now.",
+        pipeline.SAFE_FALLBACK,
+        pipeline.ENGLISH_FALLBACK,
+    ],
+)
+def test_english_replies_and_the_fallbacks_pass(reply):
+    assert not any(v.guard is GuardName.english for v in pipeline.inspect(reply, grounded_state()))
+
+
+def test_a_claim_in_another_language_cannot_slip_past_the_promises_guard():
+    """The reason the guard is blocking: "I have cancelled your contract" in
+    Italian is invisible to the English promises patterns — but not to this."""
+    violations = pipeline.inspect("Ho annullato il suo contratto come richiesto.", grounded_state())
+    assert any(v.blocking for v in violations)
+
+
+def test_a_failed_language_repair_gets_the_english_fallback():
+    italian = "Posso aiutarla con la fatturazione e con le disdette del contratto."
+    result = pipeline.resolve(italian, grounded_state(), repaired_reply=italian)
+    assert result.substituted
+    assert result.text == pipeline.ENGLISH_FALLBACK
+
+
 # --- language: §10 criterion 3 -----------------------------------------------
 
 
