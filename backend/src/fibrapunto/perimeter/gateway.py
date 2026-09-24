@@ -26,6 +26,7 @@ from typing import Any
 import asyncpg
 import structlog
 
+from fibrapunto import faults
 from fibrapunto.perimeter.policy import FieldNotAuthorized, Principal
 from fibrapunto.settings import get_settings
 
@@ -100,6 +101,7 @@ class CrmGateway:
             "status",
         )
         principal.check("contract", "read", columns)
+        faults.fail_if_down("crm")
 
         row = await self._fetchrow(
             principal,
@@ -163,6 +165,7 @@ class CrmGateway:
         """
         columns = tuple(values)
         principal.check("handover_record", "create", columns)
+        faults.fail_if_down("crm")
 
         placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
         insert = (

@@ -28,6 +28,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from fibrapunto import faults
 from fibrapunto.api import auth, operator
 from fibrapunto.api.auth import require_operator
 from fibrapunto.conversation import AgentReply, Conversation
@@ -139,8 +140,7 @@ async def create_session(request: CreateSession) -> SessionCreated:
     convo = Conversation(test_mode=request.test_mode, gateway=_gateway)
     _sessions[str(convo.state.id)] = convo
 
-    if _store:
-        await _store.open_conversation(convo.state)
+    await _persist("open_conversation", lambda store: store.open_conversation(convo.state))
 
     return SessionCreated(conversation_id=str(convo.state.id), domain=convo.domain.value)
 
@@ -175,17 +175,71 @@ async def send_turn(conversation_id: str, request: SendTurn) -> AgentReply:
     convo = _require(conversation_id)
     reply = await convo.send(request.text)
 
-    if _store:
-        await _store.store_events(convo.trace.pending)
-        # Redaction happens at the write boundary (§9), so what lands on disk is
-        # redacted regardless of whether inbound redaction was on for the model.
-        await _store.store_transcript(convo.state)
+    stored = await _persist("store_events", lambda store: store.store_events(convo.trace.pending))
+    # Redaction happens at the write boundary (§9), so what lands on disk is
+    # redacted regardless of whether inbound redaction was on for the model.
+    stored = stored and await _persist(
+        "store_transcript", lambda store: store.store_transcript(convo.state)
+    )
+    if stored:
         # Clearing costs a late-joining browser its replay, so remember how far
         # we have persisted instead. The recorder is bounded by the turn budget
-        # (§12.1), so it cannot grow without limit.
+        # (§12.1), so it cannot grow without limit. Not marked when a write
+        # failed, so the next turn retries what this one could not store.
         convo.trace.mark_persisted()
 
     return reply
+
+
+async def _persist(what: str, write) -> bool:
+    """One write to the trace store, never allowed to fail the turn.
+
+    The customer's reply is already decided when this runs. Losing a trace row
+    is an observability gap to log and alert on; losing the reply because the
+    observability database is down would be the tail wagging the dog.
+    """
+    if not _store:
+        return False
+    try:
+        faults.fail_if_down("trace_store")
+        await write(_store)
+    except Exception as exc:  # noqa: BLE001 — any store failure is non-fatal
+        log.error("trace_store.write_failed", what=what, error=str(exc))
+        return False
+    return True
+
+
+# --- demo failure switches (faults.py) ----------------------------------------
+
+
+class FaultSwitches(BaseModel):
+    crm: faults.UpDown | None = None
+    colleagues: str | None = None
+    model: faults.UpDown | None = None
+    credential_store: faults.UpDown | None = None
+    trace_store: faults.UpDown | None = None
+
+
+def _require_fault_injection() -> None:
+    if not faults.enabled():
+        raise HTTPException(404, "fault injection is off (FAULT_INJECTION=false)")
+
+
+@app.get("/api/faults", dependencies=[Depends(_require_fault_injection)])
+async def get_faults() -> dict[str, str]:
+    """The live state of every switchable module (§7). Billing is the stub's."""
+    return faults.current().model_dump()
+
+
+@app.post("/api/faults", dependencies=[Depends(_require_fault_injection)])
+async def set_faults(request: FaultSwitches) -> dict[str, str]:
+    """Flip one or more modules. Sticky until flipped back: a switch the
+    control strip shows is a switch that decides, not one that expires."""
+    changes = {k: v for k, v in request.model_dump().items() if v is not None}
+    try:
+        return faults.update(**changes).model_dump()
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.get("/api/sessions/{conversation_id}")

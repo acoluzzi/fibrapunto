@@ -40,6 +40,14 @@ make demo          # up + reset, prints the URLs
 Every port is bound to `127.0.0.1`: nothing is reachable from the venue
 network, only from this laptop.
 
+**The live switches** (the row under the top bar) decide, at any moment, whether
+each module the agent depends on is there: the billing system (up, slow, not
+responding, rejects our credential, returns invalid data), the CRM, the
+colleagues who take transfers, the model provider, the credential store and the
+trace store. A switch applies at once, to every conversation, and stays until
+moved back. The customer just keeps typing. Check they are all healthy (none
+red) before starting.
+
 **Sign in to /operator before going on stage.** It opens on a sign-in form;
 the password is `OPERATOR_PASSWORD` from `.env`, and the session lasts eight
 hours. Without a password set, the form says operator access is disabled and
@@ -100,14 +108,14 @@ domain, not to the agent.
 
 ## 2 · Break the billing system mid-conversation · ~2 min
 
-Press **Restart**, then **New Chat**. A fresh conversation, on purpose: the
+Press **New conversation**. A fresh conversation, on purpose: the
 amount from beat 1 is already held in that conversation's state, so the agent
 could answer from it without a new lookup and the outage would never show.
 
 > "Hi, I need to know how much my next bill is."
 
-The agent asks for the contract number. **Now** press **Provoke now → Failure**
-in the control strip — before the number is given, so the lookup it triggers is
+The agent asks for the contract number. **Now** set **Billing system** to
+**not responding** in the live switches — before the number is given, so the lookup it triggers is
 the one that fails. Then:
 
 > "FP-2023-048812"
@@ -120,7 +128,7 @@ The point is not that it behaved well. Open the trace: the outcome is
 exception string. And the grounding guard is standing behind it — with nothing
 verified this conversation, any figure at all would be blocked.
 
-Press **Provoke now → Restore** before moving on, so beat 3 runs against a
+Set **Billing system** back to **up** before moving on, so beat 3 runs against a
 working billing system.
 
 If someone asks "but would it really not invent one?", that is beat 6.
@@ -326,7 +334,7 @@ a sequence is not one.
 | Symptom                                         | Fix                                                                                               |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | Agent replies with the safe fallback repeatedly | a guard is firing; open the trace, it names which one                                             |
-| Billing always fails                            | a `Provoke` TTL is still live — press **Provoke now → Restore**, or wait 120s                     |
+| Billing always fails                            | a live switch is still off — any switch not in its healthy position is marked red; set it back                     |
 | Empty operator queue                            | `make reset`, then re-run beat 3                                                                  |
 | Chat does not stream                            | SSE needs `proxy_buffering off`; check the frontend container is the built image, not a stale one |
 | Model errors mentioning credits                 | OpenRouter balance — the agent cannot run without it                                              |

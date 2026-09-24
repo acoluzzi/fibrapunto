@@ -116,6 +116,15 @@ async def test_multiple_matches(patched_httpx):
     )
 
 
+@pytest.mark.parametrize("mode", ["unauthorized", "malformed"])
+async def test_a_refused_credential_or_a_broken_body_is_service_unavailable(patched_httpx, mode):
+    """The two billing switches added for the live demo. A 401 is our
+    credential refused (§17.7); a 200 that breaks the contract must be refused
+    whole rather than have figures read out of it (§7)."""
+    result = await make_client().lookup(CONTRACT, test_mode=mode)
+    assert isinstance(result, BillingServiceUnavailable)
+
+
 async def test_slow_mode_still_succeeds(patched_httpx):
     """`slow` is a latency problem, not a failure. It must stay below the
     client timeout or it stops testing anything distinct from `timeout`."""

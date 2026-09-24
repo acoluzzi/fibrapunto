@@ -128,7 +128,8 @@ async def get_billing(
         str | None,
         Header(
             description=(
-                "Testing only: timeout | slow. It is not part of production "
+                "Testing only: timeout | slow | unauthorized | malformed. It is "
+                "not part of production "
                 "behaviour. A missing or duplicated contract is not a mode — it "
                 "is the data: look up a number that is absent, or held twice."
             )
@@ -151,6 +152,23 @@ async def get_billing(
                 error="GATEWAY_TIMEOUT",
                 message="The billing system did not respond in time.",
             ).model_dump(by_alias=True),
+            headers={"X-Billing-Mode": mode.value},
+        )
+
+    if mode is TestMode.unauthorized:
+        return JSONResponse(
+            status_code=401,
+            content=BillingError(error="UNAUTHORIZED").model_dump(by_alias=True),
+            headers={"X-Billing-Mode": mode.value},
+        )
+
+    if mode is TestMode.malformed:
+        # A 200 that breaks the contract: a status the schema does not allow
+        # and an amount that is not a number. Figures read out of this would be
+        # invented by the parser, so the client must refuse the whole body.
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ok-ish", "amount": "twenty-nine ninety"},
             headers={"X-Billing-Mode": mode.value},
         )
 
@@ -215,13 +233,19 @@ async def get_line(
 
 class ModeRequest(BaseModel):
     mode: TestMode
-    ttl_seconds: float = 120.0
+    # None: sticky until changed (the control strip's switches). A number:
+    # expires on its own (`make billing-mode`, a terminal nobody is watching).
+    ttl_seconds: float | None = 120.0
 
 
 @app.post("/_control/mode", include_in_schema=False)
 async def set_mode(request: ModeRequest) -> dict[str, Any]:
     """Provoke a failure mid-conversation, from a button rather than a terminal."""
-    ttl = min(request.ttl_seconds, get_settings().max_control_ttl_s)
+    ttl = (
+        None
+        if request.ttl_seconds is None
+        else min(request.ttl_seconds, get_settings().max_control_ttl_s)
+    )
     if request.mode is TestMode.normal:
         global_override().clear()
         return {"mode": "normal", "expires_in_s": 0}

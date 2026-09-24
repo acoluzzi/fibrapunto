@@ -121,6 +121,27 @@ body {
 }
 
 .strip .brand { font-weight: 650; letter-spacing: -0.01em; }
+
+/* The live failure switches, one row under the strip. A switch not in its
+   healthy position is marked, so a failure left on is visible at a glance. */
+.switchboard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 14px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border-strong);
+  flex: none;
+  flex-wrap: wrap;
+}
+.switchboard-title {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.switch.failing label { color: var(--critical); font-weight: 600; }
+.switch.failing select { border-color: var(--critical); }
 .strip .spacer { flex: 1; }
 
 .field { display: flex; align-items: center; gap: 6px; font-size: 12px; }

@@ -33,6 +33,12 @@ class TestMode(StrEnum):
     normal = "normal"
     timeout = "timeout"
     slow = "slow"
+    # Answers 401 to every request: our credential is refused — a rotation on
+    # the far side the agent was not told about (§17.7).
+    unauthorized = "unauthorized"
+    # Answers 200 with a body that breaks the published contract (§7): the
+    # client must refuse it rather than read figures out of it.
+    malformed = "malformed"
     # No `notfound` or `duplicate`: those are facts about a contract, so they
     # live in the data (fixtures/billing.yaml). A mode is only for what data
     # cannot express — the system being slow or not answering at all.
@@ -54,9 +60,11 @@ class GlobalOverride:
             return TestMode.normal
         return self.mode
 
-    def set(self, mode: TestMode, ttl_seconds: float) -> None:
+    def set(self, mode: TestMode, ttl_seconds: float | None) -> None:
+        """`ttl_seconds=None` is sticky: set from a visible switch, the mode
+        stays until the switch is moved back."""
         self.mode = mode
-        self.expires_at = time.monotonic() + ttl_seconds
+        self.expires_at = float("inf") if ttl_seconds is None else time.monotonic() + ttl_seconds
 
     def clear(self) -> None:
         self.mode = TestMode.normal

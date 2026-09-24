@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
-import type { AgentReply, Domain, TestMode, TraceEvent } from "../lib/types";
+import type { AgentReply, Domain, TraceEvent } from "../lib/types";
 import type { Message } from "../panels/ChatPanel";
 
 /** One conversation, plus its live trace.
@@ -16,7 +16,6 @@ export function useSession() {
   const [events, setEvents] = useState<TraceEvent[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [perimeter, setPerimeter] = useState<Record<string, any> | null>(null);
-  const [testMode, setTestMode] = useState<TestMode>("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const streamRef = useRef<EventSource | null>(null);
@@ -29,7 +28,7 @@ export function useSession() {
   const start = useCallback(async () => {
     setError(null);
     try {
-      const { conversation_id } = await api.createSession(testMode);
+      const { conversation_id } = await api.createSession();
       setSessionId(conversation_id);
       setMessages([]);
       setReplies([]);
@@ -48,7 +47,17 @@ export function useSession() {
     } catch (cause) {
       setError(String(cause));
     }
-  }, [testMode]);
+  }, []);
+
+  /* A conversation is ready when the page is: the customer just types. The
+   * ref stops React's development double-mount opening two sessions, and the
+   * operator view — same app shell — is not a conversation. */
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || window.location.pathname.startsWith("/operator")) return;
+    opened.current = true;
+    void start();
+  }, [start]);
 
   const send = useCallback(
     async (text: string) => {
@@ -69,19 +78,10 @@ export function useSession() {
     [sessionId],
   );
 
-  const reset = useCallback(() => {
-    streamRef.current?.close();
-    streamRef.current = null;
-    setSessionId(null);
-    setMessages([]);
-    setReplies([]);
-    setEvents([]);
-  }, []);
-
   useEffect(() => () => streamRef.current?.close(), []);
 
   return {
     sessionId, messages, replies, events, domains, perimeter,
-    testMode, setTestMode, busy, error, start, send, reset,
+    busy, error, start, send,
   };
 }

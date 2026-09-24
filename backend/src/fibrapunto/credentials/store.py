@@ -37,6 +37,7 @@ from typing import Protocol
 from cryptography.fernet import Fernet, InvalidToken
 from pydantic import SecretStr
 
+from fibrapunto import faults
 from fibrapunto.settings import REPO_ROOT, get_settings
 
 STORE_PATH = REPO_ROOT / "secrets" / "credentials.enc.json"
@@ -83,6 +84,10 @@ class FileSecretStore:
         self._fernet = Fernet(key.encode())
 
     def get(self, handle: str) -> SecretStr:
+        if faults.current().credential_store == "down":
+            raise CredentialStoreLocked(
+                "the credential store is unreachable (switched off in the demo)"
+            )
         data = self._read()
         if handle not in data:
             raise CredentialNotFound(handle)

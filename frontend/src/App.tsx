@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { ControlStrip } from "./components/ControlStrip";
+import { Switchboard } from "./components/Switchboard";
 import { useSession } from "./hooks/useSession";
-import { api } from "./lib/api";
 import { ChatPanel } from "./panels/ChatPanel";
 import { MetricsPanel } from "./panels/MetricsPanel";
 import { SystemTracePanel } from "./panels/SystemTracePanel";
 import { Operator } from "./routes/Operator";
-import type { TestMode } from "./lib/types";
 
 export function App() {
   const session = useSession();
@@ -21,9 +20,9 @@ export function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() =>
     document.documentElement.dataset.theme === "dark" ? "dark" : "light",
   );
-  /* A provoke that fails silently looks exactly like one that worked until the
+  /* A switch that fails silently looks exactly like one that worked until the
    * agent answers normally, on stage. Say so in the strip instead. */
-  const [provokeError, setProvokeError] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
 
   if (window.location.pathname.startsWith("/operator")) {
     return <Operator />;
@@ -38,24 +37,13 @@ export function App() {
   return (
     <div className="app">
       <ControlStrip
-        testMode={session.testMode}
-        started={session.sessionId !== null}
-        onTestMode={session.setTestMode}
-        onStart={session.start}
-        onReset={session.reset}
-        onProvoke={(mode: TestMode) =>
-          api
-            .billingMode(mode)
-            .then(() => setProvokeError(null))
-            .catch((e: Error) =>
-              setProvokeError(`Billing control unreachable: ${e.message}`),
-            )
-        }
+        onNewConversation={session.start}
         theme={theme}
         onTheme={toggleTheme}
       />
+      <Switchboard onError={setSwitchError} />
 
-      {[session.error, provokeError].filter(Boolean).map((message) => (
+      {[session.error, switchError].filter(Boolean).map((message) => (
         <div
           key={message}
           style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}

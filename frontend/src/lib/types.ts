@@ -48,4 +48,15 @@ export interface Domain {
   prompt_sha: string | null;
 }
 
-export type TestMode = "" | "timeout" | "slow";
+/** The billing system's live state, as the stub's switch holds it (§7). */
+export type BillingState = "normal" | "slow" | "timeout" | "unauthorized" | "malformed";
+
+/** The other modules the agent depends on, as the backend's switches hold
+ *  them (faults.py). */
+export interface Faults {
+  crm: "up" | "down";
+  colleagues: "schedule" | "available" | "unavailable";
+  model: "up" | "down";
+  credential_store: "up" | "down";
+  trace_store: "up" | "down";
+}

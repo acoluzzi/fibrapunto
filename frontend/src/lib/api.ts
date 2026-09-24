@@ -1,4 +1,4 @@
-import type { AgentReply, Domain, TestMode } from "./types";
+import type { AgentReply, BillingState, Domain, Faults } from "./types";
 
 const json = { "content-type": "application/json" };
 
@@ -38,11 +38,14 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  createSession: (testMode: TestMode) =>
+  // Always a normal session: the modules' state is the live switchboard, not
+  // something fixed when the conversation starts. (The per-session header is
+  // kept on the backend for the eval harness only.)
+  createSession: () =>
     req<{ conversation_id: string; domain: string }>("/api/sessions", {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ test_mode: testMode || null }),
+      body: JSON.stringify({}),
     }),
 
   sendTurn: (id: string, text: string) =>
@@ -76,15 +79,23 @@ export const api = {
   operatorRecord: (reference: string) =>
     req<any>(`/api/operator/records/${reference}`),
 
-  // §7: provoke a failure mid-conversation, from a button rather than a
-  // terminal. Same-origin through the proxy (vite / nginx) because the stub
-  // sends no CORS headers; a direct call to :8081 is blocked by the browser.
-  // No ttl_seconds: the stub's default (120s) is the one the demo script
-  // and `make billing-mode` quote, so there is a single number to keep true.
-  billingMode: (mode: TestMode) =>
-    req<{ mode: string; expires_in_s: number }>("/billing/_control/mode", {
+  // §7: the live switches. Billing's lives in the stub (the external system),
+  // reached same-origin through the proxy because the stub sends no CORS
+  // headers. ttl_seconds null: sticky until the switch is moved back — a
+  // switch on screen must not change on its own.
+  billingState: () => req<{ mode: BillingState }>("/billing/_control/mode"),
+  setBillingState: (mode: BillingState) =>
+    req<{ mode: BillingState }>("/billing/_control/mode", {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ mode: mode || "normal" }),
+      body: JSON.stringify({ mode, ttl_seconds: null }),
+    }),
+
+  faults: () => req<Faults>("/api/faults"),
+  setFault: (change: Partial<Faults>) =>
+    req<Faults>("/api/faults", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify(change),
     }),
 };

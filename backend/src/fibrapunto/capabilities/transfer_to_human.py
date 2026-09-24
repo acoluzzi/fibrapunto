@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 import structlog
 from pydantic import BaseModel, Field
 
+from fibrapunto import faults
 from fibrapunto.capabilities.base import CustomerVisible, InternalOnly
 from fibrapunto.capabilities.runtime import typed_capability
 
@@ -76,6 +77,11 @@ TRANSFER_OUTCOMES: frozenset[str] = frozenset({"transferred", "noAgentAvailable"
 
 
 def within_service_hours(now: datetime | None = None) -> bool:
+    # The demo switch (faults.py) can say there is, or is not, somebody there;
+    # left on "schedule" it is the real opening hours.
+    switch = faults.current().colleagues
+    if switch != "schedule":
+        return switch == "available"
     now = now or datetime.now(ROME)
     return now.weekday() in SERVICE_DAYS and SERVICE_OPEN_HOUR <= now.hour < SERVICE_CLOSE_HOUR
 

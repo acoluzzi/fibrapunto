@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     # Gates the operator view and the admin routes. Empty means refused, not open.
     operator_password: SecretStr = SecretStr("")
 
+    # --- demo failure switches (faults.py) ------------------------------------
+    # Lets the control strip switch the CRM, the colleagues, the model provider,
+    # the credential store and the trace store off and on. Off by default: a
+    # build that has not asked for it cannot be switched into a failure.
+    fault_injection: bool = False
+
     def dsn(self, role: str = "owner") -> str:
         """Connection string for one of the three identities.
 

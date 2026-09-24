@@ -26,6 +26,7 @@ from typing import Any
 
 from langchain_openai import ChatOpenAI
 
+from fibrapunto import faults
 from fibrapunto.llm.registry import LLMRegistry, ModelPinViolation, ModelRole, get_registry
 from fibrapunto.settings import get_settings
 
@@ -125,6 +126,11 @@ async def ainvoke(model: Any, messages: Any, *, role: ModelRole) -> Any:
     reasoning layer is, in the only sense that matters, not available — so the
     API reports it as a 503 with the reason, not a 500.
     """
+    if faults.current().model == "down":
+        raise ReasoningLayerUnavailable(
+            "The model provider is unreachable.",
+            hint="Switched off from the demo control strip (Model provider: down).",
+        )
     try:
         response = await model.ainvoke(messages)
     except ReasoningLayerUnavailable:

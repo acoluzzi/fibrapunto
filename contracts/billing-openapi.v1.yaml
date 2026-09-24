@@ -245,9 +245,9 @@ paths:
           - type: string
           - type: 'null'
           title: Authorization
-      - description: 'Testing only: timeout | slow. It is not part of production behaviour. A missing
-          or duplicated contract is not a mode — it is the data: look up a number that is absent, or held
-          twice.'
+      - description: 'Testing only: timeout | slow | unauthorized | malformed. It is not part of production
+          behaviour. A missing or duplicated contract is not a mode — it is the data: look up a number
+          that is absent, or held twice.'
         in: header
         name: x-test-mode
         required: false
@@ -255,9 +255,9 @@ paths:
           anyOf:
           - type: string
           - type: 'null'
-          description: 'Testing only: timeout | slow. It is not part of production behaviour. A missing
-            or duplicated contract is not a mode — it is the data: look up a number that is absent, or
-            held twice.'
+          description: 'Testing only: timeout | slow | unauthorized | malformed. It is not part of production
+            behaviour. A missing or duplicated contract is not a mode — it is the data: look up a number
+            that is absent, or held twice.'
           title: X-Test-Mode
       responses:
         '200':
