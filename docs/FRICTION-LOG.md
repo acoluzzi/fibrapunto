@@ -448,8 +448,17 @@ it found the things the tests were never shaped to ask.
   middle and end, before a word, before an expiry date and before a CVV.
   One more defect surfaced on the way: the card match ended on its trailing
   separator, so "card 4111… exp" became "[[REDACTED:CARD]]exp".
-- Validate tool arguments inside the typed boundary; make one-case idempotency
-  per record type, backed by a unique constraint.
+- Validate tool arguments inside the typed boundary. (Still open.)
+- **Done.** One-case idempotency is per record type, backed by a unique
+  constraint. `CollectedState.handovers` keys each opened case by record type,
+  so a cancellation after a dispute opens its own case and the customer is
+  given *its* reference and *its* team. Migration 005 adds a unique index on
+  `(origin_session_id, record_type)`; the gateway inserts with `ON CONFLICT DO
+  NOTHING` and reads back the winner, so two concurrent requests get one case
+  and the same reference — no error, and no new grant (the agent could already
+  read those columns). The promises guard accepts any reference the
+  conversation actually opened. The earlier race test opened the case once
+  before its `gather`, so it never raced two first calls; the new one does.
 
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator

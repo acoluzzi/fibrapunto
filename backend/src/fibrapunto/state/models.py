@@ -106,6 +106,12 @@ class PendingConfirmation(BaseModel):
     disputed_point: str | None = None
 
 
+class OpenedCase(BaseModel):
+    reference: str
+    contract_linked: bool
+    """Kept so a repeated call returns the same outcome variant."""
+
+
 class CollectedState(BaseModel):
     """Facts, not transcript. Survives a domain switch intact (§15)."""
 
@@ -134,9 +140,16 @@ class CollectedState(BaseModel):
     that most often causes a second complaint"."""
 
     handover_reference: str | None = None
-    handover_contract_linked: bool = False
-    """Whether the opened case carries a contract link. Kept so a repeated call
-    can return the same outcome variant rather than a different one."""
+    """The most recently opened case — what the customer was last told."""
+
+    handovers: dict[str, OpenedCase] = Field(default_factory=dict)
+    """Every case this conversation opened, by record type.
+
+    One per type, not one per conversation: a billing dispute followed by "I
+    want to cancel" is two requests for two teams. Keyed so that a repeated call
+    returns *that type's* case — returning the dispute's reference to a
+    cancellation told the customer the retention team would call about a case
+    that was sitting in billing operations."""
 
     sensitive_data_seen: list[str] = Field(default_factory=list)
     """Kinds, never values — ["IBAN"], not the IBAN (§9)."""
@@ -173,8 +186,9 @@ class CollectedState(BaseModel):
                 f"    · {c.contract_number} — {c.service_address}"
                 for c in self.disambiguation_candidates
             ]
-        if self.handover_reference:
-            lines.append(f"- Case already opened: no. {self.handover_reference}")
+        for record_type, case in self.handovers.items():
+            label = record_type.replace("_", " ")
+            lines.append(f"- Case already opened ({label}): no. {case.reference}")
         if self.sensitive_data_seen:
             lines.append(
                 f"- The customer pasted sensitive data "

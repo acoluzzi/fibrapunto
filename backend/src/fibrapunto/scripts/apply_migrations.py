@@ -44,7 +44,9 @@ def _substitute(sql: str, variables: dict[str, str]) -> str:
 async def _already_applied(conn: asyncpg.Connection, path: Path) -> bool:
     """Cheap idempotence: if the objects a migration creates already exist,
     skip it. Keyed on one distinctive object per file rather than a version
-    table, because there are four files and they are not going to be reordered.
+    table, because there are five files and they are not going to be reordered.
+    Files with no sentinel (the grants, and 005's IF NOT EXISTS index) are
+    re-applied every time and must be safe to repeat.
     """
     sentinel = {
         "001_crm.sql": "SELECT to_regclass('crm.customer') IS NOT NULL",

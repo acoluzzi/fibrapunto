@@ -27,6 +27,7 @@ from fibrapunto.privacy.detectors import SensitiveKind
 from fibrapunto.state.models import (
     BillingFacts,
     ConversationState,
+    OpenedCase,
     Turn,
     TurnRole,
 )
@@ -168,11 +169,26 @@ def test_a_reference_number_that_does_not_exist_is_blocked():
 
 def test_the_real_reference_passes():
     state = grounded_state()
-    state.collected.handover_reference = "00001042"
+    state.collected.handovers["billing_dispute"] = OpenedCase(
+        reference="00001042", contract_linked=True
+    )
     assert not any(
         v.guard is GuardName.promises
         for v in pipeline.inspect("I've opened case no. 00001042.", state)
     )
+
+
+def test_every_case_the_conversation_opened_is_real():
+    """A dispute and then a cancellation: two cases, and naming either is true."""
+    state = grounded_state()
+    state.collected.handovers["billing_dispute"] = OpenedCase(
+        reference="00001042", contract_linked=True
+    )
+    state.collected.handovers["cancellation_request"] = OpenedCase(
+        reference="00001043", contract_linked=True
+    )
+    reply = "Your dispute is case no. 00001042 and the cancellation is case no. 00001043."
+    assert not any(v.guard is GuardName.promises for v in pipeline.inspect(reply, state))
 
 
 # --- visibility: §5.2, §17.6 -------------------------------------------------

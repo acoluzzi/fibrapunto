@@ -359,7 +359,7 @@ def _needs_read_back(state: ConversationState, trigger: str) -> bool:
     instruction 6 or §12.1: offered and opened, with no read-back. Only a case
     whose reason is the dispute itself waits for the customer's agreement.
     """
-    if state.collected.handover_reference:
+    if "billing_dispute" in state.collected.handovers:
         return False  # already open; the capability returns the existing one
     if routing.for_domain(state.current_domain).record_type != "billing_dispute":
         return False

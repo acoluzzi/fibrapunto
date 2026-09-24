@@ -154,18 +154,37 @@ class CrmGateway:
         purpose: the agent has no INSERT grant on either, so the reference comes
         from a sequence it may only USAGE (§12.4) and the agent-handled flag
         defaults true (§13). Both invariants are the database's, not ours.
+
+        One case per conversation and record type is the database's too
+        (migration 005). A concurrent duplicate does nothing, and the reference
+        returned is the one already written — the same case, not a second one
+        and not an error. The losing insert still draws a number from the
+        sequence, so references can skip; they are unique, not contiguous.
         """
         columns = tuple(values)
         principal.check("handover_record", "create", columns)
 
         placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
-        query = (
+        insert = (
             f"INSERT INTO crm.handover_record ({', '.join(columns)}) "
-            f"VALUES ({placeholders}) RETURNING reference"
+            f"VALUES ({placeholders}) "
+            f"ON CONFLICT (origin_session_id, record_type) DO NOTHING "
+            f"RETURNING reference"
+        )
+        existing = (
+            "SELECT reference FROM crm.handover_record "
+            "WHERE origin_session_id = $1 AND record_type = $2"
         )
         async with self._pool.acquire() as conn:
             try:
-                return await conn.fetchval(query, *values.values())
+                reference = await conn.fetchval(insert, *values.values())
+                if reference is None:
+                    # Lost the race: the conflicting insert has committed by
+                    # now (ON CONFLICT waits for it), so its row is visible.
+                    reference = await conn.fetchval(
+                        existing, values["origin_session_id"], values["record_type"]
+                    )
+                return reference
             except asyncpg.InsufficientPrivilegeError as exc:
                 raise self._as_field_denial(principal, "handover_record", "create", exc) from exc
 

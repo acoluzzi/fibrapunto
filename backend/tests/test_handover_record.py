@@ -377,3 +377,67 @@ async def test_the_repeat_keeps_the_unlinked_shape(gateway, clean_db):
     assert isinstance(first, HandoverCreatedWithoutContractLink)
     assert isinstance(second, HandoverCreatedWithoutContractLink)
     assert second.reference == first.reference
+
+
+# --- one case per type, enforced by the database (migration 005) -------------
+
+
+async def test_a_cancellation_after_a_dispute_opens_its_own_case(gateway, clean_db):
+    """Keyed per conversation alone, the cancellation got the dispute's
+    reference back — no cancellation record was ever written, and the customer
+    was told the retention team would call about a case sitting in billing."""
+    state = state_for(DomainKey.billing)
+    state.collected.disputed_point = "says their plan is €24.90"
+    dispute = await create_handover_record(
+        state=state,
+        gateway=gateway,
+        principal=svc_agent(),
+        subject="Amount disputed",
+        trigger="categorical:amount_dispute",
+    )
+
+    state.current_domain = DomainKey.cancellation
+    cancellation = await create(state, gateway)
+
+    assert isinstance(dispute, HandoverCreated)
+    assert isinstance(cancellation, HandoverCreated)
+    assert cancellation.reference != dispute.reference
+    assert cancellation.queue_label != dispute.queue_label
+    rows = await clean_db.fetch(
+        "SELECT reference, record_type::text AS record_type FROM crm.handover_record"
+    )
+    assert {r["record_type"]: r["reference"] for r in rows} == {
+        "billing_dispute": dispute.reference,
+        "cancellation_request": cancellation.reference,
+    }
+
+
+async def test_concurrent_first_calls_open_one_case(gateway, clean_db):
+    """Two requests for one conversation, neither aware of the other — two
+    workers, or two copies of the state. The in-memory check passes in both;
+    the unique index is what holds, and both are told the same reference."""
+    import asyncio
+
+    first = state_for(DomainKey.cancellation)
+    second = first.model_copy(deep=True)
+
+    a, b = await asyncio.gather(
+        create(first, gateway, subject="Summary A"),
+        create(second, gateway, subject="Summary B"),
+    )
+
+    assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 1
+    assert a.reference == b.reference
+
+
+async def test_the_database_refuses_a_second_case_of_the_same_type(clean_db):
+    """The index itself, with no Fibrapunto code in the loop."""
+    state = state_for(DomainKey.cancellation)
+    row = (
+        "INSERT INTO crm.handover_record (record_type, priority, queue, subject, "
+        "collected_context, origin_session_id, contract_link_missing) VALUES "
+        "('cancellation_request', 'high', 'retention', 's', '{}', $1, true)"
+    )
+    await clean_db.execute(row, state.id)
+    with pytest.raises(asyncpg.UniqueViolationError):
+        await clean_db.execute(row, state.id)

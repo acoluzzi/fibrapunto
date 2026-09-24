@@ -30,7 +30,7 @@ from fibrapunto.handover import completeness, payload, routing
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import Principal
 from fibrapunto.settings import get_settings
-from fibrapunto.state.models import ConversationState
+from fibrapunto.state.models import ConversationState, OpenedCase
 
 log = structlog.get_logger(__name__)
 
@@ -62,9 +62,14 @@ async def create_handover_record(
     """Build the payload from typed state, validate it, insert it."""
     route = routing.for_domain(state.current_domain)
 
-    # Idempotent per conversation. One customer request is one case, and this
-    # capability is the only thing that can open one — so the guarantee belongs
-    # here rather than in a prompt asking the model to call it once.
+    # Idempotent per conversation **and record type**. One customer request is
+    # one case, and this capability is the only thing that can open one — so
+    # the guarantee belongs here rather than in a prompt asking the model to
+    # call it once. Per type because a dispute and a cancellation are two
+    # requests: keyed per conversation alone, the cancellation got the
+    # dispute's reference back and no cancellation record was ever written.
+    # The database enforces the same key (migration 005) for the concurrent
+    # case this in-memory check cannot see.
     #
     # Two ways to reach a second call, and both were observed on the first live
     # run of the dispute case: the model emitted **two tool calls in the same
@@ -76,13 +81,15 @@ async def create_handover_record(
     # already given. Opening a second one would leave the receiving team two
     # cases for one problem, which §13's adoption metric ("the rate at which
     # these records are reassigned or reopened") is precisely designed to catch.
-    if state.collected.handover_reference:
+    opened = state.collected.handovers.get(route.record_type)
+    if opened:
         log.warning(
             "handover.duplicate_suppressed",
-            reference=state.collected.handover_reference,
+            reference=opened.reference,
+            record_type=route.record_type,
             attempted_subject=subject,
         )
-        return _existing(state, route)
+        return _existing(opened, route)
 
     if stated_reason:
         state.collected.stated_reason = stated_reason
@@ -118,7 +125,9 @@ async def create_handover_record(
 
     reference = await gateway.create_handover_record(principal, values)
     state.collected.handover_reference = reference
-    state.collected.handover_contract_linked = contract_linked
+    state.collected.handovers[route.record_type] = OpenedCase(
+        reference=reference, contract_linked=contract_linked
+    )
 
     log.info(
         "handover.created",
@@ -144,16 +153,14 @@ async def create_handover_record(
     )
 
 
-def _existing(state: ConversationState, route: routing.Routing) -> HandoverResult:
-    """The outcome for a case this conversation has already opened.
+def _existing(opened: OpenedCase, route: routing.Routing) -> HandoverResult:
+    """The outcome for a case of this type the conversation already opened.
 
-    Reconstructed rather than remembered as an object, so it stays correct if
-    the conversation switched domain between the two calls — the queue label the
-    customer is told must match the queue the record is actually in.
+    The route is this record type's, so the queue label the customer is told
+    matches the queue the record is actually in.
     """
-    reference = state.collected.handover_reference
-    assert reference is not None  # guarded by the caller
-    if state.collected.handover_contract_linked:
+    reference = opened.reference
+    if opened.contract_linked:
         return HandoverCreated(
             reference=reference,
             queue_label=route.queue_label,

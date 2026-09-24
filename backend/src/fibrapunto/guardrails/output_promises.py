@@ -91,9 +91,9 @@ def check(reply: str, state: ConversationState) -> list[str]:
     # §12.4: the agent must not state a reference number it did not receive.
     # The guard is the backstop for the structural rule — the reference comes
     # from the database, so any *other* number presented as one is invented.
-    actual = state.collected.handover_reference
+    actual = {case.reference for case in state.collected.handovers.values()}
     for match in _REFERENCE.finditer(reply):
-        if match.group(1) != actual:
+        if match.group(1) not in actual:
             problems.append(f"case number that does not exist: {match.group(1)}")
 
     return problems

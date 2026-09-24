@@ -215,7 +215,7 @@ grounding and promises guards are re-tested with the prompt removed entirely.
 | Path | What |
 |---|---|
 | `contracts/` | The three contracts: billing OpenAPI, capability definitions, the perimeter policy. All drift-tested against a fresh render. |
-| `db/migrations/` | Four files. `004_grants.generated.sql` is rendered, never hand-edited. |
+| `db/migrations/` | Five files. `004_grants.generated.sql` is rendered, never hand-edited; `005` is the one-case-per-type unique index. |
 | `backend/src/fibrapunto/` | The agent (`domains`, `router`, `graph`, `capabilities`, `guardrails`, `escalation`, `state`) and the platform (`perimeter`, `privacy`, `credentials`, `integrations`, `observability`, `handover`, `api`) |
 | `mock-billing/` | The legacy billing system (§7): slow, contract-versioned, fails on command |
 | `evals/` | The harness (§14), external by construction — it does not depend on the backend package |

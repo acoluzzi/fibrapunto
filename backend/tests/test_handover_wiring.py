@@ -41,7 +41,7 @@ class FakeCrm:
 
     async def create_handover_record(self, principal, values):
         self.records.append(values)
-        return REFERENCE
+        return f"{int(REFERENCE) + len(self.records) - 1:06d}"  # 000123, 000124, …
 
     def context(self) -> dict:
         return json.loads(self.records[-1]["collected_context"])
@@ -269,3 +269,32 @@ async def test_a_case_opened_on_the_first_message_is_written(monkeypatch):
     assert "not responding" in told
     assert "within two working days" in told
     assert "within two working days" in reply.text, "the record says what the reply says"
+
+
+
+# --- one case per request type (§13) -----------------------------------------
+
+
+async def test_cancelling_after_a_dispute_opens_a_cancellation_case(monkeypatch):
+    """The customer used to be told the retention team would call — about the
+    dispute's case number, with no cancellation record anywhere."""
+    crm = FakeCrm()
+    convo = await _disputed(monkeypatch, crm)
+    scripted(monkeypatch, [])
+    await convo.send("Yes")
+    assert convo.state.collected.handover_reference == REFERENCE
+
+    routed_to(monkeypatch, "cancellation")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("create_handover_record", {"summary": "Wants to cancel."}),
+            AIMessage("There is no lock-in on your contract."),
+        ],
+    )
+    reply = await convo.send("You know what, forget it. I want to cancel.")
+
+    assert [r["record_type"] for r in crm.records] == ["billing_dispute", "cancellation_request"]
+    assert reply.handover_reference == "000124"
+    assert "case no. 000124" in reply.text
+    assert "retention" in reply.text.lower()
