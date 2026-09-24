@@ -18,6 +18,7 @@ import pytest
 from fibrapunto.conversation import Conversation
 from fibrapunto.domains.registry import DomainKey
 from fibrapunto.integrations.billing_client import BillingClient
+from fibrapunto.llm.registry import ModelRole, get_registry
 from fibrapunto.router.classifier import RoutingDecision
 from langchain_core.messages import AIMessage
 from langchain_core.utils.function_calling import convert_to_openai_tool
@@ -50,7 +51,13 @@ class ScriptedModel:
 
     async def ainvoke(self, messages: list[Any], **_: Any) -> AIMessage:
         self.calls.append(messages)
-        return self.script.pop(0) if self.script else AIMessage("(fine)")
+        response = self.script.pop(0) if self.script else AIMessage("(fine)")
+        # Report the served model as the provider does. Every agent response is
+        # now checked against the pin (§10); a test that wants a substitution
+        # sets response_metadata itself.
+        if not response.response_metadata:
+            response.response_metadata = {"model_name": get_registry()[ModelRole.agent].id}
+        return response
 
 
 @pytest.fixture(autouse=True)
@@ -414,3 +421,32 @@ def test_an_ambiguous_number_is_not_recorded_as_the_contract():
     """§4.1: several matches means there is not yet a single contract to record.
     That is what the disambiguation turn resolves."""
     assert _state_after("multipleMatches").collected.contract_number is None
+
+
+# --- §10: every agent response is checked against the pin --------------------
+
+
+async def test_a_substituted_agent_model_stops_the_turn(monkeypatch):
+    from fibrapunto.llm.chat import ReasoningLayerUnavailable
+
+    routed_to(monkeypatch, "billing")
+    substituted = AIMessage("Hello!", response_metadata={"model_name": "vendor/other-model"})
+    scripted(monkeypatch, [substituted])
+
+    with pytest.raises(ReasoningLayerUnavailable, match="was served"):
+        await conversation().send("my bill")
+
+
+async def test_the_final_no_tools_answer_is_checked_too(monkeypatch):
+    """After MAX_TOOL_ROUNDS the graph asks once more with no tools — a
+    separate call, and one that used to be unchecked."""
+    from fibrapunto.graph.build import MAX_TOOL_ROUNDS
+    from fibrapunto.llm.chat import ReasoningLayerUnavailable
+
+    routed_to(monkeypatch, "billing")
+    rounds = [tool_call("transfer_to_human", {}) for _ in range(MAX_TOOL_ROUNDS)]
+    final = AIMessage("Done.", response_metadata={"model_name": "vendor/other-model"})
+    scripted(monkeypatch, [*rounds, final])
+
+    with pytest.raises(ReasoningLayerUnavailable, match="was served"):
+        await conversation().send("my bill")

@@ -25,6 +25,7 @@ Two rules are enforced here rather than trusted:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -139,13 +140,23 @@ class LLMRegistry:
     def assert_served_model(requested: str, served: str | None) -> None:
         """§10 demands pinning "with notice of change". The provider gives
         neither, so we manufacture both: compare every response against what was
-        asked for, and fail loudly."""
+        asked for, and fail loudly.
+
+        One tolerance, and only one: a dated snapshot of the requested id
+        (`…-20260801`, `…-2026-08-01`). A provider may report the concrete
+        snapshot an alias resolved to; that is the same model, and the served
+        id is recorded on the conversation, so a change is still visible.
+        Anything else — another model, another size, another vendor — fails.
+        """
         if served is None:
             raise ModelPinViolation(
                 f"The provider did not report which model served the request "
                 f"(asked for {requested}). The pin cannot be verified."
             )
-        if served != requested:
+        snapshot = re.fullmatch(
+            rf"{re.escape(requested)}-(?:\d{{8}}|\d{{4}}-\d{{2}}-\d{{2}})", served
+        )
+        if served != requested and not snapshot:
             raise ModelPinViolation(
                 f"Asked for {requested}, was served {served}. "
                 f"allow_fallbacks is false, so this should not happen."

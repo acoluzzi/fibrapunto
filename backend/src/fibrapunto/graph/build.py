@@ -237,7 +237,7 @@ async def run_domain_turn(
     tool_messages: list = []
 
     for round_index in range(MAX_TOOL_ROUNDS):
-        response: AIMessage = await ainvoke(model, messages)
+        response: AIMessage = await ainvoke(model, messages, role=ModelRole.agent)
         state.agent_model_served = served_model(response)
 
         if not response.tool_calls:
@@ -260,7 +260,9 @@ async def run_domain_turn(
     final: AIMessage = await ainvoke(
         build_chat_model(ModelRole.agent),
         [*messages, SystemMessage("Answer the customer now, without any further checks.")],
+        role=ModelRole.agent,
     )
+    state.agent_model_served = served_model(final)
     return _text_of(final), tool_messages
 
 

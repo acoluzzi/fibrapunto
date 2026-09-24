@@ -490,6 +490,19 @@ it found the things the tests were never shaped to ask.
   are outside it. Cases 003 and 008 end correctly waiting on the customer and
   were relabelled; 028 became `answered`.
 
+- **Done.** The model pin was verified by a helper (`verify_pin`) that no
+  call path invoked — tested in isolation, never engaged, so a substituted
+  model would have served whole conversations unnoticed. `chat.ainvoke`, the
+  one boundary every agent-path call goes through, now takes a required
+  `role` and verifies the served model on every response: each agent round,
+  the final no-tools answer, and the router (now `include_raw=True`, since a
+  parsed object carries no metadata). A violation is raised as
+  `ReasoningLayerUnavailable`, so the API returns its 503 with the reason.
+  The judge checks the `model` field of its own HTTP response the same way.
+  One tolerance on both sides: a dated snapshot of the pinned id. There is no
+  persona call anywhere — the eval turns are scripted — so there is nothing
+  there to verify.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

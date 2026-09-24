@@ -26,7 +26,7 @@ from typing import Any
 
 from langchain_openai import ChatOpenAI
 
-from fibrapunto.llm.registry import LLMRegistry, ModelRole, get_registry
+from fibrapunto.llm.registry import LLMRegistry, ModelPinViolation, ModelRole, get_registry
 from fibrapunto.settings import get_settings
 
 
@@ -107,20 +107,52 @@ def build_chat_model(role: ModelRole, **overrides: Any) -> ChatOpenAI:
     )
 
 
-async def ainvoke(model: Any, messages: Any) -> Any:
-    """Call a model, translating provider failures at the point of the call.
+async def ainvoke(model: Any, messages: Any, *, role: ModelRole) -> Any:
+    """Call a model: translate provider failures, and verify the pin (§10).
 
-    Every `ainvoke` in the codebase goes through here. The alternative — one
-    `try` at the top of the conversation — would catch the same exceptions but
-    lose which call failed, and "the router could not be reached" and "the agent
-    could not be reached" are different operational facts.
+    Every model call on the agent path goes through here — the router, every
+    agent round, and the final no-tools answer — so this is the one place the
+    served model can be checked on every response. `role` is required and
+    keyword-only for that reason: a call site cannot forget to say what it
+    asked for. Verifying only in a helper nothing called meant a substituted
+    model would have served a whole conversation unnoticed.
+
+    Structured output must be requested with `include_raw=True`: the parsed
+    object carries no metadata, so without the raw message there is nothing to
+    verify. The parsed object is what is returned.
+
+    A pin violation is raised as `ReasoningLayerUnavailable` — the pinned
+    reasoning layer is, in the only sense that matters, not available — so the
+    API reports it as a 503 with the reason, not a 500.
     """
     try:
-        return await model.ainvoke(messages)
+        response = await model.ainvoke(messages)
     except ReasoningLayerUnavailable:
         raise
     except Exception as exc:
         raise interpret_provider_error(exc) from exc
+
+    structured = isinstance(response, dict) and "raw" in response
+    raw = response["raw"] if structured else response
+    try:
+        verify_pin(role, raw)
+    except ModelPinViolation as exc:
+        raise ReasoningLayerUnavailable(
+            str(exc),
+            hint=(
+                f"The {role.value} model is pinned (§10) and the provider served "
+                "something else. Check the pin in .env against the provider's catalogue."
+            ),
+        ) from exc
+
+    if structured:
+        if response.get("parsing_error") is not None or response.get("parsed") is None:
+            raise ReasoningLayerUnavailable(
+                f"The {role.value} model's structured output could not be parsed: "
+                f"{response.get('parsing_error')}"
+            )
+        return response["parsed"]
+    return response
 
 
 def served_model(response: Any) -> str | None:

@@ -514,3 +514,46 @@ def test_an_unmeasured_run_says_so_rather_than_showing_zero():
 
 def test_zero_cases_does_not_divide_by_zero():
     assert spend.report(4.0, 4.0, 0)["per_case"] is None
+
+
+# --- §10: the judge's pin is checked on every response -----------------------
+
+
+def test_the_judge_pin_check():
+    from evals.judge import JudgePinViolation, check_served
+
+    check_served("google/gemini-2.5-pro", "google/gemini-2.5-pro")
+    check_served("google/gemini-2.5-pro", "google/gemini-2.5-pro-20260801")
+    with pytest.raises(JudgePinViolation, match="was served"):
+        check_served("google/gemini-2.5-pro", "google/gemini-2.5-flash")
+    with pytest.raises(JudgePinViolation, match="did not report"):
+        check_served("google/gemini-2.5-pro", None)
+
+
+async def test_a_substituted_judge_is_refused(monkeypatch):
+    import httpx
+
+    from evals import judge as judge_module
+
+    monkeypatch.setenv("MODEL_JUDGE", "google/gemini-2.5-pro")
+    monkeypatch.setenv("MODEL_AGENT", "anthropic/claude-sonnet-5")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test")
+
+    def respond(_request):
+        return httpx.Response(
+            200,
+            json={
+                "model": "google/gemini-2.5-flash",
+                "choices": [{"message": {"content": "{}"}}],
+            },
+        )
+
+    original = httpx.AsyncClient
+    monkeypatch.setattr(
+        judge_module.httpx,
+        "AsyncClient",
+        lambda *a, **k: original(*a, transport=httpx.MockTransport(respond), **k),
+    )
+
+    with pytest.raises(judge_module.JudgePinViolation):
+        await judge_module.Judge().grade({"turns": [{"user": "hi"}]}, [{"text": "hello"}])

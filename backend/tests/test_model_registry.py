@@ -149,7 +149,7 @@ async def test_the_wrapper_translates_and_does_not_double_wrap():
             raise RuntimeError("Error code: 401 - {'error': {'message': 'No auth'}}")
 
     with pytest.raises(chat.ReasoningLayerUnavailable) as caught:
-        await chat.ainvoke(Boom(), [])
+        await chat.ainvoke(Boom(), [], role=ModelRole.agent)
     assert "No auth" in caught.value.reason
     assert "OpenRouter" in (caught.value.hint or "")
 
@@ -158,5 +158,89 @@ async def test_the_wrapper_translates_and_does_not_double_wrap():
             raise chat.ReasoningLayerUnavailable("already typed", hint="h")
 
     with pytest.raises(chat.ReasoningLayerUnavailable) as caught:
-        await chat.ainvoke(AlreadyTyped(), [])
+        await chat.ainvoke(AlreadyTyped(), [], role=ModelRole.agent)
     assert caught.value.reason == "already typed", "must not be re-interpreted"
+
+
+# --- the pin is verified on every call, at the shared boundary (§10) ---------
+#
+# `verify_pin` existed and was tested, and nothing on the agent path called it:
+# a substituted model would have served whole conversations unnoticed. These
+# go through `chat.ainvoke` and the real call sites.
+
+
+def _served(model_id: str | None, text: str = "ok"):
+    from langchain_core.messages import AIMessage
+
+    return AIMessage(text, response_metadata={"model_name": model_id} if model_id else {})
+
+
+class _Returns:
+    def __init__(self, response):
+        self.response = response
+
+    async def ainvoke(self, _messages):
+        return self.response
+
+
+async def test_the_boundary_rejects_a_substituted_model():
+    with pytest.raises(chat.ReasoningLayerUnavailable, match="was served") as caught:
+        await chat.ainvoke(_Returns(_served("vendor/other-model")), [], role=ModelRole.agent)
+    assert "pinned" in (caught.value.hint or "")
+
+
+async def test_the_boundary_rejects_a_silent_provider():
+    with pytest.raises(chat.ReasoningLayerUnavailable, match="did not report"):
+        await chat.ainvoke(_Returns(_served(None)), [], role=ModelRole.router)
+
+
+async def test_the_boundary_passes_the_pinned_model_through():
+    pinned = get_registry()[ModelRole.agent].id
+    response = await chat.ainvoke(_Returns(_served(pinned)), [], role=ModelRole.agent)
+    assert response.content == "ok"
+
+
+async def test_structured_output_is_verified_and_unwrapped():
+    pinned = get_registry()[ModelRole.router].id
+    parsed = object()
+    ok = {"raw": _served(pinned), "parsed": parsed, "parsing_error": None}
+    assert await chat.ainvoke(_Returns(ok), [], role=ModelRole.router) is parsed
+
+    wrong = {"raw": _served("vendor/other-model"), "parsed": parsed, "parsing_error": None}
+    with pytest.raises(chat.ReasoningLayerUnavailable, match="was served"):
+        await chat.ainvoke(_Returns(wrong), [], role=ModelRole.router)
+
+    unparsed = {"raw": _served(pinned), "parsed": None, "parsing_error": ValueError("bad")}
+    with pytest.raises(chat.ReasoningLayerUnavailable, match="could not be parsed"):
+        await chat.ainvoke(_Returns(unparsed), [], role=ModelRole.router)
+
+
+def test_a_dated_snapshot_of_the_pinned_model_is_the_pinned_model():
+    LLMRegistry.assert_served_model(
+        "anthropic/claude-sonnet-5", "anthropic/claude-sonnet-5-20260801"
+    )
+    LLMRegistry.assert_served_model(
+        "anthropic/claude-sonnet-5", "anthropic/claude-sonnet-5-2026-08-01"
+    )
+    with pytest.raises(ModelPinViolation):
+        LLMRegistry.assert_served_model(
+            "anthropic/claude-sonnet-5", "anthropic/claude-sonnet-5-lite"
+        )
+    with pytest.raises(ModelPinViolation):
+        LLMRegistry.assert_served_model("anthropic/claude-sonnet-5", "anthropic/claude-sonnet-50")
+
+
+async def test_the_router_call_is_verified(monkeypatch):
+    from fibrapunto.domains.registry import DomainKey
+    from fibrapunto.router import classifier
+
+    class FakeRouterModel:
+        def with_structured_output(self, schema, include_raw=False):
+            assert include_raw, "without the raw message the pin cannot be checked"
+            return _Returns(
+                {"raw": _served("vendor/other-model"), "parsed": None, "parsing_error": None}
+            )
+
+    monkeypatch.setattr(classifier, "build_chat_model", lambda *_a, **_k: FakeRouterModel())
+    with pytest.raises(chat.ReasoningLayerUnavailable, match="was served"):
+        await classifier.classify("hello", [], DomainKey.fallback)

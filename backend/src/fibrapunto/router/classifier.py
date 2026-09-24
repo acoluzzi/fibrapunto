@@ -100,7 +100,11 @@ async def classify(message: str, history: list[str], current_domain: DomainKey) 
     `history` is the last few turns as plain text — enough for the classifier to
     notice a topic change, not so much that the call stops being cheap.
     """
-    model = build_chat_model(ModelRole.router).with_structured_output(RoutingDecision)
+    # include_raw: the parsed decision carries no metadata, and the served model
+    # must be verified on this call too (§10).
+    model = build_chat_model(ModelRole.router).with_structured_output(
+        RoutingDecision, include_raw=True
+    )
 
     context = "\n".join(f"- {t}" for t in history[-4:]) or "(none)"
     prompt = (
@@ -110,7 +114,9 @@ async def classify(message: str, history: list[str], current_domain: DomainKey) 
     )
 
     decision: RoutingDecision = await ainvoke(
-        model, [SystemMessage(SYSTEM.format(scopes=_scopes_block())), HumanMessage(prompt)]
+        model,
+        [SystemMessage(SYSTEM.format(scopes=_scopes_block())), HumanMessage(prompt)],
+        role=ModelRole.router,
     )
     log.info(
         "router.classified",

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import httpx
@@ -70,6 +71,28 @@ class JudgeMisconfigured(RuntimeError):
     pass
 
 
+class JudgePinViolation(RuntimeError):
+    """The judge was answered by a model other than the one pinned (§10)."""
+
+
+def check_served(requested: str, served: str | None) -> None:
+    """Every judge response is checked against its pin, as every agent and
+    router response is on the backend. Kept here rather than imported: the
+    harness does not import the backend (§14.2).
+
+    Same single tolerance as the backend: a dated snapshot of the requested id.
+    A judge silently swapped for another model would still grade — and the
+    §14.2 audit would be auditing the wrong grader.
+    """
+    if served is None:
+        raise JudgePinViolation(
+            f"The provider did not report which model graded (asked for {requested})."
+        )
+    snapshot = re.fullmatch(rf"{re.escape(requested)}-(?:\d{{8}}|\d{{4}}-\d{{2}}-\d{{2}})", served)
+    if served != requested and not snapshot:
+        raise JudgePinViolation(f"Judge: asked for {requested}, was served {served}.")
+
+
 class Judge:
     def __init__(self) -> None:
         self.model = os.environ.get("MODEL_JUDGE", "google/gemini-2.5-pro")
@@ -105,15 +128,16 @@ class Judge:
                         {
                             "role": "user",
                             "content": (
-                                f"Context note for this case:\n{notes}\n\n"
-                                f"Trascrizione:\n{transcript}"
+                                f"Context note for this case:\n{notes}\n\nTranscript:\n{transcript}"
                             ),
                         },
                     ],
                 },
             )
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
+            body = response.json()
+            check_served(self.model, body.get("model"))
+            content = body["choices"][0]["message"]["content"]
 
         return _parse(content)
 
