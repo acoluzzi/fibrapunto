@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 import httpx
 
@@ -38,6 +39,9 @@ class Driver:
     async def run_case(self, case: dict[str, Any], client: httpx.AsyncClient) -> Transcript:
         mode = case.get("billing_stub_mode", "none")
         try:
+            # The anonymous browser identity every session route requires. The
+            # client's cookie jar carries it for the rest of the case.
+            (await client.post(f"{self._base}/api/customer/access")).raise_for_status()
             created = await client.post(
                 f"{self._base}/api/sessions",
                 json={"test_mode": None if mode == "none" else mode},
@@ -52,7 +56,9 @@ class Driver:
             try:
                 response = await client.post(
                     f"{self._base}/api/sessions/{conversation_id}/turns",
-                    json={"text": turn["user"]},
+                    # One id per message: a retry of this request would get
+                    # the stored reply instead of a second model call.
+                    json={"client_turn_id": str(uuid4()), "text": turn["user"]},
                 )
                 response.raise_for_status()
                 replies.append(response.json())

@@ -8,15 +8,14 @@ Persistence runs as the **platform** identity, into the `platform` schema. The
 agent has no grant there at all — it cannot read its own transcripts, which is
 the same decision as the email restriction and made for the same reason (§8).
 
-Transcript text is stored redacted (§9), and the redaction happens on this side
-of the boundary — `store_turn` redacts whatever it is given rather than trusting
-its caller to have done so.
+Transcript text is stored redacted (§9) by persistence/sessions.py, the only
+write path to platform.turn, which redacts whatever it is given rather than
+trusting its caller to have done so.
 """
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
-from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -24,7 +23,6 @@ import asyncpg
 import structlog
 
 from fibrapunto.observability.events import EventType, TraceEvent
-from fibrapunto.privacy import redaction
 from fibrapunto.settings import get_settings
 
 log = structlog.get_logger(__name__)
@@ -106,57 +104,9 @@ class TraceStore:
     async def close(self) -> None:
         await self._pool.close()
 
-    async def open_conversation(self, state: Any) -> None:
-        settings = get_settings()
-        retention_until = datetime.now(UTC) + timedelta(days=settings.transcript_retention_days)
-        await self._pool.execute(
-            """
-            INSERT INTO platform.conversation
-                (id, channel, test_mode, agent_model, agent_model_served,
-                 router_model, prompt_sha, retention_until)
-            VALUES ($1, 'web', $2, $3, $4, $5, $6, $7)
-            ON CONFLICT (id) DO NOTHING
-            """,
-            state.id,
-            state.test_mode,
-            state.agent_model,
-            state.agent_model_served,
-            get_settings().model_router,
-            state.prompt_sha,
-            retention_until,
-        )
-
-    async def store_transcript(self, state: Any) -> None:
-        """Persist every message recorded so far, redacted (§9).
-
-        **The only write path to `platform.turn`**, deliberately. Redaction
-        happens here rather than being required of the caller: the column used
-        to be fed by a `store_turn(text_redacted=...)` in the hope that the
-        parameter name would make callers careful, which is the same class of
-        control as an instruction in a prompt — §8.1's argument, applied to
-        ourselves. A second write path would be the hole.
-
-        Writes the whole transcript rather than the latest pair, and relies on
-        `ON CONFLICT DO NOTHING` to skip what is already there. `seq` is the
-        index into the conversation's own message list, so the ordering stored
-        is the ordering the agent reasoned over — there is no second numbering
-        scheme to drift out of step with the first.
-        """
-        rows = [
-            (state.id, seq, turn.role.value, *redaction.for_storage(turn.text))
-            for seq, turn in enumerate(state.turns)
-        ]
-        if not rows:
-            return
-        await self._pool.executemany(
-            """
-            INSERT INTO platform.turn
-                (conversation_id, seq, role, text_redacted, redaction_flags)
-            VALUES ($1, $2, $3::platform.turn_role, $4, $5::jsonb)
-            ON CONFLICT (conversation_id, seq) DO NOTHING
-            """,
-            [(cid, seq, role, text, _json(flags)) for cid, seq, role, text, flags in rows],
-        )
+    # Conversations and transcripts are written by persistence/sessions.py, in
+    # the same transaction as the checkpoint: they are critical, and this store
+    # is best-effort. It keeps the trace.
 
     async def store_events(self, events: list[TraceEvent]) -> None:
         if not events:

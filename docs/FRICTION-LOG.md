@@ -519,6 +519,29 @@ it found the things the tests were never shaped to ask.
   still open a case itself, with better wording; code is what happens when it
   does not.
 
+- **Done.** Conversations lived only in the backend's memory: a restart, a
+  deploy or a second replica lost every conversation in progress, and the
+  browser was left answering `404 no such conversation`. Migration 006 makes
+  them durable and owned. Each browser gets an anonymous identity (256 random
+  bits in an HttpOnly, SameSite=Strict cookie, stored only as an HMAC) — a
+  browser installation, not a person, and never an authentication of the
+  customer. Every turn rebuilds the conversation from an explicit
+  `RuntimeCheckpointV1` plus the redacted transcript, runs under a
+  per-conversation lease, and commits transcript + checkpoint + stored reply
+  in one transaction with optimistic versioning; the trace stays best-effort.
+  Turns are idempotent by `client_turn_id`; case creation by migration 005's
+  unique index, so a crash between opening a case and saving the checkpoint
+  replays into the same case (the test fails with the index dropped).
+  Another browser's conversation is a 404; retention purges checkpoint,
+  stored replies and transcript together. Two things the spec for this change
+  did not anticipate: the triggers read the capability log, which the
+  checkpoint deliberately excludes — they now read `lookup_outcomes`, which it
+  keeps, so a lost trace row cannot silence an outage trigger; and 004's
+  platform grants cover only tables existing when it runs, so 006 grants its
+  own. §3's boundary is unchanged and documented (specs.md §3, DEVIATIONS.md
+  #4): the platform remembers which conversations a browser owns; the agent
+  still never sees one conversation's facts in another.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

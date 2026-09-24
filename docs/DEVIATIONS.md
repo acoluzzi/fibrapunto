@@ -85,3 +85,49 @@ warning naming this deviation on every run.
 **What would close it.** Twenty minutes of somebody outside the project, given
 the scenario and nothing else. It is the cheapest unbought improvement in the
 build, and it is listed first in the next-steps section for that reason.
+
+---
+
+## 4. Conversations survive a restart, owned by an anonymous browser
+
+**Spec.** §3: "The agent has no memory across conversations. It cannot identify
+a customer except through a contract number the customer supplies in that
+conversation."
+
+**Built.** The agent's boundary is unchanged: a conversation is reasoned over
+using only its own state, and facts from one conversation are never injected
+into another. What changed is the platform around it (migration 006):
+
+- Each browser gets an anonymous identity — 256 random bits in an HttpOnly,
+  SameSite=Strict cookie, stored only as an HMAC. It identifies a browser
+  installation, **not a person**, and authenticates nothing about the
+  customer; the contract number stays data the agent checks, never a
+  credential.
+- Each conversation is checkpointed after every turn (`RuntimeCheckpointV1`:
+  domain, status, validated facts, pending read-back or offer, counters, open
+  cases, model versions — no transcript, no raw sensitive values), in the same
+  transaction as its redacted transcript and the reply given.
+- A browser can list and resume its own conversations after a reload or a
+  backend restart. Another browser's conversation answers 404, not 403.
+- Turns are idempotent (`client_turn_id`) and serialised per conversation by a
+  short database lease; case creation is idempotent through migration 005's
+  unique index, so a crash between opening a case and saving the checkpoint
+  cannot open a second one.
+
+**Why.** An in-memory conversation died with the process: a restart, a second
+replica, or a deploy lost every conversation in progress, with the customer
+left mid-sentence and the backend answering `404 no such conversation`. That
+is an operational failure, not a privacy feature.
+
+**What it does not change.** The agent is never told about the browser's other
+conversations; nothing in one conversation's prompt comes from another. Stored
+state follows the same retention as transcripts: the purge removes the
+checkpoint and the stored replies with the transcript, and a purged
+conversation cannot be resumed by anyone. The browser identity expires after
+the same period of inactivity.
+
+**What would close it.** Nothing needs closing on the agent side. If the
+product ever wanted continuity across *browsers*, that would need real
+customer authentication and a data policy — §18 and §19's territory, and a
+different decision from this one.
+

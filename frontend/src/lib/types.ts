@@ -60,3 +60,21 @@ export interface Faults {
   credential_store: "up" | "down";
   trace_store: "up" | "down";
 }
+
+/** One of this browser's conversations, as GET /api/sessions lists it. */
+export interface SessionSummary {
+  conversation_id: string;
+  created_at: string;
+  last_activity_at: string;
+  domain: string;
+  status: string;
+  label: string;
+}
+
+/** A conversation reopened from the backend: its stored (redacted) transcript
+ *  and the replies it received. */
+export interface StoredSession {
+  conversation_id: string;
+  messages: { role: "customer" | "agent"; text: string }[];
+  replies: AgentReply[];
+}

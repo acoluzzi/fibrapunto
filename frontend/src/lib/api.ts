@@ -1,4 +1,11 @@
-import type { AgentReply, BillingState, Domain, Faults } from "./types";
+import type {
+  AgentReply,
+  BillingState,
+  Domain,
+  Faults,
+  SessionSummary,
+  StoredSession,
+} from "./types";
 
 const json = { "content-type": "application/json" };
 
@@ -48,12 +55,20 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  sendTurn: (id: string, text: string) =>
+  // One client_turn_id per submitted message, reused on retry: the backend
+  // returns the stored reply instead of calling the model a second time.
+  sendTurn: (id: string, text: string, clientTurnId: string) =>
     req<AgentReply>(`/api/sessions/${id}/turns`, {
       method: "POST",
       headers: json,
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ client_turn_id: clientTurnId, text }),
     }),
+
+  // The anonymous browser identity (an HttpOnly cookie the page never sees).
+  // It lets this browser find its own conversations again; it is not a login.
+  customerAccess: () => req<{ ok: boolean }>("/api/customer/access", { method: "POST" }),
+  sessions: () => req<{ items: SessionSummary[]; next_cursor: string | null }>("/api/sessions"),
+  session: (id: string) => req<StoredSession>(`/api/sessions/${id}`),
 
   domains: () => req<Domain[]>("/api/domains"),
 

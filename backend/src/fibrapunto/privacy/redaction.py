@@ -56,7 +56,7 @@ def for_storage(text: str | None) -> tuple[str | None, list[str]]:
     """Point 2 — unconditional (§9).
 
     Applied at the moment of writing rather than trusting the caller to have
-    done it. `TraceStore.store_transcript` is the only write path to
+    done it. `SessionStore.commit` (persistence/sessions.py) is the only write path to
     `platform.turn` and it calls this unconditionally, because a column named
     `text_redacted` is documentation and documentation is not an enforcement
     mechanism.

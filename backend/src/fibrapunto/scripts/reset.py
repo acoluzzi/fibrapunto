@@ -49,7 +49,10 @@ async def reset(conn: asyncpg.Connection) -> dict[str, int]:
                      crm.customer,
                      platform.trace_event,
                      platform.turn,
+                     platform.turn_request,
+                     platform.conversation_checkpoint,
                      platform.conversation,
+                     platform.browser_principal,
                      platform.eval_run
             RESTART IDENTITY CASCADE
             """

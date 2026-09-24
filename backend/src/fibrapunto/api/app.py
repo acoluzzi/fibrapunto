@@ -22,28 +22,43 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from fibrapunto import faults
-from fibrapunto.api import auth, operator
+from fibrapunto.api import auth, customer_auth, operator
 from fibrapunto.api.auth import require_operator
+from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
 from fibrapunto.llm.chat import ReasoningLayerUnavailable
-from fibrapunto.observability.events import EventType
-from fibrapunto.observability.trace import TraceStore, stream_events
+from fibrapunto.observability.events import EventType, TraceEvent
+from fibrapunto.observability.trace import TraceRecorder, TraceStore, stream_events
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import PerimeterError, platform_admin, svc_agent
+from fibrapunto.persistence.sessions import (
+    CheckpointConflict,
+    ConversationBusy,
+    ConversationNotFound,
+    SessionStore,
+    TurnConflict,
+)
 from fibrapunto.privacy import retention
 from fibrapunto.prompts.loader import reload_all
+from fibrapunto.state import checkpoint
+from fibrapunto.state.checkpoint import UnsupportedCheckpoint
 
 log = structlog.get_logger(__name__)
 
-_sessions: dict[str, Conversation] = {}
+# Live trace recorders by conversation, so a browser watching the trace keeps
+# receiving events across turns. A cache: after a restart it is re-seeded from
+# platform.trace_event (best-effort), while the conversation itself comes back
+# from its checkpoint (critical) — persistence/sessions.py.
+_recorders: dict[str, TraceRecorder] = {}
+_sessions_store: SessionStore | None = None
 _store: TraceStore | None = None
 _gateway: CrmGateway | None = None
 _operator_pool = None
@@ -67,6 +82,8 @@ async def lifespan(app: FastAPI):
         get_settings().dsn("platform"), min_size=1, max_size=3
     )
     operator.set_pool(_operator_pool)
+    global _sessions_store
+    _sessions_store = SessionStore(_operator_pool)
 
     try:
         _store = await TraceStore.connect()
@@ -132,17 +149,67 @@ class SessionCreated(BaseModel):
 
 
 class SendTurn(BaseModel):
+    client_turn_id: UUID = Field(
+        description=(
+            "One per message the customer submits, reused when retrying it. A "
+            "retry returns the stored reply instead of calling the model again."
+        )
+    )
     text: str
 
 
+def _store_required() -> SessionStore:
+    if _sessions_store is None:
+        raise HTTPException(503, "conversation store unavailable")
+    return _sessions_store
+
+
+async def _principal(request: Request) -> UUID:
+    return await customer_auth.require_principal(_store_required().pool, request)
+
+
+async def _owned(conversation_id: str, request: Request) -> UUID:
+    """Ownership, checked on every session route. Another browser's
+    conversation is a 404 — never a 403 that would confirm it exists."""
+    try:
+        cid = UUID(conversation_id)
+        await _store_required().require_owned(cid, await _principal(request))
+    except (ValueError, ConversationNotFound):
+        raise HTTPException(404, "no such conversation") from None
+    return cid
+
+
+@app.post("/api/customer/access")
+async def customer_access(request: Request, response: Response) -> dict[str, bool]:
+    """Create or refresh this browser's anonymous identity (api/customer_auth.py).
+
+    Identifies a browser installation, not a person: it lets a browser find its
+    own conversations again, and authenticates nothing about the customer."""
+    await customer_auth.access(_store_required().pool, request, response)
+    return {"ok": True}
+
+
 @app.post("/api/sessions", response_model=SessionCreated)
-async def create_session(request: CreateSession) -> SessionCreated:
+async def create_session(request: CreateSession, http: Request) -> SessionCreated:
+    principal = await _principal(http)
     convo = Conversation(test_mode=request.test_mode, gateway=_gateway)
-    _sessions[str(convo.state.id)] = convo
-
-    await _persist("open_conversation", lambda store: store.open_conversation(convo.state))
-
+    # Critical: the conversation and its first checkpoint, or nothing.
+    await _store_required().create(convo.state, principal)
+    _recorders[str(convo.state.id)] = convo.trace
+    if await _persist("store_events", lambda store: store.store_events(convo.trace.pending)):
+        convo.trace.mark_persisted()
     return SessionCreated(conversation_id=str(convo.state.id), domain=convo.domain.value)
+
+
+@app.get("/api/sessions")
+async def list_sessions(
+    http: Request, status: str | None = None, cursor: str | None = None
+) -> dict[str, Any]:
+    """This browser's conversations — and only this browser's."""
+    items, next_cursor = await _store_required().list(
+        await _principal(http), status=status, cursor=cursor
+    )
+    return {"items": items, "next_cursor": next_cursor}
 
 
 @app.exception_handler(ReasoningLayerUnavailable)
@@ -171,24 +238,108 @@ async def reasoning_layer_unavailable(request: Request, exc: ReasoningLayerUnava
 
 
 @app.post("/api/sessions/{conversation_id}/turns", response_model=AgentReply)
-async def send_turn(conversation_id: str, request: SendTurn) -> AgentReply:
-    convo = _require(conversation_id)
-    reply = await convo.send(request.text)
+async def send_turn(conversation_id: str, request: SendTurn, http: Request) -> Any:
+    """One turn, resumable and idempotent (persistence/sessions.py).
 
-    stored = await _persist("store_events", lambda store: store.store_events(convo.trace.pending))
-    # Redaction happens at the write boundary (§9), so what lands on disk is
-    # redacted regardless of whether inbound redaction was on for the model.
-    stored = stored and await _persist(
-        "store_transcript", lambda store: store.store_transcript(convo.state)
-    )
-    if stored:
-        # Clearing costs a late-joining browser its replay, so remember how far
-        # we have persisted instead. The recorder is bounded by the turn budget
-        # (§12.1), so it cannot grow without limit. Not marked when a write
-        # failed, so the next turn retries what this one could not store.
-        convo.trace.mark_persisted()
+    Ownership, then the lease, then the stored reply for this client_turn_id if
+    there is one. Otherwise the conversation is rebuilt from its checkpoint and
+    its redacted transcript, the turn runs, and transcript + checkpoint +
+    reply are committed together. The trace is written afterwards, best-effort.
+    """
+    cid = await _owned(conversation_id, http)
+    store = _store_required()
+    try:
+        lease = await store.acquire(cid)
+    except ConversationBusy:
+        raise HTTPException(409, "another turn of this conversation is in progress") from None
+    except ConversationNotFound:
+        raise HTTPException(404, "no such conversation") from None
 
+    committed = False
+    try:
+        stored = await store.stored_reply(cid, request.client_turn_id, request.text)
+        if stored is not None:
+            return stored  # a retry: the reply already given, no model call
+        try:
+            saved = checkpoint.load(lease.schema_version, lease.state_json)
+        except UnsupportedCheckpoint as exc:
+            log.error("session.unsupported_checkpoint", conversation_id=str(cid), error=str(exc))
+            raise HTTPException(
+                409, "this conversation cannot be resumed by this version of the service"
+            ) from None
+        await store.begin_turn(cid, request.client_turn_id, request.text)
+
+        state = saved.to_state(await store.transcript(cid))
+        trace = await _recorder_for(cid)
+        state.capability_calls = _calls_from(trace)
+        convo = Conversation.resume(state, trace, gateway=_gateway)
+
+        reply = await convo.send(request.text)
+        # The commit releases the lease itself, in the same transaction.
+        await store.commit(
+            lease, convo.state, request.client_turn_id, reply.model_dump(mode="json")
+        )
+        committed = True
+    except TurnConflict:
+        raise HTTPException(409, "client_turn_id reused for a different message") from None
+    except CheckpointConflict:
+        raise HTTPException(409, "the conversation moved on while this turn ran; retry") from None
+    finally:
+        if not committed:
+            await store.release(lease)
+
+    if await _persist("store_events", lambda s: s.store_events(trace.pending)):
+        # Not marked when the write failed, so the next turn retries it.
+        trace.mark_persisted()
     return reply
+
+
+async def _recorder_for(cid: UUID) -> TraceRecorder:
+    """The conversation's live recorder, re-seeded from the stored trace after
+    a restart so the panel replays the whole conversation, not just its tail."""
+    key = str(cid)
+    if key in _recorders:
+        return _recorders[key]
+    recorder = TraceRecorder(cid)
+    if _store:
+        try:
+            faults.fail_if_down("trace_store")
+            for row in await _store.read_events(cid):
+                recorder.events.append(
+                    TraceEvent(
+                        name=EventType(row["name"]),
+                        conversation_id=cid,
+                        turn_seq=row["turn_seq"],
+                        start=row["start_ts"],
+                        duration_ms=row["duration_ms"],
+                        attributes=_attributes(row["attributes"]),
+                    )
+                )
+        except Exception as exc:  # noqa: BLE001 — best-effort, like every trace read
+            log.warning("trace.reseed_failed", conversation_id=key, error=str(exc))
+        recorder.mark_persisted()
+    _recorders[key] = recorder
+    return recorder
+
+
+def _attributes(value: Any) -> dict[str, Any]:
+    return json.loads(value) if isinstance(value, str) else dict(value or {})
+
+
+def _calls_from(trace: TraceRecorder) -> list[CapabilityCall]:
+    """The capability log, rebuilt from the trace for the handover payload's
+    history (§12.2). Best-effort by design: nothing that decides reads it."""
+    return [
+        CapabilityCall(
+            capability=e.attributes.get("capability", ""),
+            outcome=e.attributes.get("outcome", ""),
+            started_at=e.start,
+            duration_ms=e.duration_ms or e.attributes.get("duration_ms") or 0,
+            incident_id=e.attributes.get("incident_id"),
+        )
+        for e in trace.events
+        if e.name is EventType.capability_result
+    ]
 
 
 async def _persist(what: str, write) -> bool:
@@ -243,23 +394,33 @@ async def set_faults(request: FaultSwitches) -> dict[str, str]:
 
 
 @app.get("/api/sessions/{conversation_id}")
-async def get_session(conversation_id: str) -> dict[str, Any]:
-    return _require(conversation_id).snapshot()
+async def get_session(conversation_id: str, http: Request) -> dict[str, Any]:
+    """One of this browser's conversations: its stored (redacted) transcript
+    and the replies it received, so a reopened conversation shows what
+    happened and the metrics panel can be rebuilt."""
+    cid = await _owned(conversation_id, http)
+    store = _store_required()
+    return {
+        "conversation_id": str(cid),
+        "messages": [{"role": role, "text": text} for role, text in await store.transcript(cid)],
+        "replies": await store.replies(cid),
+    }
 
 
 @app.get("/api/sessions/{conversation_id}/events")
-async def session_events(conversation_id: str) -> EventSourceResponse:
+async def session_events(conversation_id: str, http: Request) -> EventSourceResponse:
     """The live trace (§17.10).
 
     Assistant replies and trace events share one channel deliberately: it
     preserves the interleaving between "the agent said X" and "the capability
     returned outcome Y", and that interleaving is what makes the trace panel
-    convincing rather than decorative.
+    convincing rather than decorative. The HttpOnly cookie comes with the
+    EventSource request, so ownership is checked here like everywhere else.
     """
-    convo = _require(conversation_id)
+    trace = await _recorder_for(await _owned(conversation_id, http))
 
     async def generator():
-        async for payload in stream_events(convo.trace):
+        async for payload in stream_events(trace):
             # Two things this line has to get right, and it got both wrong:
             #
             # 1. **Unnamed.** SSE's `event:` field routes to
@@ -279,11 +440,12 @@ async def session_events(conversation_id: str) -> EventSourceResponse:
 
 
 @app.get("/api/sessions/{conversation_id}/trace")
-async def session_trace(conversation_id: str) -> list[dict[str, Any]]:
+async def session_trace(conversation_id: str, http: Request) -> list[dict[str, Any]]:
     """The persisted trace, for the harness and for a session that has ended."""
+    cid = await _owned(conversation_id, http)
     if not _store:
         raise HTTPException(503, "trace store unavailable")
-    return await _store.read_events(UUID(conversation_id))
+    return await _store.read_events(cid)
 
 
 # --- what the system is (§17.1, §8) ------------------------------------------
@@ -382,13 +544,6 @@ async def purge_now() -> dict[str, Any]:
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
     return {"status": "ok", "trace_store": _store is not None}
-
-
-def _require(conversation_id: str) -> Conversation:
-    convo = _sessions.get(conversation_id)
-    if convo is None:
-        raise HTTPException(404, "no such conversation")
-    return convo
 
 
 __all__ = ["app", "EventType"]

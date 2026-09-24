@@ -107,7 +107,10 @@ def evaluate(state: ConversationState) -> Trigger | None:
         )
 
     # --- conditional --------------------------------------------------------
-    recent = [c.outcome for c in state.capability_calls]
+    # From collected state, not the capability log: the log is rebuilt from the
+    # best-effort trace after a restart, and a trigger must not stop firing
+    # because a trace row was lost. `lookup_outcomes` is in the checkpoint.
+    recent = state.collected.lookup_outcomes
 
     if "serviceUnavailable" in recent:
         return Trigger(

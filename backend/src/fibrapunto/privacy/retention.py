@@ -106,6 +106,21 @@ async def purge_expired(pool: asyncpg.Pool, *, now: datetime | None = None) -> P
             """,
             expired,
         )
+        # Consistently with the transcript: the resumable state goes, and so do
+        # the stored replies idempotent retries would return — each holds the
+        # agent's words, and leaving them would undo the purge above. A purged
+        # conversation cannot be resumed; it is gone for its browser too.
+        await connection.execute(
+            "DELETE FROM platform.conversation_checkpoint WHERE conversation_id = ANY($1::uuid[])",
+            expired,
+        )
+        await connection.execute(
+            """
+            UPDATE platform.turn_request SET response_json = NULL
+             WHERE conversation_id = ANY($1::uuid[]) AND response_json IS NOT NULL
+            """,
+            expired,
+        )
         await connection.execute(
             "UPDATE platform.conversation SET purged_at = $2 WHERE id = ANY($1::uuid[])",
             expired,

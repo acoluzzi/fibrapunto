@@ -95,6 +95,13 @@ identify a customer except through a contract number the customer supplies in th
 conversation. It never writes to the contract record. These are not gaps to be closed later
 without a decision; each one is load-bearing and is argued for where it appears.
 
+**Browser-level continuity.** The agent still has no cross-conversation memory. The platform
+now remembers which conversations belong to an anonymous browser so they can be resumed.
+Facts from one conversation are never injected into another. The browser identity is a random
+token in an HttpOnly cookie: it identifies a browser installation, not a person, and it
+authenticates nothing about the customer — the contract number remains data, never a
+credential. See DEVIATIONS.md #4.
+
 ---
 
 ## 4. Conversation domains

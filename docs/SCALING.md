@@ -37,24 +37,26 @@ never saw the first one, which answers `404 no such conversation`. This is not a
 throughput ceiling that arrives at some interesting load — it arrives the moment
 there is more than one process.
 
-**The fix is small, and §3 is the reason.** "The agent has no memory across
-conversations" means session state is short-lived and self-contained: there is
-no cross-session identity model to design, no profile to merge, no consent
-question to answer first. `ConversationState` and `CollectedState` are already
-Pydantic models, so the change is serialise-on-write into Redis with a TTL
-matching the session timeout, and rehydrate in `_require()`. A day, including
-the tests.
+**Done, in Postgres rather than Redis** (migration 006, DEVIATIONS.md #4).
+Every turn rebuilds the conversation from its checkpoint and redacted
+transcript, runs, and commits transcript + checkpoint + reply in one
+transaction under a per-conversation lease — so any replica can serve any
+turn, and a restart loses nothing. What stays per-process is the live trace
+recorder, a cache re-seeded from `platform.trace_event`; a browser watching
+the trace on one replica does not see events produced on another until it
+reconnects. §3 still holds: state is per conversation, never shared across
+them.
 
 Two things to get right while doing it:
 
 - **Rehydrating must not resurrect the `pending_confirmation` lock incorrectly.**
   The §4.1 read-back gate lives in state; a botched round-trip turns a
-  confirmation lock into a confirmed cancellation. That wants a test before the
-  change, not after.
-- **Optimistic concurrency on the session row.** Two turns posted in parallel
-  for one conversation currently interleave inside one process; across processes
-  they would last-write-wins over each other's `CollectedState`. A version column
-  and a 409 is the honest answer.
+  confirmation lock into a confirmed cancellation. Tested: the checkpoint
+  round-trip keeps an unconfirmed read-back unconfirmed
+  (`test_checkpoint.py`).
+- **Optimistic concurrency on the session row.** Done: a version column plus a
+  lease, and a 409 for a second concurrent turn or a stale commit
+  (`test_session_persistence.py`).
 
 ### 1.2 The SSE stream is bound to the process holding the trace
 

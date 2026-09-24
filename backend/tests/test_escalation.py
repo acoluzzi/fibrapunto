@@ -61,6 +61,9 @@ def with_outcome(outcome: str, domain: DomainKey = DomainKey.billing) -> Convers
             duration_ms=10,
         )
     )
+    # As the dispatcher does: every lookup outcome lands in collected state,
+    # which is what the triggers read (it survives a restart; the log does not).
+    s.collected.lookup_outcomes.append(outcome)
     return s
 
 

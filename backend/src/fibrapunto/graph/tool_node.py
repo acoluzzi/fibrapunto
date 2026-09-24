@@ -41,7 +41,11 @@ from fibrapunto.capabilities.outcomes import (
     HandoverFailed,
 )
 from fibrapunto.capabilities.runtime import CapabilityCall
-from fibrapunto.capabilities.transfer_to_human import TransferResult, transfer_to_human
+from fibrapunto.capabilities.transfer_to_human import (
+    TransferAccepted,
+    TransferResult,
+    transfer_to_human,
+)
 from fibrapunto.domains.registry import Domain, DomainKey
 from fibrapunto.escalation import engine, triggers
 from fibrapunto.handover import routing
@@ -150,11 +154,7 @@ class ToolDispatcher:
                     )
 
             case "transfer_to_human":
-                result = await transfer_to_human(recorder=recorder)
-                # §12.4: outside service hours the transfer does not happen.
-                # Recorded so the closing message states the real window
-                # rather than a comfortable "shortly".
-                state.collected.lookup_outcomes.append(result.outcome)
+                result = await self.transfer(state)
 
             case _:
                 log.error("tool.unknown_capability", capability=name)
@@ -183,9 +183,21 @@ class ToolDispatcher:
         )
 
     async def transfer(self, state: ConversationState) -> TransferResult:
-        """Execute §5's transfer to human by code, recorded like any call."""
+        """Execute §5's transfer to human, recorded like any call.
+
+        Idempotent per conversation: once the customer has been put through,
+        a repeat — the model asking again, or a turn replayed after a crash —
+        reports the same transfer rather than making a second one. A
+        `noAgentAvailable` is not remembered: later, someone may be there.
+        """
+        if state.collected.transferred:
+            return TransferAccepted(wait_estimate="a few minutes")
         result = await transfer_to_human(recorder=_StateRecorder(state))
+        # §12.4: outside service hours the transfer does not happen. Recorded
+        # so the closing message states the real window, not "shortly".
         state.collected.lookup_outcomes.append(result.outcome)
+        if isinstance(result, TransferAccepted):
+            state.collected.transferred = True
         return result
 
     async def open_escalation_case(

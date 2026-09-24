@@ -105,9 +105,14 @@ class Conversation:
         billing_client: BillingClient | None = None,
         test_mode: str | None = None,
         gateway: CrmGateway | None = None,
+        *,
+        state: ConversationState | None = None,
+        trace: TraceRecorder | None = None,
     ) -> None:
-        self.state = ConversationState(test_mode=test_mode)
-        self.state.agent_model = get_registry()[ModelRole.agent].id
+        resumed = state is not None
+        self.state = state or ConversationState(test_mode=test_mode)
+        if not resumed:
+            self.state.agent_model = get_registry()[ModelRole.agent].id
         # svc_agent(), always. The conversation never runs under any other
         # identity, and the gateway refuses to be called without one (§8).
         self._dispatcher = ToolDispatcher(
@@ -115,12 +120,30 @@ class Conversation:
             gateway=gateway,
             principal=svc_agent(),
         )
-        self.trace = TraceRecorder(self.state.id)
-        self.trace.emit(
-            EventType.session_started,
-            agent_model=self.state.agent_model,
-            test_mode=test_mode,
-        )
+        self.trace = trace or TraceRecorder(self.state.id)
+        if not resumed:
+            self.trace.emit(
+                EventType.session_started,
+                agent_model=self.state.agent_model,
+                test_mode=test_mode,
+            )
+
+    @classmethod
+    def resume(
+        cls,
+        state: ConversationState,
+        trace: TraceRecorder,
+        gateway: CrmGateway | None = None,
+        billing_client: BillingClient | None = None,
+    ) -> Conversation:
+        """Continue a conversation from its checkpoint (state/checkpoint.py).
+
+        The state is this conversation's own, loaded to continue it — never
+        another's. The agent has no memory across conversations (§3); the
+        platform remembering which conversations a browser owns does not
+        change that.
+        """
+        return cls(billing_client, state.test_mode, gateway, state=state, trace=trace)
 
     async def send(self, text: str) -> AgentReply:
         state = self.state

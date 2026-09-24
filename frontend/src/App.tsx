@@ -46,14 +46,23 @@ export function App() {
       />
       <Switchboard onError={setSwitchError} />
 
-      {[session.error, switchError].filter(Boolean).map((message) => (
-        <div
-          key={message}
-          style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}
-        >
-          {message}
+      {session.error && (
+        <div style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}>
+          {session.error}
+          {/* Same client_turn_id: if the first attempt did reach the backend,
+              the stored reply comes back instead of a second model call. */}
+          {session.retryable && (
+            <button style={{ marginLeft: 10 }} onClick={() => void session.retry()}>
+              Retry
+            </button>
+          )}
         </div>
-      ))}
+      )}
+      {switchError && (
+        <div style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}>
+          {switchError}
+        </div>
+      )}
 
       <div className="panels">
         <ChatPanel

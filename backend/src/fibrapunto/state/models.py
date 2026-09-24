@@ -170,6 +170,11 @@ class CollectedState(BaseModel):
     cancellation told the customer the retention team would call about a case
     that was sitting in billing operations."""
 
+    transferred: bool = False
+    """A transfer to a colleague already happened in this conversation — the
+    idempotency key for transfer_to_human. A retried turn (a crash, a replayed
+    request) must not put the customer through twice."""
+
     sensitive_data_seen: list[str] = Field(default_factory=list)
     """Kinds, never values — ["IBAN"], not the IBAN (§9)."""
 
