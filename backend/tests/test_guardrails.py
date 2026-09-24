@@ -296,6 +296,111 @@ def test_an_iban_is_detected_and_redacted():
     assert "go ahead and charge it" in redacted, "the rest of the message survives"
 
 
+# Every earlier test put the value at the end of the string, or before a comma
+# — the only places a greedy pattern cannot overreach. These put it everywhere
+# a customer does: mid-sentence, before a word, before an expiry date.
+SPACED_IBAN = "IT60 X054 2811 1010 0000 0123 456"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"My IBAN is {VALID_IBAN} thanks",
+        f"{VALID_IBAN} is my IBAN",
+        f"My IBAN is {VALID_IBAN}",
+        f"IBAN {SPACED_IBAN} thanks",
+        f"use {SPACED_IBAN} for the direct debit please",
+        f"{VALID_IBAN}thanks",
+        f"iban: {VALID_IBAN.lower()} ok",
+    ],
+)
+def test_an_iban_is_redacted_wherever_it_sits(text):
+    redacted, kinds = detectors.redact(text)
+    assert kinds == [SensitiveKind.iban], text
+    assert "0123" not in redacted and "0542" not in redacted, redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        f"card {VALID_CARD} 12/27",
+        f"card {VALID_CARD} exp 12/27",
+        f"card {VALID_CARD} expiry 12/27 cvv 123",
+        "card 4111-1111-1111-1111 12/27",
+        "card 4111111111111111 12/27",
+        f"{VALID_CARD} is the card",
+    ],
+)
+def test_a_card_is_redacted_when_followed_by_its_expiry(text):
+    redacted, kinds = detectors.redact(text)
+    assert SensitiveKind.card in kinds, text
+    assert "1111" not in redacted, redacted
+
+
+@pytest.mark.parametrize(
+    ("text", "kind", "leaked"),
+    [
+        ("card 4111.1111.1111.1111", SensitiveKind.card, "4111"),
+        # A typo breaks Luhn, not the fact that it is someone's card.
+        ("card 4111 1111 1111 1112", SensitiveKind.card, "4111"),
+        # Split across a sentence, or across two messages: each card-shaped
+        # fragment is caught on its own.
+        ("my card is 4111 1111 1111 and then", SensitiveKind.card, "4111"),
+        (
+            "four one one one one one one one one one one one one one one one",
+            SensitiveKind.card,
+            "four one one one",
+        ),
+        ("IBAN IT60-X054-2811-1010-0000-0123-456", SensitiveKind.iban, "0123"),
+        ("IBAN IT60.X054.2811.1010.0000.0123.456 ok", SensitiveKind.iban, "0123"),
+        ("the code on the back is 123", SensitiveKind.cvv, "123"),
+        ("the 3 digits on the back are 987", SensitiveKind.cvv, "987"),
+        (f"card {VALID_CARD} 12/27 987", SensitiveKind.cvv, "987"),
+        (f"card {VALID_CARD} exp 12/27, cvv 987", SensitiveKind.cvv, "987"),
+        ("login: hunter22", SensitiveKind.password, "hunter22"),
+        ("passcode = 9911", SensitiveKind.password, "9911"),
+    ],
+)
+def test_the_forms_customers_actually_use_are_redacted(text, kind, leaked):
+    redacted, kinds = detectors.redact(text)
+    assert kind in kinds, text
+    assert leaked not in redacted, redacted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "call me on +39 347 123 4567",
+        "the contract is FP-2023-048812",
+        "invoice 2026-09-19 for 29.90",
+        "the amount is 1.234,56",
+        "order 12345678901234567890123",
+        "I have one or two questions",
+        "case 00001042",
+        "I paid 1234 5678 over two years",
+        "open 9:00 to 18:00",
+        f"card {VALID_CARD} and I owe 29.90",  # the amount is not a CVV
+    ],
+)
+def test_the_wider_net_leaves_ordinary_text_alone(text):
+    redacted, kinds = detectors.redact(text)
+    assert SensitiveKind.cvv not in kinds
+    if VALID_CARD not in text:
+        assert kinds == [] and redacted == text, redacted
+
+
+def test_the_text_around_a_redaction_is_left_intact():
+    redacted, _ = detectors.redact(f"card {VALID_CARD} exp 12/27")
+    assert redacted == "card [[REDACTED:CARD]] exp 12/27"
+
+
+def test_a_wrong_checksum_mid_sentence_is_still_left_alone():
+    """The scan tries every possible end; none of them may validate by
+    accident on an IBAN-shaped string that is not one."""
+    text = "reference IT60X0542811101000000123457 thanks"
+    assert detectors.redact(text) == (text, [])
+
+
 def test_a_card_number_is_detected_by_luhn():
     redacted, kinds = detectors.redact(f"the card is {VALID_CARD}")
     assert SensitiveKind.card in kinds

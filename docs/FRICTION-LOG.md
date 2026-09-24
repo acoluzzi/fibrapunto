@@ -440,8 +440,14 @@ it found the things the tests were never shaped to ask.
   word, month name and month-edge phrase the customer did not write — blunter,
   and a superset of what the guard sees, so a guard blind spot now shows up as
   a failed case instead of a clean zero. Tests: `test_grounding_coverage.py`.
-- Bound the IBAN and card matches by length and checksum instead of greed, and
-  add "value followed by a word" cases to the tests.
+- **Done.** The IBAN and card patterns now only find where a value may
+  *start*; where it ends is decided by the checksum. `privacy/detectors.py`
+  walks every candidate end at a group boundary and keeps the one that
+  validates — for an IBAN, the ISO 13616 length for its country, so a word
+  glued on after it no longer matters. Tests put each value at the start,
+  middle and end, before a word, before an expiry date and before a CVV.
+  One more defect surfaced on the way: the card match ended on its trailing
+  separator, so "card 4111… exp" became "[[REDACTED:CARD]]exp".
 - Validate tool arguments inside the typed boundary; make one-case idempotency
   per record type, backed by a unique constraint.
 
