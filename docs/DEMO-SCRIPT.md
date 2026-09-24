@@ -92,9 +92,17 @@ domain, not to the agent.
 
 ## 2 · Break the billing system mid-conversation · ~2 min
 
-Press **Provoke now → Failure** in the control strip. Then, in the chat:
+Press **Restart**, then **New Chat**. A fresh conversation, on purpose: the
+amount from beat 1 is already held in that conversation's state, so the agent
+could answer from it without a new lookup and the outage would never show.
 
-> "So how much do I have to pay?"
+> "Hi, I need to know how much my next bill is."
+
+The agent asks for the contract number. **Now** press **Provoke now → Failure**
+in the control strip — before the number is given, so the lookup it triggers is
+the one that fails. Then:
+
+> "FP-2023-048812"
 
 The agent says the system is not responding and offers to open a case. It does
 **not** invent an amount.
@@ -103,6 +111,9 @@ The point is not that it behaved well. Open the trace: the outcome is
 `serviceUnavailable`, a *typed* result carrying its own instruction, not an
 exception string. And the grounding guard is standing behind it — with nothing
 verified this conversation, any figure at all would be blocked.
+
+Press **Provoke now → Restore** before moving on, so beat 3 runs against a
+working billing system.
 
 If someone asks "but would it really not invent one?", that is beat 6.
 
