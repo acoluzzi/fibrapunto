@@ -6,22 +6,34 @@ const json = { "content-type": "application/json" };
  * handler). Surfacing only the status code would mean the one thing most likely
  * to go wrong on stage — the model provider unreachable — reads as "500" and
  * sends you to the container logs. Prefer what the server said. */
+/** Carries the status, so a caller can tell "not signed in" from "broken". */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, init);
   if (!response.ok) {
     let detail = "";
     try {
       const body = await response.json();
-      detail = [body.message, body.hint ?? body.provider_said]
+      detail = [body.message ?? body.detail, body.hint ?? body.provider_said]
         .filter(Boolean)
         .join(" — ");
     } catch {
       /* not JSON; the status code is all there is */
     }
-    throw new Error(
+    throw new ApiError(
       detail || `${init?.method ?? "GET"} ${path} → ${response.status}`,
+      response.status,
     );
   }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
@@ -47,6 +59,17 @@ export const api = {
     req<Record<string, any>>(`/api/_admin/perimeter-probe?field=${field}`, {
       method: "POST",
     }),
+
+  // The session cookie is HttpOnly: the page never sees it, it only asks the
+  // server whether it is signed in.
+  operatorSession: () => req<{ operator: boolean }>("/api/operator/session"),
+  operatorLogin: (password: string) =>
+    req<void>("/api/operator/login", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ password }),
+    }),
+  operatorLogout: () => req<void>("/api/operator/logout", { method: "POST" }),
 
   operatorQueues: () => req<any[]>("/api/operator/queues"),
   operatorRecords: () => req<any[]>("/api/operator/records"),

@@ -112,8 +112,9 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           <p className="empty">—</p>
         )}
         <p className="note">
-          Same query, two identities: <code>customer.email</code>. The
-          difference is a Postgres GRANT, not an instruction.
+          Same check, two identities: <code>customer.email</code>, read
+          against the perimeter policy file. The database enforces the same
+          policy as column grants — shown without the app in beat 5.
         </p>
 
         <div className="section-title">Active domains (§17.1)</div>

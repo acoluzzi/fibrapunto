@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # --- credentials (§17.7) -------------------------------------------------
     fibrapunto_master_key: SecretStr = SecretStr("")
 
+    # --- operator access (api/auth.py) ---------------------------------------
+    # Gates the operator view and the admin routes. Empty means refused, not open.
+    operator_password: SecretStr = SecretStr("")
+
     def dsn(self, role: str = "owner") -> str:
         """Connection string for one of the three identities.
 

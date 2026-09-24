@@ -324,3 +324,100 @@ by explaining the failure so reasonably that it read as intended. Designing for
 honest failure makes a system pleasant to operate and harder to debug, and the
 mitigation is not better unit tests — it is running the thing end to end,
 earlier, through the same surface a user will touch.
+
+---
+
+## 7. An adversarial review found what the suite was built to agree with
+
+**Where:** a red-team pass over the whole repository after the English switch,
+read against the panel brief rather than against the spec.
+
+**What happened.** 200 unit tests green (the 37 database tests need Postgres
+running and were not part of this pass). A review that set out to break each of
+the README's headline claims, rather than to confirm them, found defects in four
+of them. Every one of them was verified against the code before it was written
+down here.
+
+**7a — Subsystems that exist, pass their tests, and are never called.**
+
+| What | Where | What actually happens |
+| --- | --- | --- |
+| Read-back confirmation gate (§4.1 instruction 5) | `state/models.py:83` | `PendingConfirmation` is never assigned, so the router's confirmation lock never fires. A customer's "Yes" can be routed to fallback, which has no `create_handover_record`, and the case is never opened |
+| Templated closing messages (§12.4) | `escalation/engine.py:42` | `closing_message` is called only from tests. The sentences with legal weight — reference, response window — are model output after all, and `status` never leaves `active` |
+| Escalation trigger on the record (§12.5) | `graph/tool_node.py:242` | triggers are evaluated *after* the reply, so a case opened in the same turn as an outage reads the previous turn's trigger or falls back to `amount_dispute` |
+
+The tests for all three set the state by hand (`pending_confirmation`,
+`pending_trigger`) and then assert on what follows. **They prove the mechanism
+works when it is engaged; nothing proves it is ever engaged.** That is the same
+seam as entry 6, one level in: not host ↔ container, but unit ↔ wiring.
+
+**7b — The grounding guard and the metric share one instrument.**
+- Figures written as "30 euros", "€30", "Sep 19", "the 19th" or "end of the
+  month" are not recognised as figures, and the year of a date is never checked.
+- ISO dates are misread (`2026-09-19` as day 9, month 19), so a correct answer
+  copied from the agent's own state block can be blocked.
+- A failed lookup for a *second* contract does not clear the first contract's
+  `BillingFacts` (`graph/tool_node.py:178`). The first amount then grounds a
+  reply about the second contract during an outage — §15's first row, reached
+  through the guard rather than around it — and the handover carries it too.
+- `evals/assertions.py` reuses the guard's regex on purpose. **Whatever the guard
+  misses, the "no invention" metric misses too**, so a zero there means "no
+  figure of a shape we already knew about", not "no invention".
+
+**7c — Redaction matched the test inputs, not the customers.** Every test put
+the IBAN at the end of the string. `"My IBAN is IT60X0542811101000000123456
+thanks"` is not redacted: the greedy pattern swallows the next word, mod-97
+fails, and there is no retry on a shorter match. A card number followed by its
+expiry fails Luhn the same way. The checksums were meant to prevent false
+positives; combined with greedy matching they produce false negatives.
+
+**7d — Smaller gaps in claims that otherwise hold.**
+- `{"contract_number": null}` from the model raises `AttributeError` in
+  `_absorb_billing`, *outside* `@typed_capability` — §5.1 holds for the
+  capability and fails one line after it. A malformed argument is also reported
+  as the billing system being down.
+- The one-case fix (375bc2a) rebuilds the route from the *current* domain: a
+  billing dispute followed by "I want to cancel" tells the customer the
+  retention team will call, and no cancellation record is ever written. It is
+  sequential-safe, not concurrency-safe — `origin_session_id` has no unique
+  constraint.
+- The promises guard is a phrase list: "your cancellation is being processed"
+  and "I can waive the early termination fee" both pass.
+- The agent's DB role cannot read email — that is proven by raw SQL — but
+  `/api/operator/records/<ref>` returns email and phone, unauthenticated, from
+  the admin pool, on the same origin as the chat, with sequential references.
+- The judge-vendor `CHECK` sits on `platform.eval_run`, which nothing writes to.
+
+**7e — The documents had drifted from the build.** A three-day git history
+under a "ten days" narrative, "every run that has ever been made" with no eval
+run committed, Italian metric labels and `[[REDATTO:…]]` after the English
+switch, a "fuzzed" boundary that is five parametrised exceptions. None of it is
+a code defect; all of it is checkable in seconds by anyone with the repository,
+and each one costs more credibility than the defect it describes.
+
+**Why it matters.** Entry 6 was about seams between processes. This one is
+about a seam in method: the suite, the guards and the eval assertions were all
+written by the same hand, with the same inputs in mind, and they agree with each
+other. Agreement is not evidence. The review found nothing the tests got wrong;
+it found the things the tests were never shaped to ask.
+
+**Decisions.** Being fixed in code:
+- Wire the confirmation gate, the closing messages and the trigger ordering
+  into the live path, with tests that go through `ConversationService` rather
+  than setting state by hand.
+- Key `BillingFacts` by contract number and clear it on any outcome other than
+  `found`; widen the figure patterns and parse ISO dates.
+- Bound the IBAN and card matches by length and checksum instead of greed, and
+  add "value followed by a word" cases to the tests.
+- Validate tool arguments inside the typed boundary; make one-case idempotency
+  per record type, backed by a unique constraint.
+
+Stated rather than fixed, because the fix belongs to a production build: the
+operator view has no authentication, and the promises guard is a list of known
+phrasings, not a classifier.
+
+**The general lesson.** A guardrail and the metric that measures it must not
+share an implementation, and a test that sets up the state it then checks
+proves nothing about whether production ever reaches that state. The cheapest
+review in this build was the one that started from "this claim is false —
+show me where".

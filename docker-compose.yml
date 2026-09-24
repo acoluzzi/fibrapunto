@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-fibrapunto_owner}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-owner}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -27,7 +27,7 @@ services:
       BILLING_BASE_LATENCY_MS: ${BILLING_BASE_LATENCY_MS:-800}
       BILLING_LATENCY_JITTER_MS: ${BILLING_LATENCY_JITTER_MS:-300}
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8081/_control/health')\""]
       interval: 3s
@@ -55,7 +55,7 @@ services:
       # was broken. See docs/FRICTION-LOG.md.
       - ./secrets:/app/secrets:ro
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -66,7 +66,7 @@ services:
     build:
       context: frontend
     ports:
-      - "5173:80"
+      - "127.0.0.1:5173:80"
     depends_on:
       - backend
 

@@ -14,6 +14,10 @@ Runs as **platform_admin**, not as the agent. The operator view reads
 `internal_comments` and the completeness view, both of which the agent is denied
 (§8) — so this module is also a working demonstration that the two identities
 see different things.
+
+Because it reads what the agent may not, every route here requires operator
+credentials (api/auth.py). Without that, the §8 perimeter would hold for the
+agent and leak through this module to anyone who knows the chat's URL.
 """
 
 from __future__ import annotations
@@ -21,12 +25,17 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from fibrapunto.api.auth import require_operator
 from fibrapunto.handover import completeness
 from fibrapunto.handover.routing import for_type
 
-router = APIRouter(prefix="/api/operator", tags=["operator"])
+router = APIRouter(
+    prefix="/api/operator",
+    tags=["operator"],
+    dependencies=[Depends(require_operator)],
+)
 
 _pool = None
 

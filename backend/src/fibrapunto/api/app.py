@@ -22,13 +22,14 @@ from typing import Any
 from uuid import UUID
 
 import structlog
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
-from fibrapunto.api import operator
+from fibrapunto.api import auth, operator
+from fibrapunto.api.auth import require_operator
 from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
 from fibrapunto.llm.chat import ReasoningLayerUnavailable
@@ -98,6 +99,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(auth.router)
 app.include_router(operator.router)
 
 app.add_middleware(
@@ -258,7 +260,11 @@ async def perimeter_probe(entity: str = "customer", field: str = "email") -> dic
 
     The same check under both identities, so the UI can render the diff. The
     database is the authority — this endpoint reports the policy layer, which
-    exists so the denial has a readable reason (friction log 1).
+    exists so the denial has a readable reason (friction log 1). It evaluates
+    contracts/perimeter-policy.yaml in Python and never touches the database.
+
+    Left open, unlike the other admin routes: the chat page calls it on load,
+    and it returns a verdict about the policy, never a row.
     """
     result = {}
     for name, principal in (("svc_agent", svc_agent()), ("platform_admin", platform_admin())):
@@ -270,7 +276,7 @@ async def perimeter_probe(entity: str = "customer", field: str = "email") -> dic
     return {"entity": entity, "field": field, **result}
 
 
-@app.post("/api/_admin/reload-prompts")
+@app.post("/api/_admin/reload-prompts", dependencies=[Depends(require_operator)])
 async def reload_prompts() -> dict[str, Any]:
     """Pick up edited instruction files without a restart.
 
@@ -301,7 +307,7 @@ async def retention_status() -> dict[str, Any]:
     return await retention.retention_status(_operator_pool)
 
 
-@app.post("/api/_admin/purge-now")
+@app.post("/api/_admin/purge-now", dependencies=[Depends(require_operator)])
 async def purge_now() -> dict[str, Any]:
     """Run the sweep immediately, for the demo and for tests.
 

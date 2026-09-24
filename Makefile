@@ -1,6 +1,10 @@
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
-UV := $(HOME)/.local/bin/uv
+# Whichever uv is on PATH (Homebrew, pipx, the installer script), falling back
+# to the installer's default location. A hard-coded path fails quietly on any
+# machine that installed it differently: `make demo` starts the containers,
+# skips the migrations, and the backend dies on its first connection.
+UV ?= $(shell command -v uv 2>/dev/null || echo $(HOME)/.local/bin/uv)
 
 # Everything goes through this file. Nobody should need to remember a compose
 # invocation, least of all on stage.

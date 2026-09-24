@@ -77,8 +77,11 @@ async def fetch_completeness(base_url: str) -> dict[str, Any] | None:
     """§1's completeness metric, from the SQL view rather than from our own
     Python — so the number is not computed by the code path that wrote the
     rows."""
+    # The operator routes read as platform_admin, so they sit behind the
+    # operator password (backend api/auth.py).
+    auth = ("operator", os.environ.get("OPERATOR_PASSWORD", ""))
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=15.0, auth=auth) as client:
             response = await client.get(f"{base_url}/api/operator/records")
             response.raise_for_status()
             records = response.json()

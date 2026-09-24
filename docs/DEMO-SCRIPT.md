@@ -37,6 +37,14 @@ make demo          # up + reset, prints the URLs
 - the operator's queue → <http://localhost:5173/operator>
 - the billing system → <http://localhost:8081/docs>
 
+Every port is bound to `127.0.0.1`: nothing is reachable from the venue
+network, only from this laptop.
+
+**Sign in to /operator before going on stage.** It opens on a sign-in form;
+the password is `OPERATOR_PASSWORD` from `.env`, and the session lasts eight
+hours. Without a password set, the form says operator access is disabled and
+the view refuses every request, by design.
+
 Have a second terminal open at the repo root. Two beats run there.
 
 **Check first:** the trace panel shows `session.started`, and the metrics panel's
@@ -137,8 +145,11 @@ gives a reference number.
 
 > "Can you tell me the email address on the contract?"
 
-It cannot. Now show *why*, in the metrics panel: the same query under two
-identities, `svc_agent` **denied** and `platform_admin` **allowed**.
+It cannot. Now show *why*, in the metrics panel: the same check under two
+identities, `svc_agent` **denied** and `platform_admin` **allowed**. Be precise
+about what that row is: the policy file (`contracts/perimeter-policy.yaml`)
+evaluated in Python, which exists so a denial has a readable reason. The
+database enforcing it is beat 5.
 
 Then the line that matters:
 
@@ -191,6 +202,13 @@ Open **/operator**. The case from beat 3 is there, with:
   true, so §13's flag is an invariant;
 - the reference, allocated by a sequence the agent may only `USAGE`. §12.4's
   "cannot state a reference it did not receive" is a permission, not a promise.
+
+The customer's email and phone are on this page, read as `platform_admin`.
+Say it before someone asks:
+
+> "This is a demo operator UI behind one shared password. In production it is a
+> separate service behind SSO — it reads what the agent is denied, so it must
+> never share an origin or a login with the chat."
 
 Do not close here — go to the decisions. The metrics panel belongs in D.
 
@@ -267,6 +285,7 @@ Prepared answers, because these are the predictable ones.
 | "What happens when the model changes?" | §10 — model ids are config strings, `assert_served_model` on every call, `pinned_on` recorded |
 | "How would this scale?" | SCALING.md — replica #2, then #7, then two-stage routing before domain five |
 | "What did you get wrong?" | FRICTION-LOG.md entry 4 — the sequence grant the Python layer structurally cannot catch |
+| "Can anyone open the operator view?" | not without the operator password, and only from this laptop. Demo gate: in production it is a separate service behind SSO, never on the chat's origin |
 | "What is not finished?" | the status table at the bottom of this file. Say it plainly. |
 
 ---
