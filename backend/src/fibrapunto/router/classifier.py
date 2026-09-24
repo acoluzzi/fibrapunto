@@ -49,6 +49,19 @@ class RoutingDecision(BaseModel):
     sentiment: Literal["neutral", "frustrated", "angry"] = Field(
         description="The customer's tone in the latest message."
     )
+    financial_request: Literal["none", "dispute", "refund", "credit", "payment_method_change"] = (
+        Field(
+            default="none",
+            description=(
+                "What the latest message asks for, if it is one of these: "
+                "'dispute' — says an amount charged is wrong; 'refund' — wants "
+                "money back; 'credit' — wants a credit or a waiver; "
+                "'payment_method_change' — wants to change how they pay or the "
+                "bank details. 'none' for anything else, including a question "
+                "about why a payment failed."
+            ),
+        )
+    )
     rationale: str = Field(
         description="One sentence on why. Internal use: never shown to the customer."
     )

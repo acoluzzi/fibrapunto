@@ -41,7 +41,7 @@ from fibrapunto.capabilities.outcomes import (
     HandoverFailed,
 )
 from fibrapunto.capabilities.runtime import CapabilityCall
-from fibrapunto.capabilities.transfer_to_human import transfer_to_human
+from fibrapunto.capabilities.transfer_to_human import TransferResult, transfer_to_human
 from fibrapunto.domains.registry import Domain, DomainKey
 from fibrapunto.escalation import engine, triggers
 from fibrapunto.handover import routing
@@ -182,8 +182,17 @@ class ToolDispatcher:
             disputed_point=pending.disputed_point,
         )
 
+    async def transfer(self, state: ConversationState) -> TransferResult:
+        """Execute §5's transfer to human by code, recorded like any call."""
+        result = await transfer_to_human(recorder=_StateRecorder(state))
+        state.collected.lookup_outcomes.append(result.outcome)
+        return result
+
     async def open_escalation_case(
-        self, state: ConversationState, trigger: str
+        self,
+        state: ConversationState,
+        trigger: str,
+        stated_reason: str | None = None,
     ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
         """Open the case a fired trigger calls for (§12.1), by code.
 
@@ -196,7 +205,7 @@ class ToolDispatcher:
             _StateRecorder(state),
             subject=engine.subject_for(trigger),
             trigger=trigger,
-            stated_reason=None,
+            stated_reason=stated_reason,
             disputed_point=None,
         )
 

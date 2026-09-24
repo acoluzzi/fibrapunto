@@ -15,6 +15,7 @@ be reserved for the questions only a judge can answer.
 
 from __future__ import annotations
 
+import re
 import time
 
 import structlog
@@ -40,6 +41,7 @@ from fibrapunto.settings import get_settings
 from fibrapunto.state.models import (
     ConversationState,
     ConversationStatus,
+    PendingConfirmation,
     PendingEscalation,
     TurnRole,
 )
@@ -166,6 +168,7 @@ class Conversation:
 
         outcome = policy.apply(state, text, decision)
         policy.apply_sentiment(state, decision)
+        policy.apply_request_kind(state, decision, text)
         state.current_domain = outcome.domain
 
         self.trace.emit(
@@ -236,7 +239,17 @@ class Conversation:
                 result = await self._dispatcher.open_escalation_case(
                     state, triggers.TriggerKind.human_requested.value
                 )
-                reply_text = self._templated(result, engine.honour_request)
+                if isinstance(result, HandoverFailed) and result.missing_fields:
+                    self._dispatcher.last_handover = None
+                else:
+                    # The case first, so the colleague has everything; then
+                    # §5's transfer, executed by code rather than offered.
+                    transfer = (
+                        None
+                        if isinstance(result, HandoverFailed)
+                        else await self._dispatcher.transfer(state)
+                    )
+                    reply_text = engine.honour_request(result, state, transfer)
 
         pending = state.pending_confirmation
         if reply_text is None and pending and not pending.satisfied:
@@ -267,9 +280,16 @@ class Conversation:
 
         # 2c. Run the domain. Only this domain's capabilities are bound (§17.1).
         templated = reply_text is not None
+        categorical_action: str | None = None
         if reply_text is None:
             reply_text = await self._model_turn(domain, extra_instruction)
             reply_text = self._closing(reply_text, reference_before)
+            # 2d. §12.1's categorical triggers, executed by code whatever the
+            # model did: they "are not judgement calls and the agent is not
+            # permitted to weigh them".
+            reply_text, categorical_action = await self._categorical(
+                reply_text, reference_before, collected_before.contract_number is not None
+            )
 
         # 3. §12.1: a fired trigger makes the code act, not only log. Evaluated
         # here, before the reply leaves, so the offer is part of what the
@@ -279,6 +299,8 @@ class Conversation:
         action = "none"
         if trigger:
             reply_text, action = self._enforce(trigger, reply_text, templated, reference_before)
+            if categorical_action:
+                action = categorical_action
 
         # §9's fourth enforcement point: "never repeat such a value back in the
         # conversation." Not a guard — a guard inspects and may block, this
@@ -439,6 +461,92 @@ class Conversation:
             self._dispatcher.last_handover = None
             return None
         return render(result, self.state)
+
+    async def _categorical(
+        self, reply_text: str, reference_before: str | None, contract_known_before: bool
+    ) -> tuple[str, str | None]:
+        """Execute the categorical triggers (§12.1). Returns the reply and the
+        action taken, or None if there was nothing to do yet.
+
+        * Dispute, refund, credit: once the contract is known, the read-back
+          (§4.1 instruction 5) is appended from a template built on typed state
+          and held as `PendingConfirmation`; the customer's "yes" opens the case.
+        * Change of payment method: the case opens as soon as the contract is
+          known. Instruction 5's read-back is for disputes, refunds and credits.
+        * Cancellation: the case opens on the turn after the agent has had the
+          contract in hand — the turn §4.2 gives it to state the constraints and
+          ask the reason, once — unless the model already opened it.
+
+        None of this waits for the model to call a tool. The model can still
+        open the case itself, with better wording; this is what happens when it
+        does not.
+        """
+        state = self.state
+        collected = state.collected
+        if collected.handover_reference != reference_before or not collected.contract_number:
+            return reply_text, None
+        kind = collected.financial_request
+
+        if kind in ("dispute", "refund", "credit") and "billing_dispute" not in collected.handovers:
+            if state.pending_confirmation:
+                return reply_text, None  # a read-back is already out
+            summary = engine.dispute_summary(state)
+            state.pending_confirmation = PendingConfirmation(
+                summary=summary,
+                asked_at_turn=state.turn_count,
+                stated_reason=collected.stated_reason,
+                disputed_point=collected.disputed_point,
+            )
+            return engine.read_back(reply_text, summary), "read_back_requested"
+
+        if kind == "payment_method_change" and "billing_dispute" not in collected.handovers:
+            trigger = triggers.TriggerKind.categorical_payment_change.value
+            return await self._open_by_code(reply_text, trigger, collected.stated_reason)
+
+        if (
+            state.current_domain is DomainKey.cancellation
+            and "cancellation_request" not in collected.handovers
+            and contract_known_before
+            and self._agent_turns_in(DomainKey.cancellation) >= 1
+        ):
+            trigger = triggers.TriggerKind.categorical_cancellation.value
+            reason = collected.stated_reason or self._words_since_entering(DomainKey.cancellation)
+            return await self._open_by_code(reply_text, trigger, reason)
+
+        return reply_text, None
+
+    async def _open_by_code(
+        self, reply_text: str, trigger: str, stated_reason: str | None
+    ) -> tuple[str, str | None]:
+        result = await self._dispatcher.open_escalation_case(
+            self.state, trigger, stated_reason=stated_reason
+        )
+        if isinstance(result, HandoverFailed) and result.missing_fields:
+            self._dispatcher.last_handover = None
+            return reply_text, "case_incomplete"
+        return engine.close(reply_text, result, self.state), "case_opened_by_code"
+
+    def _agent_turns_in(self, domain: DomainKey) -> int:
+        return sum(1 for t in self.state.turns if t.role is TurnRole.agent and t.domain is domain)
+
+    def _words_since_entering(self, domain: DomainKey) -> str | None:
+        """The customer's own words since the conversation entered `domain`
+        (§12.2: the stated reason "in their own words"), minus turns that were
+        only a contract number. Verbatim, and already redacted (§9)."""
+        turns = self.state.turns
+        first = next(
+            (i for i, t in enumerate(turns) if t.role is TurnRole.agent and t.domain is domain),
+            None,
+        )
+        if first is None:
+            return None
+        words = [
+            t.text
+            for t in turns[max(first - 1, 0) :]
+            if t.role is TurnRole.customer
+            and not re.fullmatch(r"\W*FP-\d{4}-\d{6}\W*", t.text.strip(), re.I)
+        ]
+        return " / ".join(words) or None
 
     def _enforce(
         self,

@@ -503,6 +503,22 @@ it found the things the tests were never shaped to ask.
   persona call anywhere — the eval turns are scripted — so there is nothing
   there to verify.
 
+- **Done.** The categorical triggers were still "enforced by structure" only
+  in the weak sense: the case existed if the model chose to call the tool.
+  They now execute. The router's structured output gained `financial_request`
+  (dispute, refund, credit, payment-method change) — detection is a language
+  judgement, as `explicit_human_request` already was — and code acts on it:
+  once the contract is known, a dispute, refund or credit gets a templated
+  read-back built from typed state (amounts from the lookup only) and held as
+  `PendingConfirmation`; a payment-method change opens its case; a
+  cancellation opens on the turn after the agent has had the contract in hand
+  (its turn to state constraints and ask the reason once). An explicit request
+  for a person now also executes `transfer_to_human` after opening the case:
+  put through when someone is there, the service window stated when not.
+  `pending_trigger` is no longer read by anything that decides. The model can
+  still open a case itself, with better wording; code is what happens when it
+  does not.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

@@ -96,6 +96,7 @@ def routed_to(monkeypatch, domain: str, confidence: float = 0.95, **kwargs) -> N
             confidence=confidence,
             explicit_human_request=kwargs.get("human", False),
             sentiment=kwargs.get("sentiment", "neutral"),
+            financial_request=kwargs.get("financial", "none"),
             rationale="test",
         )
 

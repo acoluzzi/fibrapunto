@@ -145,6 +145,12 @@ class CollectedState(BaseModel):
     plan is €24.90"). Only the model can supply it, because only it has read
     what the customer said."""
 
+    financial_request: str | None = None
+    """§12.1's categorical triggers with financial effect — dispute, refund,
+    credit, payment-method change. Detected by the router (a language
+    judgement), acted on by code: once set, the case is prepared by code
+    whatever the model does next. Sticky for the conversation."""
+
     disambiguation_candidates: list[ContractCandidate] = Field(default_factory=list)
 
     told_to_customer: list[str] = Field(default_factory=list)

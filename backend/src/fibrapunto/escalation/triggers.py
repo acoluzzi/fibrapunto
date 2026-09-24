@@ -44,6 +44,7 @@ class TriggerKind(StrEnum):
     # Categorical — always, regardless of how well the conversation is going.
     categorical_cancellation = "categorical:cancellation"
     categorical_amount_dispute = "categorical:amount_dispute"
+    categorical_payment_change = "categorical:payment_method_change"
 
     # Conditional — driven by the state of the conversation.
     service_unavailable = "conditional:service_unavailable"
@@ -91,6 +92,18 @@ def evaluate(state: ConversationState) -> Trigger | None:
         return Trigger(
             TriggerKind.categorical_cancellation,
             "Cancellation request: always goes to a person.",
+        )
+
+    request = state.collected.financial_request
+    if request == "payment_method_change":
+        return Trigger(
+            TriggerKind.categorical_payment_change,
+            "Change of payment method: always goes to a person.",
+        )
+    if request in ("dispute", "refund", "credit"):
+        return Trigger(
+            TriggerKind.categorical_amount_dispute,
+            f"{request.capitalize()} requested: always goes to a person.",
         )
 
     # --- conditional --------------------------------------------------------

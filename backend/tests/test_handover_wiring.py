@@ -477,3 +477,134 @@ async def test_a_handover_is_final(monkeypatch):
     scripted(monkeypatch, [])
     reply = await convo.send("yes")
     assert reply.status == ConversationStatus.handed_over.value
+
+
+# --- §12.1 categorical triggers, executed by code -----------------------------
+#
+# In every test below the model never calls create_handover_record. The case,
+# or the read-back that gates it, happens anyway.
+
+
+def _open_hours(monkeypatch, is_open: bool) -> None:
+    monkeypatch.setattr(
+        "fibrapunto.capabilities.transfer_to_human.within_service_hours", lambda *_: is_open
+    )
+    monkeypatch.setattr("fibrapunto.escalation.engine.within_service_hours", lambda *_: is_open)
+
+
+async def test_a_flagged_dispute_gets_its_read_back_without_the_model(monkeypatch):
+    crm = FakeCrm()
+    routed_to(monkeypatch, "billing", financial="dispute")
+    convo = conversation(crm)
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("I see a refused charge on your account."),
+        ],
+    )
+    reply = await convo.send(f"€29.90 is wrong, my plan is €24.90. {CONTRACT}")
+
+    assert crm.records == []
+    pending = convo.state.pending_confirmation
+    assert pending is not None and CONTRACT in pending.summary and "€29.90" in pending.summary
+    assert reply.text.endswith("Is that correct?")
+
+    routed_to(monkeypatch, "billing")
+    scripted(monkeypatch, [])
+    reply = await convo.send("yes")
+
+    assert reply.handover_reference == REFERENCE
+    assert crm.context()["escalation_trigger"] == "categorical:amount_dispute"
+    assert "€24.90" in crm.context()["disputed_point"], "the customer's own words"
+
+
+async def test_a_refund_waits_for_the_contract_number_first(monkeypatch):
+    """§4.1 instruction 1 still comes first: no read-back about an unknown contract."""
+    routed_to(monkeypatch, "billing", financial="refund")
+    convo = conversation(FakeCrm())
+    scripted(monkeypatch, [AIMessage("I can look into that. What is your contract number?")])
+    reply = await convo.send("I want my money back")
+    assert convo.state.pending_confirmation is None
+    assert "Is that correct?" not in reply.text
+
+    routed_to(monkeypatch, "billing")
+    scripted(
+        monkeypatch,
+        [tool_call("billing_lookup", {"contract_number": CONTRACT}), AIMessage("Thank you.")],
+    )
+    reply = await convo.send(CONTRACT)
+    assert "you'd like a refund of" in reply.text
+    assert convo.state.pending_confirmation is not None
+
+
+async def test_a_payment_method_change_opens_its_case_by_code(monkeypatch):
+    crm = FakeCrm()
+    routed_to(monkeypatch, "billing", financial="payment_method_change")
+    convo = conversation(crm)
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("I can't change payment details in chat."),
+        ],
+    )
+    reply = await convo.send(f"I want to pay by a different bank account, {CONTRACT}")
+
+    assert reply.handover_reference == REFERENCE
+    assert crm.context()["escalation_trigger"] == "categorical:payment_method_change"
+    assert crm.records[0]["subject"] == "Change of payment method requested"
+
+
+async def test_a_cancellation_opens_by_code_if_the_model_never_does(monkeypatch):
+    crm = FakeCrm()
+    routed_to(monkeypatch, "cancellation")
+    convo = conversation(crm)
+    scripted(monkeypatch, [AIMessage("Of course. What is your contract number?")])
+    await convo.send("i want to close my contract, i've moved house")
+
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("There is no lock-in on your contract. May I ask why you're leaving?"),
+        ],
+    )
+    await convo.send(CONTRACT)
+    assert crm.records == [], "the agent gets its turn with the contract in hand"
+
+    scripted(monkeypatch, [AIMessage("Thank you for telling me.")])
+    reply = await convo.send("I told you, I've moved to another city")
+
+    assert reply.handover_reference == REFERENCE
+    assert crm.context()["escalation_trigger"] == "categorical:cancellation"
+    assert "moved house" in crm.records[0]["stated_reason"]
+    assert "retention" in reply.text.lower()
+
+
+async def test_a_request_for_a_person_is_transferred_when_someone_is_there(monkeypatch):
+    _open_hours(monkeypatch, True)
+    routed_to(monkeypatch, "billing", human=True)
+    scripted(monkeypatch, [])
+    convo = conversation(FakeCrm())
+
+    reply = await convo.send("put me through to a human")
+
+    calls = [(c.capability, c.outcome) for c in convo.state.capability_calls]
+    assert ("transfer_to_human", "transferred") in calls, "executed, not offered"
+    assert "putting you through" in reply.text
+    assert f"case no. {REFERENCE}" in reply.text
+
+
+async def test_out_of_hours_the_request_states_when_service_reopens(monkeypatch):
+    _open_hours(monkeypatch, False)
+    routed_to(monkeypatch, "billing", human=True)
+    scripted(monkeypatch, [])
+    convo = conversation(FakeCrm())
+
+    reply = await convo.send("put me through to a human")
+
+    calls = [(c.capability, c.outcome) for c in convo.state.capability_calls]
+    assert ("transfer_to_human", "noAgentAvailable") in calls
+    assert "closed at the moment" in reply.text
+    assert "putting you through" not in reply.text

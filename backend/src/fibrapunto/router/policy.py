@@ -133,6 +133,27 @@ def apply(
     return RoutingOutcome(proposed, True, "classifier", decision)
 
 
+def apply_request_kind(
+    state: ConversationState, decision: RoutingDecision | None, message: str
+) -> None:
+    """§12.1's categorical financial requests: the model detects, code acts.
+
+    The first one flagged is kept, with the customer's message as their own
+    words (§12.2) — the text here is already redacted (§9). Nothing is weighed
+    afterwards: "these are not judgement calls and the agent is not permitted
+    to weigh them"."""
+    if decision is None or decision.financial_request == "none":
+        return
+    collected = state.collected
+    if collected.financial_request is None:
+        collected.financial_request = decision.financial_request
+        log.info("router.financial_request", kind=decision.financial_request)
+    collected.stated_reason = collected.stated_reason or message
+    # The substance of the request — what is disputed, or what they want
+    # changed. §13 requires it on a billing record once billing was read.
+    collected.disputed_point = collected.disputed_point or message
+
+
 def apply_sentiment(state: ConversationState, decision: RoutingDecision | None) -> None:
     """§12.1's customer-initiated triggers.
 

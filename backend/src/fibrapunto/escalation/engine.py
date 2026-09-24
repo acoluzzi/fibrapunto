@@ -30,6 +30,8 @@ from fibrapunto.capabilities.outcomes import (
     HandoverFailed,
 )
 from fibrapunto.capabilities.transfer_to_human import (
+    NoAgentAvailable,
+    TransferAccepted,
     service_window_text,
     within_service_hours,
 )
@@ -208,6 +210,14 @@ _SUBJECT = {
     TriggerKind.turn_budget_exhausted: "Turn budget exhausted without a successful lookup",
     TriggerKind.distress: "Customer upset — asked to be passed to a colleague",
     TriggerKind.human_requested: "Customer asked to speak to a person",
+    TriggerKind.categorical_cancellation: "Cancellation request",
+    TriggerKind.categorical_payment_change: "Change of payment method requested",
+}
+
+_REQUEST_PHRASE = {
+    "dispute": "you're disputing",
+    "refund": "you'd like a refund of",
+    "credit": "you'd like a credit on",
 }
 
 # Sentences in which the model offers, or promises, a colleague or a case.
@@ -235,14 +245,57 @@ def offer(reply: str, kind: TriggerKind) -> str:
 def honour_request(
     result: HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
     state: ConversationState,
+    transfer: TransferAccepted | NoAgentAvailable | None = None,
 ) -> str:
     """§12.1: an explicit request for a person, "honoured immediately and without
     resistance or a retention attempt". No model call, so no retention attempt
-    is possible."""
-    closing = closing_message(result, state)
+    is possible.
+
+    The case is opened first so the colleague has everything (§12.2), then the
+    transfer is attempted. Put through if someone is there; if not, the closing
+    template states when the service reopens (§12.4) instead of "shortly".
+    """
     if isinstance(result, HandoverFailed):
-        return closing
-    return f"Of course, I'll pass this to a colleague. {closing}"
+        return closing_message(result, state)
+    if isinstance(transfer, TransferAccepted):
+        state.status = ConversationStatus.handed_over
+        return (
+            f"Of course. I'm putting you through to a colleague now — the wait is "
+            f"about {transfer.wait_estimate}. I've opened case no. {result.reference}, "
+            f"so they'll have everything you've told me."
+        )
+    return f"Of course, I'll pass this to a colleague. {closing_message(result, state)}"
+
+
+def dispute_summary(state: ConversationState) -> str:
+    """The one-sentence summary for §4.1 instruction 5, built from typed state.
+
+    Figures only from the lookup — never from the model — so the read-back
+    cannot state an amount nobody verified (§1 "no invention")."""
+    collected = state.collected
+    what = _REQUEST_PHRASE.get(collected.financial_request or "", "you're disputing")
+    billing = collected.billing
+    if billing and billing.amount is not None:
+        month = f" {billing.invoice_month}" if billing.invoice_month else ""
+        charge = f"the{month} charge of €{billing.amount}"
+    else:
+        charge = "a charge"
+    return f"On contract {collected.contract_number}, {what} {charge}."
+
+
+def read_back(reply: str, summary: str) -> str:
+    """The model's reply, then the read-back the code will act on.
+
+    Any sentence of the model's offering a colleague or a case is dropped, as
+    for an escalation offer: one question, the one the code holds."""
+    question = (
+        "I can't change amounts or issue refunds myself, but I can pass this to "
+        f"a colleague in billing with everything collected. To confirm: {summary} "
+        "Is that correct?"
+    )
+    kept = [s for s in _SENTENCE.split(reply.strip()) if s and not _OFFER_SENTENCE.search(s)]
+    body = " ".join(kept)
+    return f"{body} {question}" if body else question
 
 
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:
