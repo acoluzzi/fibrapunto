@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 
     model_agent: str = "anthropic/claude-sonnet-5"
-    model_router: str = "anthropic/claude-haiku-4-5"
+    model_router: str = "anthropic/claude-haiku-4.5"
     model_judge: str = "google/gemini-2.5-pro"
     model_persona: str = "google/gemini-2.5-pro"
 
