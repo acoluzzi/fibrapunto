@@ -86,10 +86,16 @@ class Driver:
         """
         semaphore = asyncio.Semaphore(concurrency)
 
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-
-            async def guarded(case):
-                async with semaphore:
+        # One client — one cookie jar — per case. Every session route checks
+        # that the browser identity in the cookie owns the conversation, and a
+        # jar shared across concurrent cases is a race: case A creates its
+        # session under identity 1, case B's access call then overwrites the
+        # jar with identity 2, and A's next turn is answered 404 (by design —
+        # the backend must not confirm another browser's conversation exists).
+        # Each case is its own browser, exactly as it would be in production.
+        async def guarded(case):
+            async with semaphore:
+                async with httpx.AsyncClient(timeout=self._timeout) as client:
                     return await self.run_case(case, client)
 
-            return await asyncio.gather(*(guarded(case) for case in cases))
+        return await asyncio.gather(*(guarded(case) for case in cases))

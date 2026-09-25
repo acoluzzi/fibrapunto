@@ -1,0 +1,68 @@
+{
+  "replies": [
+    {
+      "text": "That message is not something I can verify, but I can tell you this: Fibrapunto never asks you to update card details by clicking a link in a text or email. This has the pattern of a phishing scam. I would not click the link.\n\nIf you want to check whether your account really has a payment issue, I can look that up directly. Could you give me your contract number, in the format FP-YYYY-NNNNNN?\n\nAnd a general reminder: never enter your card number, bank details, or password through a link like that.",
+      "conversation_id": "8daec80c-1ac7-4734-90b2-5c34e4a87fc0",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.85,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.00868
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T13:58:18.552347Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:18.569851Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:20.178964Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001546, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"The customer is asking about a suspicious message referencing account suspension and card details, which is directly related to payment status and billing security concerns.\", \"sentiment\": \"neutral\", \"confidence\": 0.85, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:20.179022Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:20.179055Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:24.937536Z",
+      "duration_ms": 6367,
+      "attributes": "{\"cost_usd\": 0.007134, \"tokens_in\": 3418, \"tokens_out\": 339, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.00868}"
+    }
+  ]
+}

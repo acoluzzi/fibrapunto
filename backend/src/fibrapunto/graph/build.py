@@ -217,6 +217,16 @@ def _turn_constraints(state: ConversationState) -> str:
             "- You have already asked for the contract number once. If it is "
             "still wrong, do not insist: offer a colleague."
         )
+    if state.collected.billing and state.collected.contract_number:
+        # Seen in an eval run: the facts were in the state block above and the
+        # model looked the contract up again on the next turn — seconds for the
+        # customer, a call on the bill, and nothing new (§16).
+        lines.append(
+            f"- The billing lookup for {state.collected.contract_number} has "
+            "already returned in this conversation; its results are listed "
+            "above. Do not call it again unless the customer gives a different "
+            "contract number."
+        )
     if not lines:
         return ""
     return "## Constraints for this turn\n\n" + "\n".join(lines)

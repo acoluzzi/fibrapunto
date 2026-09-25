@@ -1,0 +1,61 @@
+{
+  "replies": [
+    {
+      "text": "I can't help with that here — on this channel I handle billing and cancellations. If you'd like, I can put you through to a colleague who can help with that question.",
+      "conversation_id": "db468f22-0ab7-4861-9464-3fa176f5c6fa",
+      "turn_index": 1,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.005206
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T13:57:33.477921Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:33.495771Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:35.230977Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.00154, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"The customer is asking a technical knowledge question comparing two types of fibre connection technologies, which does not relate to billing, charges, or cancellation requests.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:35.232375Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:38.548819Z",
+      "duration_ms": 5053,
+      "attributes": "{\"cost_usd\": 0.003666, \"tokens_in\": 2513, \"tokens_out\": 172, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.005206}"
+    }
+  ]
+}

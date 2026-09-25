@@ -242,6 +242,17 @@ _OFFER_SENTENCE = re.compile(
     r"|hand\s*over|put\s+you\s+through|speak\s+(?:to|with)\s+(?:a|someone)|a\s+person)\b",
     re.IGNORECASE,
 )
+# The question that trails a model's offer once the offer itself is gone:
+# "I can open a case for you. Would you like me to do that?" loses its first
+# sentence to _OFFER_SENTENCE and the second survives, so the customer read
+# "Would you like me to do that? I can open a case … Would you like me to do
+# that?" — the same question twice, the first pointing at nothing. Every
+# template here ends with its own question; a model question of this shape
+# is redundant by construction.
+_OFFER_QUESTION = re.compile(
+    r"^\W*(?:would|do|shall|should|can|could)\s+(?:you\s+(?:like|want)\s+(?:me|us)\s+to|I)\b.*\?\s*$",
+    re.IGNORECASE,
+)
 
 
 def subject_for(kind: TriggerKind | str) -> str:
@@ -251,7 +262,11 @@ def subject_for(kind: TriggerKind | str) -> str:
 
 def offer(reply: str, kind: TriggerKind) -> str:
     """The model's reply, then the offer the code will honour (§4.1 instr. 6)."""
-    kept = [s for s in _SENTENCE.split(reply.strip()) if s and not _OFFER_SENTENCE.search(s)]
+    kept = [
+        s
+        for s in _SENTENCE.split(reply.strip())
+        if s and not _OFFER_SENTENCE.search(s) and not _OFFER_QUESTION.search(s)
+    ]
     body = " ".join(kept)
     return f"{body} {_OFFER[kind]}" if body else _OFFER[kind]
 
@@ -321,6 +336,18 @@ _REGISTERING = re.compile(
     r"\b(?:register|record|process|submit|log|go\s+ahead|pass\s+(?:it|this|your))\w*",
     re.IGNORECASE,
 )
+# The model relaying the platform's mechanics to the customer — "Your case is
+# being prepared. Please wait a moment — you may see an offer presented to
+# you before the request is finalised." Seen verbatim in an eval run: the
+# held-handover outcome told the model an offer would follow, and the model
+# told the customer. Anything about the offer is the platform's sentence to
+# say, once; anything about preparing or finalising is not a thing to say.
+_OFFER_MENTION = re.compile(r"\b(?:offers?|discounts?|promotions?|deals?)\b", re.IGNORECASE)
+_PLATFORM_NARRATION = re.compile(
+    r"\b(?:being\s+prepared|wait\s+a\s+moment|one\s+moment|finali[sz]e|presented\s+to\s+you"
+    r"|the\s+system\s+(?:will|may)|you\s+(?:may|will)\s+see)\b",
+    re.IGNORECASE,
+)
 
 
 def offer_message(reply: str, offer, context: str) -> str:
@@ -345,6 +372,9 @@ def offer_message(reply: str, offer, context: str) -> str:
         for s in _SENTENCE.split(reply.strip())
         if s
         and not _OFFER_SENTENCE.search(s)
+        and not _OFFER_QUESTION.search(s)
+        and not _OFFER_MENTION.search(s)
+        and not _PLATFORM_NARRATION.search(s)
         and not _COMMITMENT.search(s)
         and not (context == "cancellation" and _REGISTERING.search(s))
     ]

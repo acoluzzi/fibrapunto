@@ -1,0 +1,157 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2019-002217, I need to check that it's you. What was the name of your first pet?",
+      "conversation_id": "074a2322-279f-45df-814d-739f7330c8aa",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.001467
+    },
+    {
+      "text": "Thank you, that's confirmed. I found two contracts with that number, at different addresses. Could you tell me which service address is yours: Via Zamboni 33 or Via Indipendenza 7, both in Bologna? I can pass this to a colleague who can check your contract details with you. Would you like me to open a case?",
+      "conversation_id": "074a2322-279f-45df-814d-739f7330c8aa",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "multipleMatches",
+          "duration_ms": 873
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.016232
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T13:56:52.326449Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:52.343803Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:53.837814Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001467, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer is explicitly asking to check their bill, which is a core billing domain inquiry.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:53.837839Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:53.837868Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:53.839785Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2019-002217\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:53.840100Z",
+      "duration_ms": 1496,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1107, \"tokens_out\": 72, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001467}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:56:53.872745Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:56:53.872763Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": null, \"previous\": \"billing\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:56:53.872774Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:56:53.878402Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2019-002217\"}"
+    },
+    {
+      "name": "guardrail.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:03.467949Z",
+      "duration_ms": null,
+      "attributes": "{\"guard\": \"visibility\", \"blocking\": false, \"problems\": [\"found\"], \"substituted\": false}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:03.468152Z",
+      "duration_ms": 873,
+      "attributes": "{\"outcome\": \"multipleMatches\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:03.468241Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:disambiguation_unresolved\", \"action\": \"offered\", \"reason\": \"Several contracts match and the customer could not tell them apart.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:03.468269Z",
+      "duration_ms": 9597,
+      "attributes": "{\"cost_usd\": 0.016232, \"tokens_in\": 7226, \"tokens_out\": 178, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.016232}"
+    }
+  ]
+}

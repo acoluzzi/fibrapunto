@@ -1,0 +1,157 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2022-031455, I need to check that it's you. What was the name of your first pet?",
+      "conversation_id": "be995aa6-a250-442a-bf8b-267d3b65e4c8",
+      "turn_index": 1,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.99,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.00148
+    },
+    {
+      "text": "Thank you, that's confirmed. I can help get this started.\n\nCould you tell me why you'd like to cancel? It's not required, but it helps us if you're willing to share.",
+      "conversation_id": "be995aa6-a250-442a-bf8b-267d3b65e4c8",
+      "turn_index": 2,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 950
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": "FP-2022-031455",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.018656
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T13:57:03.511241Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:03.526418Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:05.135150Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": 0.00148, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer is explicitly asking how to cancel their contract, which is a core cancellation domain request.\", \"sentiment\": \"neutral\", \"confidence\": 0.99, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:05.135189Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"cancellation\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:05.135262Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:05.138148Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2022-031455\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:05.138410Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:05.138495Z",
+      "duration_ms": 1612,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1105, \"tokens_out\": 75, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.00148}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:05.166232Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:05.166244Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": null, \"previous\": \"cancellation\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:05.166252Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:05.169918Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2022-031455\"}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:15.078382Z",
+      "duration_ms": 950,
+      "attributes": "{\"outcome\": \"found\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:15.078523Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:57:15.078637Z",
+      "duration_ms": 9912,
+      "attributes": "{\"cost_usd\": 0.018656, \"tokens_in\": 7723, \"tokens_out\": 321, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.018656}"
+    }
+  ]
+}

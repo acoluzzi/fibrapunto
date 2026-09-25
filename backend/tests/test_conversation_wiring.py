@@ -489,3 +489,25 @@ async def test_a_repaired_english_reply_is_what_goes_out(monkeypatch):
     )
     reply = await conversation().send("cosa sai fare?")
     assert reply.text.startswith("I can only help in English")
+
+
+# --- a lookup already made is not made again (§16) ----------------------------
+#
+# Seen in an eval run: the billing facts sat in the state block and the model
+# looked the contract up again on the next turn. The constraint is per turn
+# and only once there is something not to repeat.
+
+
+def test_the_model_is_told_not_to_repeat_a_lookup_it_already_holds():
+    from fibrapunto.graph.build import _turn_constraints
+    from fibrapunto.state.models import BillingFacts, ConversationState
+
+    state = ConversationState()
+    assert "already returned" not in _turn_constraints(state), "nothing to repeat yet"
+
+    state.collected.contract_number = "FP-2024-092003"
+    state.collected.billing = BillingFacts(contract_number="FP-2024-092003", status="active")
+    constraints = _turn_constraints(state)
+    assert "FP-2024-092003 has already returned" in constraints
+    assert "Do not call it again" in constraints
+    assert "different contract number" in constraints, "a new contract is still looked up"

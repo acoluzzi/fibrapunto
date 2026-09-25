@@ -7,6 +7,10 @@ turns:
   - user: "payment refused, contract FP-2023-048812, how much do I owe?"
   # The security question for FP-2023-048812 (migration 008).
   - user: "Torino"
+  # §4.1 instruction 6 says *offer* to open a case, and the outage trigger is
+  # conditional: the code offers, the customer decides. Without this turn the
+  # conversation ends on the offer and no record exists.
+  - user: "Yes please, open a case."
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

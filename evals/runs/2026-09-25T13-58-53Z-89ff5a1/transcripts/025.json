@@ -1,0 +1,25 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2023-048812, I need to check that it's you. In which city were you born?",
+      "conversation_id": "1f7db888-6103-48bd-a77b-844f1c0f1216",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.98,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.001702
+    }
+  ],
+  "trace": []
+}

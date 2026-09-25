@@ -1,0 +1,116 @@
+{
+  "replies": [
+    {
+      "text": "I can't help with that here on its own — on this channel I handle billing and cancellations questions. Could you tell me what you need with this contract? If it's not billing or cancellations, I can connect you with a colleague who can help.",
+      "conversation_id": "5f3217f7-e866-4047-b68c-9ce0dafb2f0b",
+      "turn_index": 1,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.00739
+    },
+    {
+      "text": "I understand you have a contract number, but I need to know what you'd like help with. Is it about a bill or charge, or about cancelling your service? I don't want to keep you going round in circles: I can pass this to a colleague. Would you like me to open a case?",
+      "conversation_id": "5f3217f7-e866-4047-b68c-9ce0dafb2f0b",
+      "turn_index": 2,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "unchanged",
+        "confidence": 0.7,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.005904
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T13:57:59.864607Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:57:59.949600Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:01.830863Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.001534, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"Customer is providing a contract number, likely in response to a request or for identification purposes, with no specific billing, cancellation, or other domain-specific request.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:01.830874Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:58:07.518697Z",
+      "duration_ms": 7569,
+      "attributes": "{\"cost_usd\": 0.005856, \"tokens_in\": 2487, \"tokens_out\": 395, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.00739}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:58:07.542795Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:58:09.438034Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.001652, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"Customer has provided a contract number but appears unable or unwilling to clarify their issue, remaining in an ambiguous state that does not clearly map to billing or cancellation; transfer to a colleague is appropriate.\", \"sentiment\": \"neutral\", \"confidence\": 0.7, \"decided_by\": \"unchanged\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:58:09.438080Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:58:13.234881Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:no_progress\", \"action\": \"offered\", \"reason\": \"Two turns with no progress: the customer is going in circles.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T13:58:13.234957Z",
+      "duration_ms": 5692,
+      "attributes": "{\"cost_usd\": 0.004252, \"tokens_in\": 2643, \"tokens_out\": 227, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.005904}"
+    }
+  ]
+}

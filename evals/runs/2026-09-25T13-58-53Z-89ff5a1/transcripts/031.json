@@ -1,0 +1,25 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2022-031455, I need to check that it's you. What was the name of your first pet?",
+      "conversation_id": "d898fb00-69d8-4029-bac3-a9a85985a501",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.92,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.001579
+    }
+  ],
+  "trace": []
+}

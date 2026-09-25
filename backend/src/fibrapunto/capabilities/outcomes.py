@@ -120,7 +120,9 @@ class BillingServiceUnavailable(BaseModel):
         default=(
             "The billing system is not responding. Tell the customer plainly, "
             "give NO amount and NO date, and offer to open a case. Do not "
-            "promise timescales that are not yours to promise."
+            "promise timescales that are not yours to promise. Do not call the "
+            "lookup again this turn: a retry costs the customer seconds and "
+            "changes nothing."
         ),
     )
     incident_id: str = InternalOnly(
@@ -321,10 +323,13 @@ class RetentionOfferFirst(BaseModel):
     guidance: str = InternalOnly(
         "Operating instruction for the reasoning layer.",
         default=(
-            "Do not register the cancellation yet, and do not mention or describe "
-            "any offer yourself: the system presents an offer to the customer "
-            "right after your reply, and registers the request on their answer. "
-            "Acknowledge the request and state the contract's constraints."
+            "Do not register the cancellation yet. Reply in one or two sentences: "
+            "acknowledge the request and state the contract's constraints from "
+            "the lookup. Say nothing about offers, discounts or alternatives, and "
+            "nothing about what the system will do next — no 'your case is being "
+            "prepared', no 'please wait', no 'you may see an offer'. The customer "
+            "must not hear about this instruction; the next sentence they read "
+            "is the system's, not yours."
         ),
     )
 

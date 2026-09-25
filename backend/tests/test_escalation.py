@@ -312,3 +312,64 @@ def test_collected_state_copies_cleanly_for_progress_comparison():
 
     assert before.contract_number == "FP-2023-048812"
     assert isinstance(before, CollectedState)
+
+
+# --- the model's trailing question, and the platform's mechanics -------------
+#
+# Two sentences seen verbatim in the first eval run against a live model. Both
+# are the kind of thing a prompt can ask the model not to say and a template
+# has to make sure it does not.
+
+
+def test_the_offer_drops_the_models_dangling_question():
+    # The model offered a case in two sentences. The first goes (it names the
+    # case); the second used to survive, so the customer read the same
+    # question twice with the first pointing at nothing.
+    reply = (
+        "The system is not responding, so I cannot tell you what you owe. "
+        "I can open a case for you. Would you like me to do that?"
+    )
+    text = engine.offer(reply, TriggerKind.service_unavailable)
+    assert text.count("Would you like me to do that?") == 1
+    assert text.startswith("The system is not responding")
+    assert "I can open a case for you." not in text
+
+
+def test_a_question_that_is_not_an_offer_survives():
+    reply = "Your service is active as normal. Would you like to know what happens next?"
+    text = engine.offer(reply, TriggerKind.contract_not_found)
+    assert "Would you like to know what happens next?" in text
+
+
+def test_the_offer_message_drops_the_models_narration_of_the_platform():
+    from types import SimpleNamespace
+
+    offer = SimpleNamespace(
+        title="€5 off every month for 12 months",
+        description="Your plan stays exactly as it is, at €5 less each month.",
+    )
+    reply = (
+        "Thank you, that's confirmed. Your contract has 6 months of lock-in left. "
+        "Your case is being prepared. Please wait a moment — you may see an offer "
+        "presented to you before the request is finalised. "
+        "Would you like me to go ahead?"
+    )
+    text = engine.offer_message(reply, offer, "cancellation")
+    assert "being prepared" not in text
+    assert "wait a moment" not in text
+    assert "you may see" not in text
+    assert "Would you like me to go ahead?" not in text
+    # What the model may say stays, and the platform's offer follows, once.
+    assert "6 months of lock-in" in text
+    assert text.count("there is an offer available") == 1
+    assert text.count("Would you like to take it?") == 1
+
+
+def test_the_offer_message_drops_any_offer_the_model_worded_itself():
+    from types import SimpleNamespace
+
+    offer = SimpleNamespace(title="Fibra Start", description="A lighter plan.")
+    reply = "I understand. I can offer you a discount if you stay. Your lock-in ends in March."
+    text = engine.offer_message(reply, offer, "dispute")
+    assert "I can offer you a discount" not in text
+    assert "Your lock-in ends in March." in text

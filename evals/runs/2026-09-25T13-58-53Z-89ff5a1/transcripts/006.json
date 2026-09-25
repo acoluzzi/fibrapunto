@@ -1,0 +1,88 @@
+{
+  "replies": [
+    {
+      "text": "I could not find a contract with that number. Could you please double-check it? It should look like FP-2023-XXXXXX. I can't change amounts or issue refunds myself, but I can pass this to a colleague in billing with everything collected. To confirm: On contract FP-2023-099999, you're disputing a charge. Is that correct?",
+      "conversation_id": "fa24c482-8eae-453a-abea-25576d160cec",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "notFound",
+          "duration_ms": 737
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": "FP-2023-099999",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.020883
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T13:56:40.020231Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:40.034191Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:41.677804Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001509, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"The customer explicitly states their bill doesn't add up, which is a billing dispute, and provides their contract number for verification.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:41.677836Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:41.677864Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:58.307750Z",
+      "duration_ms": 737,
+      "attributes": "{\"outcome\": \"notFound\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:58.307959Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:amount_dispute\", \"action\": \"read_back_requested\", \"reason\": \"Dispute requested: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T13:56:58.308005Z",
+      "duration_ms": 18276,
+      "attributes": "{\"cost_usd\": 0.019374, \"tokens_in\": 5851, \"tokens_out\": 1069, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.020883}"
+    }
+  ]
+}

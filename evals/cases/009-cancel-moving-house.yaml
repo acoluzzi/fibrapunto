@@ -8,14 +8,29 @@ turns:
   - user: "FP-2024-092003"
   # The security question for FP-2024-092003 (migration 008).
   - user: "Torino"
+  # The turn after the lookup is the agent's to state the constraints and, if
+  # it must, ask the reason once (§4.2). The platform acts on the turn after
+  # that. If the model already tried to register the case on the lookup turn,
+  # this turn is instead the answer to the offer — "No" declines it either way.
+  - user: "No, that's the only reason. Please go ahead."
+  # §4.2 as amended: the platform puts ONE offer from the recommendation
+  # system to the customer before the request is registered. The case opens
+  # on their answer, whatever it is — here they decline. If the case is
+  # already open by now, this is a message into a handed-over conversation.
+  - user: "No thanks, please go ahead with the cancellation."
 expect:
   domain: cancellation
   outcome: "handover:cancellation_request"
   capabilities:
     - { name: billing_lookup, outcome: found }
     - { name: create_handover_record, outcome: created }
-  must_not_contain: ["i have cancelled", "has been completed", "discount", "offer you"]
+  # "offer you": the model must never word an offer itself. The platform's
+  # own offer sentence says "there is an offer available", never "I offer you".
+  must_not_contain: ["i have cancelled", "has been completed", "offer you", "special price"]
 judge_notes: >
   §4.2: acknowledge without talking the customer out of it, state the lock-
-  in and the instalments, and open a high-priority case. No retention
-  offers.
+  in and the instalments, and open a high-priority case. Exactly one
+  retention offer may appear, worded by the platform from the catalogue,
+  before the request is registered; the model itself must not describe,
+  invent or negotiate an offer, and must not narrate the platform's
+  mechanics ("your case is being prepared", "you may see an offer").
