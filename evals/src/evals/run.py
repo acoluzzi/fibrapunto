@@ -16,6 +16,7 @@ and a rendered report — all committed.
     make eval --no-judge         # deterministic assertions only, free
     make eval-diff               # per-case regressions, previous → latest
     make eval-audit              # where the judge and the code disagreed
+    make eval-judge RUN=latest   # grade a run's saved transcripts again, no agent calls
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ from evals import spend
 from evals.assertions import CaseVerdict, evaluate
 from evals.driver import Driver
 from evals.judge import Judge, JudgeMisconfigured
-from evals.metrics import compute, disagreements
+from evals.judge import failures as judge_failures
+from evals.metrics import Metric, compute, disagreements
 from evals.report import render_report, render_review_sample
 
 # evals/src/evals/run.py → evals/
@@ -191,11 +193,7 @@ async def main_async(args: argparse.Namespace) -> int:
 
     print(f"\n{DIM}{spend.format_report(spend_report, len(cases))}{RESET}")
 
-    if audit:
-        print(
-            f"\n{YELLOW}{len(audit)} disagreements between assertions and judge{RESET} "
-            f"{DIM}— make eval-audit{RESET}"
-        )
+    _print_judge_summary(judged, audit)
 
     # --- write the run -------------------------------------------------------
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
@@ -276,6 +274,114 @@ async def main_async(args: argparse.Namespace) -> int:
     failed = sum(1 for v in verdicts if not v.passed)
     print(f"{BOLD}{len(verdicts) - failed}/{len(verdicts)} cases passed{RESET}\n")
     return 1 if failed else 0
+
+
+def _print_judge_summary(judged: dict[str, dict], audit: list[dict]) -> None:
+    """What the judge did — including, loudly, what it failed to do.
+
+    A run in which every judge call was cut off mid-JSON printed nothing and
+    an empty audit, which read as "the judge agreed with everything". It had
+    graded nothing. The failure has to be the first thing said about it.
+    """
+    if not judged:
+        return
+    failed = judge_failures(judged)
+    if failed:
+        total = sum(len(ids) for ids in failed.values())
+        print(
+            f"\n{RED}✗ judge failed on {total}/{len(judged)} cases{RESET} "
+            f"{DIM}— no tone grades and no audit for them; see results.jsonl{RESET}"
+        )
+        for kind, ids in failed.items():
+            print(f"      {DIM}{kind}: {', '.join(ids)}{RESET}")
+    graded = len(judged) - sum(len(ids) for ids in failed.values())
+    if graded:
+        print(f"\n{DIM}judge graded {graded}/{len(judged)} cases{RESET}")
+    if audit:
+        print(
+            f"{YELLOW}{len(audit)} disagreements between assertions and judge{RESET} "
+            f"{DIM}— make eval-audit{RESET}"
+        )
+
+
+async def judge_command(run_name: str) -> int:
+    """Grade the transcripts of an existing run, without driving the agent.
+
+    The agent's replies are already on disk; what the judge adds is the
+    second opinion (§14.2), and a judge that failed — cut off, rate limited,
+    misconfigured — should not cost a whole run of agent calls to try again.
+    Overwrites the run's judge fields, audit and report in place, and notes
+    when it did so in run.json, so a re-graded run says it was re-graded.
+    """
+    run_dir = _resolve_run(run_name)
+    results = _read_results(run_dir)
+    cases = {c["id"]: c for c in load_cases(set(results))}
+    missing = sorted(set(results) - set(cases))
+    if missing:
+        print(f"{YELLOW}⚠ cases no longer on disk, skipped: {', '.join(missing)}{RESET}")
+
+    try:
+        judge = Judge()
+    except JudgeMisconfigured as exc:
+        print(f"{RED}{exc}{RESET}", file=sys.stderr)
+        return 2
+    print(f"{DIM}judge: {judge.model}  run: {run_dir.name}{RESET}\n")
+
+    balance_before = await spend.balance()
+    verdicts: list[CaseVerdict] = []
+    judged: dict[str, dict] = {}
+    for case_id in sorted(cases):
+        case = cases[case_id]
+        transcript_path = run_dir / "transcripts" / f"{case_id}.json"
+        if not transcript_path.exists():
+            continue
+        saved = json.loads(transcript_path.read_text(encoding="utf-8"))
+        replies, trace = saved.get("replies", []), saved.get("trace", [])
+        if not replies:
+            continue  # the turn failed in the original run; nothing to grade
+        # The deterministic verdict is free and reproducible: recomputed here
+        # rather than trusted from the file, so the audit compares the judge
+        # with the assertions as they are now.
+        verdicts.append(evaluate(case, replies, trace))
+        try:
+            judged[case_id] = await judge.grade(case, replies)
+        except Exception as exc:  # noqa: BLE001
+            judged[case_id] = {"error": str(exc)}
+        state = "✗" if "error" in judged[case_id] else "✓"
+        print(f"  {state} {case_id} {case['title']}")
+
+    spend_report = spend.report(balance_before, await spend.balance(), len(judged))
+    audit = disagreements(verdicts, judged)
+
+    # --- write back into the run --------------------------------------------
+    for verdict in verdicts:
+        row = results[verdict.case_id]
+        row["judge"] = judged.get(verdict.case_id)
+    (run_dir / "results.jsonl").write_text(
+        "\n".join(json.dumps(results[cid], ensure_ascii=False) for cid in results),
+        encoding="utf-8",
+    )
+    (run_dir / "audit.json").write_text(
+        json.dumps(audit, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    metrics = [
+        Metric(m["name"], m["value"], m["target"], m["passed"])
+        for m in json.loads((run_dir / "metrics.json").read_text(encoding="utf-8"))
+    ]
+    (run_dir / "report.md").write_text(
+        render_report(run_dir.name, metrics, verdicts, audit), encoding="utf-8"
+    )
+    meta_path = run_dir / "run.json"
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["judge_model"] = judge.model
+    meta["rejudged_at"] = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
+    meta["rejudge_spend"] = spend_report
+    meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+
+    print(f"\n{DIM}{spend.format_report(spend_report, len(judged))}{RESET}")
+    _print_judge_summary(judged, audit)
+    print(f"\n{DIM}updated evals/runs/{run_dir.name}/{RESET}\n")
+    return 1 if judge_failures(judged) else 0
 
 
 def _append_history(metrics, run_id: str) -> None:
@@ -408,11 +514,14 @@ def audit_command() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", nargs="?", default="run", choices=["run", "audit", "diff"])
+    parser.add_argument(
+        "command", nargs="?", default="run", choices=["run", "audit", "diff", "judge"]
+    )
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--cases", help="comma-separated case ids")
     parser.add_argument("--a", default="previous", help="diff: baseline run id or prefix")
     parser.add_argument("--b", default="latest", help="diff: run id, prefix, or latest")
+    parser.add_argument("--run", default="latest", help="judge: the run whose transcripts to grade")
     parser.add_argument(
         "--no-judge",
         action="store_true",
@@ -425,6 +534,8 @@ def main() -> int:
         return audit_command()
     if args.command == "diff":
         return diff_command(args.a, args.b)
+    if args.command == "judge":
+        return asyncio.run(judge_command(args.run))
     return asyncio.run(main_async(args))
 
 

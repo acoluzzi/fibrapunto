@@ -25,6 +25,11 @@ from typing import Any
 
 import httpx
 
+# The answer is ~250 tokens of JSON. The judge thinks before it answers, and
+# that thinking is charged to the same ceiling.
+MAX_TOKENS = 6144
+REASONING_MAX_TOKENS = 3072
+
 SCHEMA_PROMPT = """\
 You are an evaluator. Read the transcript of a conversation between a customer \
 and a broadband operator's assistant, and classify it.
@@ -115,13 +120,25 @@ class Judge:
         )
         notes = case.get("judge_notes", "")
 
-        async with httpx.AsyncClient(timeout=90.0) as client:
+        async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {self._key}"},
                 json={
                     "model": self.model,
-                    "max_tokens": 1024,
+                    # The judge is a thinking model, and its reasoning is
+                    # billed and bounded inside `max_tokens` together with the
+                    # answer. At 1024 the reasoning alone ran to ~800 tokens
+                    # on a two-line transcript, every real one was cut off
+                    # mid-JSON, and a whole run graded nothing. Room for the
+                    # answer, and a ceiling on the thinking so it cannot eat
+                    # that room again.
+                    "max_tokens": MAX_TOKENS,
+                    "reasoning": {"max_tokens": REASONING_MAX_TOKENS},
+                    # JSON is the contract; the fence-tolerant parser below is
+                    # the belt to this brace.
+                    "response_format": {"type": "json_object"},
+                    "usage": {"include": True},
                     "provider": {"allow_fallbacks": False, "data_collection": "deny"},
                     "messages": [
                         {"role": "system", "content": SCHEMA_PROMPT},
@@ -137,14 +154,24 @@ class Judge:
             response.raise_for_status()
             body = response.json()
             check_served(self.model, body.get("model"))
-            content = body["choices"][0]["message"]["content"]
+            choice = body["choices"][0]
+            content = choice["message"]["content"] or ""
 
-        return _parse(content)
+        judgement = _parse(content, choice.get("finish_reason"))
+        usage = body.get("usage") or {}
+        if isinstance(usage.get("cost"), int | float):
+            judgement["cost_usd"] = float(usage["cost"])
+        return judgement
 
 
-def _parse(content: str) -> dict[str, Any]:
+def _parse(content: str, finish_reason: str | None = None) -> dict[str, Any]:
     """Tolerate a fenced block. A judge that returns prose around its JSON is a
-    judge that still graded the transcript."""
+    judge that still graded the transcript.
+
+    A failure keeps the whole response and the provider's finish reason: a
+    run that graded nothing must say why in its own directory, not make the
+    reader guess from 400 characters.
+    """
     text = content.strip()
     if text.startswith("```"):
         text = text.split("```")[1]
@@ -152,4 +179,17 @@ def _parse(content: str) -> dict[str, Any]:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        return {"error": "unparseable", "raw": content[:400]}
+        error = "truncated" if finish_reason == "length" else "unparseable"
+        return {"error": error, "finish_reason": finish_reason, "raw": content}
+
+
+def failures(judged: dict[str, dict[str, Any]]) -> dict[str, list[str]]:
+    """Case ids by failure kind, for the run summary. An empty dict is the
+    only quiet outcome; anything else is printed in red, because an empty
+    audit over a silently failed judge reads as agreement."""
+    by_kind: dict[str, list[str]] = {}
+    for case_id, judgement in judged.items():
+        if "error" in judgement:
+            kind = str(judgement["error"]).split(":", 1)[0][:60]
+            by_kind.setdefault(kind, []).append(case_id)
+    return by_kind

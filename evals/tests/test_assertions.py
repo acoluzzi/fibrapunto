@@ -602,3 +602,41 @@ def test_todays_date_is_not_an_invention():
         case(outcome="awaiting_customer", must_not_state_figures=True), [reply(text)], []
     )
     assert verdict.passed, verdict.failures
+
+
+# --- the judge's answer, whole or cut off (§14.2) ------------------------------
+#
+# A run in which every judge call was cut off mid-JSON graded nothing and said
+# nothing. The parser now says what happened, and the summary says it in red.
+
+
+def test_a_fenced_json_answer_is_still_a_grade():
+    from evals.judge import _parse
+
+    content = '```json\n{"domain_fired": "billing", "invented_data": false}\n```'
+    assert _parse(content, "stop") == {"domain_fired": "billing", "invented_data": False}
+
+
+def test_a_truncated_answer_is_named_as_such_and_kept_whole():
+    from evals.judge import _parse
+
+    content = '```json\n{"domain_fired": "billing", "invented_data'
+    result = _parse(content, "length")
+    assert result["error"] == "truncated"
+    assert result["finish_reason"] == "length"
+    assert result["raw"] == content, "the whole response, not a 400-character glimpse"
+
+
+def test_judge_failures_are_grouped_by_kind():
+    from evals.judge import failures
+
+    judged = {
+        "001": {"error": "truncated", "raw": ""},
+        "002": {"domain_fired": "billing"},
+        "003": {"error": "truncated", "raw": ""},
+        "004": {"error": "Judge: asked for x, was served y."},
+    }
+    grouped = failures(judged)
+    assert grouped["truncated"] == ["001", "003"]
+    assert grouped["Judge"] == ["004"]
+    assert failures({"002": {"domain_fired": "billing"}}) == {}

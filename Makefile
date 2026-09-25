@@ -142,3 +142,7 @@ eval-diff: ## Per-case regressions; defaults to previous→latest, or A=<id> B=<
 .PHONY: eval-audit
 eval-audit: ## Where the deterministic assertions and the judge disagreed (§14.2)
 	$(UV) run python -m evals.run audit
+
+.PHONY: eval-judge
+eval-judge: ## Grade a run's saved transcripts again, no agent calls: RUN=<id|latest>
+	$(UV) run python -m evals.run judge --run $(or $(RUN),latest)
