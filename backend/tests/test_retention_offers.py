@@ -288,3 +288,25 @@ def test_a_case_number_is_not_split_into_a_sentence_of_its_own():
     )
     assert "00001042" not in kept
     assert kept == "There is no lock-in. Anything else?"
+
+
+async def test_an_accepted_offer_never_falls_back_to_the_model(monkeypatch):
+    """Found live: the retention case could not be written, the turn fell to
+    the model, and the model told a customer who had just accepted the offer
+    that their cancellation was recorded. Now the customer is told plainly
+    that nothing was registered."""
+
+    class DownCrm(FakeCrm):
+        async def create_handover_record(self, principal, values):
+            raise ConnectionError("CRM unreachable")
+
+    crm, offers = DownCrm(), FakeOffers()
+    convo, _ = await _cancellation_until_the_offer(monkeypatch, crm, offers)
+
+    model = scripted(monkeypatch, [AIMessage("Your cancellation request has been recorded.")])
+    reply = await convo.send("yes please")
+
+    assert model.calls == []
+    assert "cancellation request has been recorded" not in reply.text
+    assert "wasn't able to register" in reply.text
+    assert reply.status == "escalated_no_record"

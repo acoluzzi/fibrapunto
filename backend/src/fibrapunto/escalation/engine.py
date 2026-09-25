@@ -357,6 +357,8 @@ def offer_accepted(offer, result, state: ConversationState) -> str:
 def cancellation_after_offer(result, state: ConversationState, unavailable: bool) -> str:
     """The offer was declined, or could no longer be honoured: the request is
     registered, exactly as it would have been without an offer."""
+    if isinstance(result, HandoverFailed):
+        return closing_message(result, state)  # says plainly nothing was registered
     lead = (
         "I am sorry — that offer is no longer available, so I have gone ahead with your request."
         if unavailable

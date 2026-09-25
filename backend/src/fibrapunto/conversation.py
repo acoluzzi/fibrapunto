@@ -521,16 +521,17 @@ class Conversation:
                 result = await self._dispatcher.open_retention_case(
                     state, trigger, f"Retention offer accepted: {offer.title}", reason
                 )
-                return self._templated(result, lambda r, s: engine.offer_accepted(offer, r, s))
+                # Never back to the model after an accepted offer: if the case cannot
+                # be written, the customer is told so plainly (§12.4) — not handed to
+                # a model that may say their cancellation is done.
+                return engine.offer_accepted(offer, result, state)
             state.collected.offer_status = "unavailable"
             if context != "cancellation":
                 return engine.OFFER_UNAVAILABLE
             result = await self._dispatcher.open_retention_case(
                 state, cancellation, engine.subject_for(cancellation), reason
             )
-            return self._templated(
-                result, lambda r, s: engine.cancellation_after_offer(r, s, unavailable=True)
-            )
+            return engine.cancellation_after_offer(result, state, unavailable=True)
 
         state.collected.offer_status = "declined"
         if context != "cancellation":
@@ -538,9 +539,7 @@ class Conversation:
         result = await self._dispatcher.open_retention_case(
             state, cancellation, engine.subject_for(cancellation), reason
         )
-        return self._templated(
-            result, lambda r, s: engine.cancellation_after_offer(r, s, unavailable=False)
-        )
+        return engine.cancellation_after_offer(result, state, unavailable=False)
 
     async def _categorical(
         self, reply_text: str, reference_before: str | None, contract_known_before: bool

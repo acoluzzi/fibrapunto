@@ -163,11 +163,19 @@ class RuntimeCheckpointV1(BaseModel):
             prompt_sha=state.prompt_sha,
         )
 
-    def to_state(self, turns: list[tuple[str, str]]) -> ConversationState:
+    def to_state(self, turns: list[tuple]) -> ConversationState:
         """Rebuild the runtime state from this checkpoint and the stored
-        (redacted) transcript, as `(role, text)` pairs in order."""
+        (redacted) transcript: `(role, text)` or `(role, text, domain)` per
+        turn, in order. The domain matters — the cancellation rules read it."""
         f = self.facts
-        rebuilt = [Turn(role=TurnRole(role), text=text) for role, text in turns]
+        rebuilt = [
+            Turn(
+                role=TurnRole(t[0]),
+                text=t[1],
+                domain=DomainKey(t[2]) if len(t) > 2 and t[2] else None,
+            )
+            for t in turns
+        ]
         state = ConversationState(
             id=self.conversation_id,
             test_mode=self.test_mode,

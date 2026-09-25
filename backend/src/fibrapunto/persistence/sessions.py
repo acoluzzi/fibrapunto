@@ -195,17 +195,18 @@ class SessionStore:
         next_cursor = _encode_cursor(page[-1]["last_activity_at"], page[-1]["id"]) if more else None
         return items, next_cursor
 
-    async def transcript(self, conversation_id: UUID) -> list[tuple[str, str]]:
+    async def transcript(self, conversation_id: UUID) -> list[tuple[str, str, str | None]]:
+        """(role, redacted text, domain) per turn, in order."""
         rows = await self._pool.fetch(
             """
-            SELECT role::text AS role, text_redacted
+            SELECT role::text AS role, text_redacted, domain
               FROM platform.turn
              WHERE conversation_id = $1 AND purged_at IS NULL
              ORDER BY seq
             """,
             conversation_id,
         )
-        return [(r["role"], r["text_redacted"] or "") for r in rows]
+        return [(r["role"], r["text_redacted"] or "", r["domain"]) for r in rows]
 
     async def replies(self, conversation_id: UUID) -> list[dict[str, Any]]:
         rows = await self._pool.fetch(
@@ -311,7 +312,13 @@ class SessionStore:
         """Transcript, checkpoint, stored reply and activity — all or nothing."""
         snapshot = RuntimeCheckpointV1.from_state(state).model_dump(mode="json")
         new_turns = [
-            (state.id, seq, turn.role.value, *redaction.for_storage(turn.text))
+            (
+                state.id,
+                seq,
+                turn.role.value,
+                *redaction.for_storage(turn.text),
+                turn.domain.value if turn.domain else None,
+            )
             for seq, turn in enumerate(state.turns)
             if seq > lease.last_turn_seq
         ]
@@ -320,12 +327,12 @@ class SessionStore:
                 await conn.executemany(
                     """
                     INSERT INTO platform.turn
-                        (conversation_id, seq, role, text_redacted, redaction_flags)
-                    VALUES ($1, $2, $3::platform.turn_role, $4, $5::jsonb)
+                        (conversation_id, seq, role, text_redacted, redaction_flags, domain)
+                    VALUES ($1, $2, $3::platform.turn_role, $4, $5::jsonb, $6)
                     """,
                     [
-                        (cid, seq, role, text, json.dumps(flags))
-                        for cid, seq, role, text, flags in new_turns
+                        (cid, seq, role, text, json.dumps(flags), domain)
+                        for cid, seq, role, text, flags, domain in new_turns
                     ],
                 )
             moved = await conn.execute(

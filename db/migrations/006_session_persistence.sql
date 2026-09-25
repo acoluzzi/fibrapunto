@@ -25,6 +25,12 @@ ALTER TABLE platform.conversation
         REFERENCES platform.browser_principal(id) ON DELETE SET NULL,
     ADD COLUMN IF NOT EXISTS last_activity_at timestamptz NOT NULL DEFAULT now();
 
+-- Which domain each turn happened in. A rebuilt conversation needs it: the
+-- cancellation rules count the agent's turns *in the cancellation domain*, and
+-- the stated reason is the customer's words since entering it. Without it every
+-- rebuilt turn looked domain-less, and both silently stopped working.
+ALTER TABLE platform.turn ADD COLUMN IF NOT EXISTS domain text;
+
 CREATE INDEX IF NOT EXISTS conversation_principal_idx
     ON platform.conversation (browser_principal_id, last_activity_at DESC, id DESC);
 

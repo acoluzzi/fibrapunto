@@ -406,3 +406,45 @@ def test_an_unsupported_checkpoint_schema_fails_safely(monkeypatch):
         assert second.status_code == 409, "refused again, not left locked"
         assert model.calls == []
         assert not sql("SELECT 1 FROM platform.turn WHERE conversation_id = $1::uuid", cid)
+
+
+# --- rebuilt turns keep their domain ---------------------------------------------
+
+
+def test_a_cancellation_opens_by_code_across_rebuilt_turns(monkeypatch):
+    """Found live: every turn is rebuilt from the checkpoint and the stored
+    transcript, and the transcript did not keep which domain a turn was in.
+    The cancellation rules count agent turns *in the cancellation domain* and
+    take the stated reason from the customer's words since entering it — both
+    saw nothing, the case never opened by code, and the retention case after
+    an accepted offer failed for want of a reason."""
+    with backend() as client:
+        browser(client)
+        cid = new_session(client)
+        routed_to(monkeypatch, "cancellation")
+
+        scripted(monkeypatch, [AIMessage("Of course. What is your contract number?")])
+        assert turn(client, cid, "i want to close my contract, i've moved house").status_code == 200
+        scripted(
+            monkeypatch,
+            [
+                tool_call("billing_lookup", {"contract_number": "FP-2021-017350"}),
+                AIMessage("There is no lock-in on your contract. May I ask why?"),
+            ],
+        )
+        assert turn(client, cid, "FP-2021-017350").status_code == 200
+        scripted(monkeypatch, [AIMessage("Thank you for telling me.")])
+        third = turn(client, cid, "as I said, I'm moving to another city")
+
+        assert third.status_code == 200, third.text
+        rows = sql("SELECT record_type::text AS t, stated_reason FROM crm.handover_record")
+        assert len(rows) == 1 and rows[0]["t"] == "cancellation_request"
+        assert "moved house" in rows[0]["stated_reason"]
+        # A customer turn is recorded before routing, so the opening message
+        # carries the starting domain; every agent turn was in cancellation.
+        agent_domains = sql(
+            "SELECT domain FROM platform.turn"
+            " WHERE conversation_id = $1::uuid AND role = 'agent' ORDER BY seq",
+            cid,
+        )
+        assert [r["domain"] for r in agent_domains] == ["cancellation"] * 3

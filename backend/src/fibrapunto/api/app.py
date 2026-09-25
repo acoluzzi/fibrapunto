@@ -402,7 +402,9 @@ async def get_session(conversation_id: str, http: Request) -> dict[str, Any]:
     store = _store_required()
     return {
         "conversation_id": str(cid),
-        "messages": [{"role": role, "text": text} for role, text in await store.transcript(cid)],
+        "messages": [
+            {"role": role, "text": text} for role, text, _domain in await store.transcript(cid)
+        ],
         "replies": await store.replies(cid),
     }
 
