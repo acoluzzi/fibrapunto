@@ -6,6 +6,8 @@ billing_stub_mode: none
 turns:
   # Billing holds this number twice, with two service addresses.
   - user: "I'd like to check my bill, contract FP-2019-002217"
+  # The security question for FP-2019-002217 (migration 008).
+  - user: "Birba"
 expect:
   domain: billing
   # Ends correctly asking which address: waiting, not resolved.

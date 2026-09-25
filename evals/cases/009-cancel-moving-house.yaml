@@ -6,6 +6,8 @@ billing_stub_mode: none
 turns:
   - user: "I want to close my contract, I've moved house"
   - user: "FP-2024-092003"
+  # The security question for FP-2024-092003 (migration 008).
+  - user: "Torino"
 expect:
   domain: cancellation
   outcome: "handover:cancellation_request"

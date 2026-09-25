@@ -5,6 +5,8 @@ tags: [billing, routing]
 billing_stub_mode: none
 turns:
   - user: "how much do I owe for September and what does cancelling cost me? FP-2024-092003"
+  # The security question for FP-2024-092003 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

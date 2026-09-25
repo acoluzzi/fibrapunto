@@ -22,6 +22,7 @@ import structlog
 from pydantic import BaseModel
 
 from fibrapunto.capabilities.outcomes import HandoverFailed
+from fibrapunto.capabilities.preconditions import extract_contract_numbers
 from fibrapunto.credentials.store import BILLING_API_TOKEN, FileSecretStore
 from fibrapunto.domains.registry import DomainKey, get
 from fibrapunto.escalation import engine, triggers
@@ -44,6 +45,7 @@ from fibrapunto.state.models import (
     ConversationStatus,
     PendingConfirmation,
     PendingEscalation,
+    PendingVerification,
     TurnRole,
 )
 
@@ -180,7 +182,11 @@ class Conversation:
                 kinds=[k.value for k in kinds],
             )
 
-        state.record_turn(TurnRole.customer, text)
+        # The answer to a security question is checked by the database and
+        # then forgotten: it is not recorded, not stored, not sent to a model.
+        # The transcript carries a placeholder in its place (migration 008).
+        verifying = state.pending_verification is not None
+        state.record_turn(TurnRole.customer, engine.VERIFICATION_PLACEHOLDER if verifying else text)
         self.trace.emit(EventType.turn_received, turn_seq=state.turn_count)
 
         # 1. Classify. The model proposes a domain; policy decides.
@@ -188,7 +194,7 @@ class Conversation:
         pending_answer = (
             state.pending_confirmation or state.pending_escalation or state.pending_offer
         )
-        if not (pending_answer and policy.answers_read_back(text)):
+        if not verifying and not (pending_answer and policy.answers_read_back(text)):
             # The confirmation lock short-circuits before the call — a "Yes"
             # needs no classification, and skipping it saves a round trip on
             # the turn where latency is most visible.
@@ -245,16 +251,21 @@ class Conversation:
         # 2a. §12.1: the answer to an escalation offer the code made. "Yes"
         # opens the case by code; "no" is respected, and that trigger is not
         # offered again.
+        # 2v. The answer to the security question (migration 008).
+        verified_prefix: str | None = None
+        if verifying:
+            reply_text, extra_instruction, verified_prefix = await self._answer_verification(text)
+
         # 2a0. The answer to a retention offer (recommendation-system/). In a
         # cancellation the request is registered whatever the answer — taken,
         # declined or no longer available — so the offer can never delay it.
         offered = state.pending_offer
-        if offered and state.collected.offer is not None:
+        if not verifying and offered and state.collected.offer is not None:
             state.pending_offer = None
             reply_text = await self._answer_offer(text, offered.context)
 
         escalation = state.pending_escalation
-        if reply_text is None and escalation:
+        if reply_text is None and escalation and not verifying:
             if policy.is_affirmative(text):
                 state.pending_escalation = None
                 result = await self._dispatcher.open_escalation_case(state, escalation.trigger)
@@ -286,6 +297,12 @@ class Conversation:
                         else await self._dispatcher.transfer(state)
                     )
                     reply_text = engine.honour_request(result, state, transfer)
+
+        # 2v'. A contract number the CRM knows, from a customer not yet
+        # verified: the security question comes before anything else — before
+        # a lookup, a figure, a case or an offer. Asked by code, not the model.
+        if reply_text is None and not verifying:
+            reply_text = await self._challenge_if_needed(text)
 
         pending = state.pending_confirmation
         if reply_text is None and pending and not pending.satisfied:
@@ -326,6 +343,21 @@ class Conversation:
             reply_text, categorical_action = await self._categorical(
                 reply_text, reference_before, collected_before.contract_number is not None
             )
+            # A gate refused the model an unverified contract this turn (a
+            # number not seen in the customer's words before): the question
+            # replaces the reply — nothing the model said about it may stand.
+            challenge = state.pending_verification
+            if challenge and not verifying and challenge.asked_at_turn == state.turn_count:
+                reply_text = engine.verification_question(
+                    challenge.contract_number, challenge.question
+                )
+            if verified_prefix:
+                # The confirmation already thanks the customer; a model reply
+                # opening with its own "Thank you." would say it twice.
+                reply_text = re.sub(
+                    r"^\s*(?:thank you|thanks)[^.!?]*[.!?]\s*", "", reply_text, flags=re.I
+                )
+                reply_text = f"{verified_prefix} {reply_text}"
 
         # 3. §12.1: a fired trigger makes the code act, not only log. Evaluated
         # here, before the reply leaves, so the offer is part of what the
@@ -486,6 +518,7 @@ class Conversation:
             and state.collected.handover_reference is None
             and state.pending_escalation is None
             and state.pending_offer is None
+            and state.pending_verification is None
             and not read_back_pending
             and trigger is None
         )
@@ -498,6 +531,95 @@ class Conversation:
             self._dispatcher.last_handover = None
             return None
         return render(result, self.state)
+
+    async def _answer_verification(self, answer: str) -> tuple[str | None, str | None, str | None]:
+        """Check the answer. Returns (reply, extra_instruction, prefix).
+
+        Right: the contract is verified, its cases are read, and the model
+        carries on with what the customer asked — the reply opens with a short
+        confirmation. Wrong: asked again, up to three attempts, then locked for
+        this conversation with a colleague offered. A CRM that cannot check
+        fails closed: not verified, and a colleague offered.
+        """
+        state = self.state
+        pending = state.pending_verification
+        contract = pending.contract_number
+        try:
+            right = await self._dispatcher.check_answer(pending, answer)
+        except Exception as exc:  # noqa: BLE001 — cannot verify, so not verified
+            log.warning("verification.check_failed", error=str(exc))
+            state.pending_verification = None
+            self._offer_colleague_after_verification()
+            return engine.VERIFICATION_UNAVAILABLE, None, None
+
+        self.trace.emit(
+            EventType.identity_verification,
+            turn_seq=state.turn_count,
+            contract_number=contract,
+            result="verified" if right else "wrong_answer",
+            attempt=pending.attempts + 1,
+        )
+        if right:
+            state.pending_verification = None
+            state.collected.verification[contract] = "verified"
+            await self._dispatcher.load_cases(state, contract)
+            instruction = (
+                f"The customer has just been verified for contract {contract}. Carry on "
+                "with what they asked before the security question. Do not mention the "
+                "question or its answer."
+            )
+            return None, instruction, engine.VERIFIED
+
+        pending.attempts += 1
+        if pending.attempts >= 3:
+            state.pending_verification = None
+            state.collected.verification[contract] = "locked"
+            self._offer_colleague_after_verification()
+            return engine.VERIFICATION_LOCKED, None, None
+        return engine.verification_retry(pending.question), None, None
+
+    def _offer_colleague_after_verification(self) -> None:
+        trigger = triggers.TriggerKind.verification_failed.value
+        self.state.pending_escalation = PendingEscalation(
+            trigger=trigger, asked_at_turn=self.state.turn_count
+        )
+        if trigger not in self.state.escalations_offered:
+            self.state.escalations_offered.append(trigger)
+
+    async def _challenge_if_needed(self, text: str) -> str | None:
+        """Ask the security question if this message brings a contract number
+        the CRM knows and the customer is not verified for it."""
+        state = self.state
+        for contract in extract_contract_numbers(text):
+            status = state.collected.verification.get(contract)
+            if status in ("verified", "unknown"):
+                continue
+            if status == "locked":
+                return engine.VERIFICATION_LOCKED
+            try:
+                question = await self._dispatcher.question_for(contract)
+            except Exception as exc:  # noqa: BLE001 — cannot verify, so not verified
+                log.warning("verification.unavailable", error=str(exc))
+                self._offer_colleague_after_verification()
+                return engine.VERIFICATION_UNAVAILABLE
+            if question is None:
+                state.collected.verification[contract] = "unknown"
+                continue
+            key, asked = question
+            state.pending_verification = PendingVerification(
+                contract_number=contract,
+                question_key=key,
+                question=asked,
+                asked_at_turn=state.turn_count,
+            )
+            self.trace.emit(
+                EventType.identity_verification,
+                turn_seq=state.turn_count,
+                contract_number=contract,
+                result="asked",
+            )
+            return engine.verification_question(contract, asked)
+        return None
 
     async def _answer_offer(self, text: str, context: str) -> str | None:
         """Act on the customer's answer to the offer. None: let the model run."""
@@ -676,7 +798,7 @@ class Conversation:
             return reply_text, "handled_this_turn"
         if state.pending_confirmation and not state.pending_confirmation.satisfied:
             return reply_text, "read_back_pending"  # one question at a time
-        if state.pending_escalation or state.pending_offer:
+        if state.pending_escalation or state.pending_offer or state.pending_verification:
             return reply_text, "offer_pending"
         if trigger.kind.value in state.escalations_offered:
             return reply_text, "already_offered"

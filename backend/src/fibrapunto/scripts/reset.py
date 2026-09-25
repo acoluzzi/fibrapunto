@@ -70,6 +70,20 @@ async def reset(conn: asyncpg.Connection) -> dict[str, int]:
                 customer["email"],
                 customer["phone"],
             )
+            # Hashed on the way in (migration 008): the plain answer lives only
+            # in the fixture, never in the database.
+            for key, secret in (customer.get("security") or {}).items():
+                await conn.execute(
+                    """
+                    INSERT INTO crm.security_answer
+                        (customer_id, question_key, question, answer_hash)
+                    VALUES ($1, $2, $3, crypt(crm.normalise_answer($4), gen_salt('bf')))
+                    """,
+                    customer_ids[customer["key"]],
+                    key,
+                    secret["question"],
+                    secret["answer"],
+                )
 
         for contract in fixtures["contracts"]:
             await conn.execute(

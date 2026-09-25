@@ -5,6 +5,8 @@ tags: [billing, dirty_input]
 billing_stub_mode: none
 turns:
   - user: "helo i dont understand why yuo took the mony and then gaev it back fp-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

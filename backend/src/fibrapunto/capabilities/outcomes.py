@@ -213,6 +213,11 @@ class HandoverCreated(BaseModel):
     guidance: str = InternalOnly(
         "Operating instruction for the reasoning layer.", default=_CLOSING_IS_TEMPLATED
     )
+    existing: bool = InternalOnly(
+        "True when this is a case already open on the contract, from another "
+        "conversation, reused rather than duplicated.",
+        default=False,
+    )
 
 
 class HandoverCreatedWithoutContractLink(BaseModel):
@@ -226,6 +231,7 @@ class HandoverCreatedWithoutContractLink(BaseModel):
     reference: str = CustomerVisible("The case number.")
     queue_label: str = CustomerVisible("The team picking it up.")
     response_window: str = CustomerVisible("When they will be contacted by.")
+    existing: bool = InternalOnly("A case already open on the contract, reused.", default=False)
     guidance: str = InternalOnly(
         "Operating instruction for the reasoning layer.",
         default=(
@@ -289,6 +295,23 @@ class HandoverAwaitingConfirmation(BaseModel):
     )
 
 
+class VerificationRequired(BaseModel):
+    """The contract belongs to a customer who has not been verified in this
+    conversation. Nothing about it is looked up or done until they are — the
+    system asks the security question itself, right after this reply."""
+
+    outcome: Literal["verificationRequired"] = "verificationRequired"
+    guidance: str = InternalOnly(
+        "Operating instruction for the reasoning layer.",
+        default=(
+            "The customer's identity has not been verified yet. Do not share or "
+            "look up anything about the account and do not open a case. The "
+            "system asks them a security question right after your reply; do not "
+            "ask it yourself and do not mention security questions."
+        ),
+    )
+
+
 class RetentionOfferFirst(BaseModel):
     """§4.2 as amended: an offer from the recommendation system is put to the
     customer before the cancellation is registered. Code presents it right
@@ -318,5 +341,6 @@ HANDOVER_OUTCOMES: frozenset[str] = frozenset(
         "failed",
         "awaitingConfirmation",
         "retentionOfferFirst",
+        "verificationRequired",
     }
 )

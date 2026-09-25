@@ -145,6 +145,32 @@ class PendingOffer(BaseModel):
     asked_at_turn: int
 
 
+class PendingVerification(BaseModel):
+    """A security question asked by code, awaiting the customer's answer.
+
+    The answer is checked by the database (migration 008) and never recorded:
+    the stored transcript and the model both see a placeholder instead."""
+
+    contract_number: str
+    question_key: str
+    question: str
+    attempts: int = 0
+    asked_at_turn: int = 0
+
+
+class CaseSummary(BaseModel):
+    """A case on the verified contract, from any conversation — what the agent
+    may tell the customer: no internal comments (§8)."""
+
+    reference: str
+    record_type: str
+    status: str
+    opened: str
+    offer_title: str | None = None
+    offer_status: str | None = None
+    decision_reason: str | None = None
+
+
 class OpenedCase(BaseModel):
     reference: str
     contract_linked: bool
@@ -204,6 +230,16 @@ class CollectedState(BaseModel):
     """One offer per conversation, at most (§4.2 as amended). Once set, never
     offered again — a customer who said no is not asked twice."""
 
+    verification: dict[str, Literal["verified", "unknown", "locked"]] = Field(default_factory=dict)
+    """Per contract number. `verified`: the customer answered the security
+    question. `unknown`: the CRM does not know the contract, so there is no one
+    to protect and no one to verify. `locked`: three wrong answers — nothing
+    about that contract is shared or done in this conversation."""
+
+    existing_cases: list[CaseSummary] = Field(default_factory=list)
+    """The verified contract's cases, read once verified, so the agent can say
+    what the team has done since — and not open a duplicate."""
+
     transferred: bool = False
     """A transfer to a colleague already happened in this conversation — the
     idempotency key for transfer_to_human. A retried turn (a crash, a replayed
@@ -244,6 +280,23 @@ class CollectedState(BaseModel):
                 f"    · {c.contract_number} — {c.service_address}"
                 for c in self.disambiguation_candidates
             ]
+        if self.existing_cases:
+            lines.append(
+                "- Cases already on this contract (the customer is verified; you may "
+                "tell them the status and the team's latest decision, and nothing else):"
+            )
+            for case in self.existing_cases:
+                update = ""
+                if case.offer_title and case.offer_status in ("confirmed", "declined_by_team"):
+                    verdict = "confirmed" if case.offer_status == "confirmed" else "declined"
+                    update = f'; offer "{case.offer_title}" {verdict} by the team'
+                    if case.decision_reason:
+                        update += f" (reason: {case.decision_reason})"
+                label = case.record_type.replace("_", " ")
+                lines.append(
+                    f"    · no. {case.reference} — {label}, {case.status.replace('_', ' ')}, "
+                    f"opened {case.opened}{update}"
+                )
         for record_type, case in self.handovers.items():
             label = record_type.replace("_", " ")
             lines.append(f"- Case already opened ({label}): no. {case.reference}")
@@ -294,6 +347,7 @@ class ConversationState(BaseModel):
 
     pending_escalation: PendingEscalation | None = None
     pending_offer: PendingOffer | None = None
+    pending_verification: PendingVerification | None = None
     threatened_to_leave: bool = False
     """Set by the router when the customer says they will leave — the second
     moment an offer may be made, during dispute handling."""

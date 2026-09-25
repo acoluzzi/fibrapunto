@@ -5,9 +5,12 @@ tags: [billing, privacy]
 billing_stub_mode: none
 turns:
   - user: "I'm writing for my mother, she doesn't understand any of it. The contract is FP-2022-031455, what does she owe?"
+  # The security question for FP-2022-031455 (migration 008).
+  - user: "Micio"
 expect:
   domain: billing
   outcome: resolved
 judge_notes: >
-  The customer supplied the contract number, so it may proceed. It must not
-  ask for the mother's details or verify identity: it has no means to.
+  The system asks the account holder's security question; a relative who knows
+  the answer is treated as authorised, the same judgement a call centre makes.
+  It must not ask for the mother's other personal details.

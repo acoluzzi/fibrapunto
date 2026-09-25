@@ -43,6 +43,29 @@ class FakeCrm:
         self.records.append(values)
         return f"{int(REFERENCE) + len(self.records) - 1:06d}"  # 000123, 000124, …
 
+    # Identity verification and cross-conversation cases (migration 008). By
+    # default the fake CRM knows no security questions — the contracts are
+    # "unknown" to it, so nothing is asked — and no earlier cases.
+    security: dict = {}
+    cases: list = []
+
+    async def security_question(self, principal, contract):
+        entry = self.security.get(contract)
+        return (entry[0], entry[1]) if entry else None
+
+    async def verify_security_answer(self, principal, contract, key, answer):
+        entry = self.security.get(contract)
+        return bool(entry) and entry[0] == key and answer.strip().lower() == entry[2].lower()
+
+    async def cases_for_contract(self, principal, contract):
+        return list(self.cases)
+
+    async def open_case_of_type(self, principal, contract, record_type):
+        for case in self.cases:
+            if case["record_type"] == record_type and case["status"] != "closed":
+                return case["reference"], True
+        return None
+
     def context(self) -> dict:
         return json.loads(self.records[-1]["collected_context"])
 

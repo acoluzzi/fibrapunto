@@ -94,8 +94,20 @@ payment method — is human work.
 
 **Out of scope, structurally.** The agent has no memory across conversations. It cannot
 identify a customer except through a contract number the customer supplies in that
-conversation. It never writes to the contract record. These are not gaps to be closed later
+conversation, confirmed by a personal security question the platform asks and checks
+(below). It never writes to the contract record. These are not gaps to be closed later
 without a decision; each one is load-bearing and is argued for where it appears.
+
+**Verification before anything is shared or done.** A contract number is printed on every
+invoice, so knowing it does not make someone the customer. Before any billing figure, case,
+offer or case history is shared — and before any case is opened — the platform asks the
+account holder's security question ("the name of your first pet") and checks the answer in
+the CRM, where the answers are stored hashed and unreadable to the agent. The answer is
+never recorded or shown to the model. Three wrong answers lock that contract for the
+conversation and offer a colleague. An explicit request for a person is still honoured at
+once (§12.1); the colleague verifies the customer. Once verified, the agent may tell the
+customer about the contract's existing cases and the team's decisions, and a new request of
+the same type reuses the open case rather than duplicating it.
 
 **Browser-level continuity.** The agent still has no cross-conversation memory. The platform
 now remembers which conversations belong to an anonymous browser so they can be resumed.
@@ -135,7 +147,8 @@ made by the system, not an `if` buried in a prompt.
 **Instructions**
 
 1. Always ask for the contract number before looking up any billing information, and never
-   disclose data for a contract the customer has not provided.
+   disclose data for a contract the customer has not provided — nor for one they have not
+   been verified for (§3).
 2. Call the billing lookup only after the customer has provided a contract number in the
    format `FP-YYYY-NNNNNN`. If the format is wrong, ask once more, then offer a human.
 3. If the lookup returns more than one contract, ask the customer to confirm by service

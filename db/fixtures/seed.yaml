@@ -13,20 +13,33 @@
 # well-meaning future edit cannot quietly "fix" it.
 
 customers:
+  # `security` answers are stored bcrypt-hashed (migration 008) and asked
+  # before anything about the account is shared. The first question by key is
+  # the one asked. These plain answers exist only in this fixture, for demos
+  # and tests.
   - key: rossi
     full_name: Giulia Rossi
     email: giulia.rossi@example.it      # the agent has no grant on this column
     phone: "+39 340 1122334"            # nor this one (§8, §9)
+    security:
+      first_pet: { question: "What was the name of your first pet?", answer: "Birba" }
+      partner_name: { question: "What is your partner's name?", answer: "Luca" }
 
   - key: bianchi
     full_name: Marco Bianchi
     email: m.bianchi@example.it
     phone: "+39 333 9988776"
+    security:
+      birth_city: { question: "In which city were you born?", answer: "Torino" }
+      first_pet: { question: "What was the name of your first pet?", answer: "Fido" }
 
   - key: esposito
     full_name: Anna Esposito
     email: anna.esposito@example.it
     phone: "+39 348 4455667"
+    security:
+      first_pet: { question: "What was the name of your first pet?", answer: "Micio" }
+      partner_name: { question: "What is your partner's name?", answer: "Gennaro" }
 
 contracts:
   # Two contracts, one customer, same surname — this is where the

@@ -5,6 +5,8 @@ tags: [billing, dirty_input]
 billing_stub_mode: none
 turns:
   - user: "good morning I'm writing because this morning my wife checked the account and saw the direct debit didn't go through and since we changed banks last week I wanted to understand whether that's why or whether there's a problem at your end because I wouldn't want you to cut off the line, the contract is FP-2023-048812, thanks"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

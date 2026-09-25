@@ -99,6 +99,18 @@ def turn(client: TestClient, cid: str, text: str, client_turn_id: str | None = N
     )
 
 
+# The seeded security answers (db/fixtures/seed.yaml): the first question by
+# key is the one asked.
+ANSWERS = {"FP-2023-048812": "Torino", "FP-2021-017350": "Birba"}
+
+
+def verify(client: TestClient, cid: str, contract: str) -> None:
+    """The contract turn got the security question; answer it."""
+    response = turn(client, cid, ANSWERS[contract])
+    assert response.status_code == 200, response.text
+    assert response.json()["text"].startswith("Thank you, that's confirmed."), response.json()
+
+
 def looked_up(monkeypatch):
     routed_to(monkeypatch, "billing")
     return scripted(
@@ -118,7 +130,9 @@ def test_a_session_survives_a_backend_restart(monkeypatch):
         browser(client)
         cid = new_session(client)
         looked_up(monkeypatch)
-        assert turn(client, cid, f"payment refused, {CONTRACT}").status_code == 200
+        asked = turn(client, cid, f"payment refused, {CONTRACT}").json()
+        assert "need to check that it's you" in asked["text"]
+        verify(client, cid, CONTRACT)
         cookies = client.cookies
 
     with backend(cookies) as client:
@@ -133,8 +147,10 @@ def test_a_session_survives_a_backend_restart(monkeypatch):
         assert response.json()["contract_number"] == CONTRACT
 
         restored = client.get(f"/api/sessions/{cid}").json()
-        assert [m["role"] for m in restored["messages"]] == ["customer", "agent"] * 2
-        assert len(restored["replies"]) == 2
+        assert [m["role"] for m in restored["messages"]] == ["customer", "agent"] * 3
+        assert len(restored["replies"]) == 3
+        # The security answer was never stored.
+        assert ANSWERS[CONTRACT] not in json.dumps(restored)
 
 
 # --- 2 & 3. ownership --------------------------------------------------------
@@ -194,14 +210,16 @@ def test_a_retried_client_turn_id_does_not_call_the_model_twice(monkeypatch):
         model = looked_up(monkeypatch)
         client_turn_id = str(uuid4())
 
-        first = turn(client, cid, f"payment refused, {CONTRACT}", client_turn_id)
+        verify_first = turn(client, cid, f"payment refused, {CONTRACT}")
+        assert "need to check that it's you" in verify_first.json()["text"]
+        first = turn(client, cid, ANSWERS[CONTRACT], client_turn_id)
         calls = len(model.calls)
-        again = turn(client, cid, f"payment refused, {CONTRACT}", client_turn_id)
+        again = turn(client, cid, ANSWERS[CONTRACT], client_turn_id)
 
         assert again.status_code == 200
         assert len(model.calls) == calls, "the stored reply, not a second model call"
         assert again.json()["text"] == first.json()["text"]
-        assert len(client.get(f"/api/sessions/{cid}").json()["messages"]) == 2
+        assert len(client.get(f"/api/sessions/{cid}").json()["messages"]) == 4
 
         different = turn(client, cid, "something else entirely", client_turn_id)
         assert different.status_code == 409
@@ -311,6 +329,13 @@ def test_a_checkpoint_holds_no_transcript_and_no_sensitive_value(monkeypatch):
         )
         message = f"the €29.90 charge is wrong, use my IBAN {IBAN} instead, {CONTRACT}"
         assert turn(client, cid, message).status_code == 200
+        verify(client, cid, CONTRACT)
+        stored = sql(
+            "SELECT text_redacted FROM platform.turn WHERE conversation_id = $1::uuid", cid
+        )
+        assert all(ANSWERS[CONTRACT] not in (r["text_redacted"] or "") for r in stored), (
+            "the security answer is never recorded"
+        )
 
     row = sql(
         "SELECT state_json::text AS j FROM platform.conversation_checkpoint"
@@ -346,6 +371,7 @@ def test_retention_purges_transcript_and_checkpoint_together(monkeypatch):
         cid = new_session(client)
         looked_up(monkeypatch)
         assert turn(client, cid, f"payment refused, {CONTRACT}").status_code == 200
+        verify(client, cid, CONTRACT)
 
         sql(
             "UPDATE platform.conversation SET retention_until = now() - interval '1 second'"
@@ -425,6 +451,7 @@ def test_a_cancellation_opens_by_code_across_rebuilt_turns(monkeypatch):
 
         scripted(monkeypatch, [AIMessage("Of course. What is your contract number?")])
         assert turn(client, cid, "i want to close my contract, i've moved house").status_code == 200
+        assert turn(client, cid, "FP-2021-017350").status_code == 200  # the question
         scripted(
             monkeypatch,
             [
@@ -432,7 +459,7 @@ def test_a_cancellation_opens_by_code_across_rebuilt_turns(monkeypatch):
                 AIMessage("There is no lock-in on your contract. May I ask why?"),
             ],
         )
-        assert turn(client, cid, "FP-2021-017350").status_code == 200
+        verify(client, cid, "FP-2021-017350")
         scripted(monkeypatch, [AIMessage("Thank you for telling me.")])
         third = turn(client, cid, "as I said, I'm moving to another city")
 
@@ -447,7 +474,7 @@ def test_a_cancellation_opens_by_code_across_rebuilt_turns(monkeypatch):
             " WHERE conversation_id = $1::uuid AND role = 'agent' ORDER BY seq",
             cid,
         )
-        assert [r["domain"] for r in agent_domains] == ["cancellation"] * 3
+        assert [r["domain"] for r in agent_domains] == ["cancellation"] * 4
 
 
 # --- a colleague decides on an accepted offer ------------------------------------
@@ -492,6 +519,7 @@ def _accepted_offer(monkeypatch, client) -> tuple[str, str, list]:
     routed_to(monkeypatch, "cancellation")
     scripted(monkeypatch, [AIMessage("Of course. What is your contract number?")])
     turn(client, cid, "i want to close my contract, i've moved house")
+    turn(client, cid, "FP-2021-017350")  # the security question
     scripted(
         monkeypatch,
         [
@@ -499,7 +527,7 @@ def _accepted_offer(monkeypatch, client) -> tuple[str, str, list]:
             AIMessage("There is no lock-in on your contract."),
         ],
     )
-    turn(client, cid, "FP-2021-017350")
+    verify(client, cid, "FP-2021-017350")
     # The offer comes on the turn after the agent has the contract in hand.
     scripted(monkeypatch, [AIMessage("Thank you for telling me.")])
     offered = turn(client, cid, "I'm moving to another city").json()

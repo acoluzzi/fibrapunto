@@ -6,6 +6,8 @@ billing_stub_mode: none
 turns:
   - user: "payment refused, contract FP-23-4881"
   - user: "oh sorry, FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

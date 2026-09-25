@@ -191,6 +191,87 @@ class CrmGateway:
             except asyncpg.InsufficientPrivilegeError as exc:
                 raise self._as_field_denial(principal, "handover_record", "create", exc) from exc
 
+    # --- identity verification (migration 008) --------------------------------
+    #
+    # Two functions the agent's role may EXECUTE and nothing else: the answers
+    # table is unreadable to it. Not in the policy file's entity list because
+    # they are not columns; the database grant is the whole perimeter here.
+
+    async def security_question(
+        self, principal: Principal, contract_number: str
+    ) -> tuple[str, str] | None:
+        """(question_key, question) to ask for this contract, or None if the
+        CRM does not know the contract."""
+        faults.fail_if_down("crm")
+        row = await self._fetchrow(
+            principal,
+            "SELECT question_key, question FROM crm.security_question($1)",
+            contract_number,
+            entity="contract",
+        )
+        return (row["question_key"], row["question"]) if row else None
+
+    async def verify_security_answer(
+        self, principal: Principal, contract_number: str, question_key: str, answer: str
+    ) -> bool:
+        faults.fail_if_down("crm")
+        async with self._pool.acquire() as conn:
+            return bool(
+                await conn.fetchval(
+                    "SELECT crm.verify_security_answer($1, $2, $3)",
+                    contract_number,
+                    question_key,
+                    answer,
+                )
+            )
+
+    # --- cases across conversations --------------------------------------------
+
+    async def cases_for_contract(
+        self, principal: Principal, contract_number: str
+    ) -> list[dict[str, Any]]:
+        """This contract's cases, newest first, as the agent may see them — no
+        internal comments (§8). Read only after the customer is verified."""
+        columns = ("reference", "record_type", "status", "created_at", "collected_context")
+        principal.check("handover_record", "read", columns)
+        faults.fail_if_down("crm")
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT reference, record_type::text AS record_type, status::text AS status,
+                       created_at, collected_context->'retention_offer' AS offer
+                  FROM crm.handover_record
+                 WHERE contract_number = $1 OR claimed_contract_number = $1
+                 ORDER BY created_at DESC
+                 LIMIT 10
+                """,
+                contract_number,
+            )
+        return [dict(r) for r in rows]
+
+    async def open_case_of_type(
+        self, principal: Principal, contract_number: str, record_type: str
+    ) -> tuple[str, bool] | None:
+        """An open case of this type on this contract, from any conversation:
+        (reference, contract_linked). Reused rather than duplicated."""
+        principal.check("handover_record", "read", ("reference", "contract_link_missing", "status"))
+        faults.fail_if_down("crm")
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT reference, contract_link_missing
+                  FROM crm.handover_record
+                 WHERE (contract_number = $1 OR claimed_contract_number = $1)
+                   AND record_type = $2::crm.handover_type
+                   AND status <> 'closed'
+                 ORDER BY created_at DESC
+                 LIMIT 1
+                """,
+                contract_number,
+                record_type,
+            )
+        return (row["reference"], not row["contract_link_missing"]) if row else None
+
     # --- internals -----------------------------------------------------------
 
     async def _fetchrow(

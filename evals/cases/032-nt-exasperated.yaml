@@ -5,6 +5,8 @@ tags: [billing, distress]
 billing_stub_mode: timeout
 turns:
   - user: "this is the third time I've written and nobody answers!! FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

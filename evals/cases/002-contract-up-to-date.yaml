@@ -6,6 +6,8 @@ billing_stub_mode: none
 turns:
   - user: "I wanted to check whether I paid the September bill"
   - user: "FP-2023-048712"
+  # The security question for FP-2023-048712 (migration 008).
+  - user: "Birba"
 expect:
   domain: billing
   outcome: resolved

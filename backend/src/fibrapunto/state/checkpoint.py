@@ -35,6 +35,7 @@ from fibrapunto.domains.registry import DomainKey
 from fibrapunto.privacy import redaction
 from fibrapunto.state.models import (
     BillingFacts,
+    CaseSummary,
     CollectedState,
     ContractCandidate,
     ConversationState,
@@ -44,6 +45,7 @@ from fibrapunto.state.models import (
     PendingConfirmation,
     PendingEscalation,
     PendingOffer,
+    PendingVerification,
     Turn,
     TurnRole,
 )
@@ -73,6 +75,8 @@ class CheckpointFacts(BaseModel):
     handovers: dict[str, OpenedCase] = Field(default_factory=dict)
     offer: OfferFacts | None = None
     offer_status: str | None = None
+    verification: dict[str, str] = Field(default_factory=dict)
+    existing_cases: list[CaseSummary] = Field(default_factory=list)
     transferred: bool = False
     sensitive_data_seen: list[str] = Field(default_factory=list)
 
@@ -96,6 +100,7 @@ class RuntimeCheckpointV1(BaseModel):
     pending_confirmation: PendingConfirmation | None = None
     pending_escalation: PendingEscalation | None = None
     pending_offer: PendingOffer | None = None
+    pending_verification: PendingVerification | None = None
     threatened_to_leave: bool = False
     escalations_offered: list[str] = Field(default_factory=list)
     counters: Counters
@@ -139,12 +144,15 @@ class RuntimeCheckpointV1(BaseModel):
                 handovers=dict(c.handovers),
                 offer=c.offer,
                 offer_status=c.offer_status,
+                verification=dict(c.verification),
+                existing_cases=list(c.existing_cases),
                 transferred=c.transferred,
                 sensitive_data_seen=list(c.sensitive_data_seen),
             ),
             pending_confirmation=pending,
             pending_escalation=state.pending_escalation,
             pending_offer=state.pending_offer,
+            pending_verification=state.pending_verification,
             threatened_to_leave=state.threatened_to_leave,
             escalations_offered=list(state.escalations_offered),
             counters=Counters(
@@ -197,12 +205,15 @@ class RuntimeCheckpointV1(BaseModel):
                 handovers=dict(f.handovers),
                 offer=f.offer,
                 offer_status=f.offer_status,
+                verification=dict(f.verification),
+                existing_cases=list(f.existing_cases),
                 transferred=f.transferred,
                 sensitive_data_seen=list(f.sensitive_data_seen),
             ),
             pending_confirmation=self.pending_confirmation,
             pending_escalation=self.pending_escalation,
             pending_offer=self.pending_offer,
+            pending_verification=self.pending_verification,
             threatened_to_leave=self.threatened_to_leave,
             escalations_offered=list(self.escalations_offered),
             terse=self.terse,

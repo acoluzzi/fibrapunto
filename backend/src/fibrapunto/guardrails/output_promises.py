@@ -97,6 +97,8 @@ def check(reply: str, state: ConversationState) -> list[str]:
     # The guard is the backstop for the structural rule — the reference comes
     # from the database, so any *other* number presented as one is invented.
     actual = {case.reference for case in state.collected.handovers.values()}
+    # Cases already on the verified contract are real too, and may be named.
+    actual |= {case.reference for case in state.collected.existing_cases}
     for match in _REFERENCE.finditer(reply):
         if match.group(1) not in actual:
             problems.append(f"case number that does not exist: {match.group(1)}")

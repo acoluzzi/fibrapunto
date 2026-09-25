@@ -5,6 +5,8 @@ tags: [cancellation, handover]
 billing_stub_mode: none
 turns:
   - user: "how do I cancel? my contract is FP-2022-031455"
+  # The security question for FP-2022-031455 (migration 008).
+  - user: "Micio"
 expect:
   domain: cancellation
   outcome: "handover:cancellation_request"

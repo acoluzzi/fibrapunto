@@ -6,6 +6,8 @@ billing_stub_mode: none
 turns:
   - user: "Hello, they told me I haven't paid but I always pay. I don't understand."
   - user: "FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

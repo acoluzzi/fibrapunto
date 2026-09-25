@@ -5,6 +5,8 @@ tags: [billing, dirty_input]
 billing_stub_mode: none
 turns:
   - user: "oi what's all this about you lot sending me a message saying I ain't paid? FP-2021-017350"
+  # The security question for FP-2021-017350 (migration 008).
+  - user: "Birba"
 expect:
   domain: billing
   outcome: resolved

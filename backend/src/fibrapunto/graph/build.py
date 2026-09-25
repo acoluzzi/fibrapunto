@@ -27,6 +27,7 @@ from pydantic import BaseModel, Field
 
 from fibrapunto.capabilities.billing_lookup import DESCRIPTION, INPUT_DESCRIPTION
 from fibrapunto.domains.registry import CapabilityName, Domain, DomainKey
+from fibrapunto.escalation import engine
 from fibrapunto.llm.chat import ainvoke, build_chat_model, served_model
 from fibrapunto.llm.registry import ModelRole
 from fibrapunto.state.models import ConversationState
@@ -176,6 +177,10 @@ def build_messages(domain: Domain, state: ConversationState) -> list[BaseMessage
     messages.append(SystemMessage(content="\n\n".join(volatile)))
 
     for turn in state.turns:
+        # The security-question exchange is the platform's, not conversation
+        # to continue — and the answer is never shown to the model at all.
+        if engine.is_verification_exchange(turn.text):
+            continue
         messages.append(
             HumanMessage(turn.text) if turn.role.value == "customer" else AIMessage(turn.text)
         )

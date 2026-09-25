@@ -97,6 +97,27 @@ async def create_handover_record(
         )
         return _existing(opened, route)
 
+    # One open case per type per *contract*, not just per conversation: a
+    # customer who comes back tomorrow about the same request gets the case
+    # they already have, not a second one for the same team (§13's reopen
+    # metric). Only reached for a verified contract — the gate before this
+    # capability sees to that — so naming the existing case discloses nothing.
+    if state.collected.contract_number:
+        found = await gateway.open_case_of_type(
+            principal, state.collected.contract_number, route.record_type
+        )
+        if found:
+            reference, linked = found
+            log.info(
+                "handover.reused_open_case", reference=reference, record_type=route.record_type
+            )
+            state.collected.handover_reference = reference
+            state.collected.handovers[route.record_type] = OpenedCase(
+                reference=reference, contract_linked=linked
+            )
+            reused = _existing(state.collected.handovers[route.record_type], route)
+            return reused.model_copy(update={"existing": True})
+
     if stated_reason:
         state.collected.stated_reason = stated_reason
     if disputed_point:

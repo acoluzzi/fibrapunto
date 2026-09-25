@@ -5,6 +5,8 @@ tags: [billing, dispute, handover]
 billing_stub_mode: none
 turns:
   - user: "I got a text, payment refused. FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
   - user: "€29.90 is not right, my plan is €24.90. I want the difference refunded."
   - user: "Yes, that's correct"
 expect:

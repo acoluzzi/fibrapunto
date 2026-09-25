@@ -5,6 +5,8 @@ tags: [billing]
 billing_stub_mode: none
 turns:
   - user: "Good morning, I got a message and I'm afraid they'll cut off my phone. What should I do? FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

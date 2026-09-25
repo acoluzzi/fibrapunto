@@ -40,6 +40,7 @@ from fibrapunto.capabilities.outcomes import (
     HandoverCreatedWithoutContractLink,
     HandoverFailed,
     RetentionOfferFirst,
+    VerificationRequired,
 )
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.capabilities.transfer_to_human import (
@@ -56,11 +57,13 @@ from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import Principal, svc_agent
 from fibrapunto.state.models import (
     BillingFacts,
+    CaseSummary,
     ContractCandidate,
     ConversationState,
     OfferFacts,
     PendingConfirmation,
     PendingOffer,
+    PendingVerification,
 )
 
 log = structlog.get_logger(__name__)
@@ -136,6 +139,11 @@ class ToolDispatcher:
 
         match name:
             case "billing_lookup":
+                number = (args.get("contract_number") or "").strip().upper()
+                if await self.needs_verification(state, number):
+                    # §4.1 as amended: nothing about a customer's account is
+                    # looked up before they are verified.
+                    return VerificationRequired().model_dump(mode="json")
                 result = await billing_lookup(
                     args.get("contract_number", ""),
                     client=self._billing,
@@ -295,6 +303,80 @@ class ToolDispatcher:
             disputed_point=None,
         )
 
+    # --- identity verification (migration 008) -------------------------------
+
+    async def needs_verification(self, state: ConversationState, contract: str) -> bool:
+        """True if `contract` is a customer's the CRM knows and they are not
+        verified in this conversation. Starts the question if none is pending.
+
+        Fails closed: a CRM that cannot answer means "not verified". With no
+        CRM wired at all (a test harness), there is nothing to verify against.
+        """
+        if not contract:
+            return False
+        status = state.collected.verification.get(contract)
+        if status in ("verified", "unknown"):
+            return False
+        if status == "locked":
+            return True
+        if self._gateway is None:
+            return False
+        try:
+            question = await self._gateway.security_question(self._principal, contract)
+        except Exception as exc:  # noqa: BLE001 — cannot verify, so not verified
+            log.warning("verification.unavailable", error=str(exc))
+            return True
+        if question is None:
+            state.collected.verification[contract] = "unknown"
+            return False
+        if state.pending_verification is None:
+            key, text = question
+            state.pending_verification = PendingVerification(
+                contract_number=contract,
+                question_key=key,
+                question=text,
+                asked_at_turn=state.turn_count,
+            )
+        return True
+
+    async def question_for(self, contract: str) -> tuple[str, str] | None:
+        """The question to ask, None if the CRM does not know the contract.
+        Raises if the CRM cannot be reached — the caller fails closed."""
+        if self._gateway is None:
+            return None
+        return await self._gateway.security_question(self._principal, contract)
+
+    async def check_answer(self, pending: PendingVerification, answer: str) -> bool:
+        return await self._gateway.verify_security_answer(
+            self._principal, pending.contract_number, pending.question_key, answer
+        )
+
+    async def load_cases(self, state: ConversationState, contract: str) -> None:
+        """The verified contract's cases, for the agent to report on (§12.2)."""
+        if self._gateway is None:
+            return
+        try:
+            rows = await self._gateway.cases_for_contract(self._principal, contract)
+        except Exception as exc:  # noqa: BLE001 — a missing history is not a failure
+            log.warning("cases.lookup_failed", error=str(exc))
+            return
+        summaries = []
+        for row in rows:
+            offer = row.get("offer")
+            offer = json.loads(offer) if isinstance(offer, str) else (offer or {})
+            summaries.append(
+                CaseSummary(
+                    reference=row["reference"],
+                    record_type=row["record_type"],
+                    status=row["status"],
+                    opened=f"{row['created_at']:%d %B %Y}",
+                    offer_title=offer.get("title"),
+                    offer_status=offer.get("status"),
+                    decision_reason=offer.get("decision_reason"),
+                )
+            )
+        state.collected.existing_cases = summaries
+
     async def _open_case(
         self,
         state: ConversationState,
@@ -306,6 +388,19 @@ class ToolDispatcher:
         disputed_point: str | None,
     ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
         self.last_trigger = trigger
+        # Nothing is registered for a customer the CRM knows until they are
+        # verified — except what §12.1 says is honoured at once: an explicit
+        # request for a person, and the colleague offered after a failed
+        # verification. Neither carries account data the customer was not
+        # verified for.
+        exempt = {
+            triggers.TriggerKind.human_requested.value,
+            triggers.TriggerKind.verification_failed.value,
+        }
+        contract = state.collected.contract_number
+        if trigger not in exempt and contract and await self.needs_verification(state, contract):
+            self.last_handover = None
+            return HandoverFailed(missing_fields=["identity_verification"])
         if self._gateway is None:
             # No CRM connection. §12.4: say it could not be registered rather
             # than claiming it was.

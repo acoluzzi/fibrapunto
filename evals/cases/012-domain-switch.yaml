@@ -6,6 +6,8 @@ billing_stub_mode: none
 turns:
   - user: "I got a text about a refused payment"
   - user: "FP-2024-092003"
+  # The security question for FP-2024-092003 (migration 008).
+  - user: "Torino"
   - user: "actually, look, I want to cancel — I'm tired of these problems"
 expect:
   domain: billing

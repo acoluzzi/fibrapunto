@@ -53,6 +53,16 @@ def closing_message(
     company either can or cannot keep, and §12.4 turns on saying exactly which.
     """
     match result:
+        case HandoverCreated() if result.existing:
+            # A case already open on this contract, from another conversation:
+            # the same case, not a second one for the same team.
+            return _with_availability(
+                f"This is already registered as case no. {result.reference}. "
+                f"{_sentence_case(result.queue_label)} will get back to you "
+                f"{result.response_window}.",
+                state,
+            )
+
         case HandoverCreated():
             body = (
                 f"I've opened case no. {result.reference}. "
@@ -215,6 +225,7 @@ _SUBJECT = {
     TriggerKind.human_requested: "Customer asked to speak to a person",
     TriggerKind.categorical_cancellation: "Cancellation request",
     TriggerKind.categorical_payment_change: "Change of payment method requested",
+    TriggerKind.verification_failed: "Customer could not be verified in chat",
 }
 
 _REQUEST_PHRASE = {
@@ -368,6 +379,50 @@ def cancellation_after_offer(result, state: ConversationState, unavailable: bool
 
 
 OFFER_UNAVAILABLE = "I am sorry — that offer is no longer available."
+
+
+# --- identity verification (migration 008) -------------------------------------
+#
+# Written here, not by the model: the model never sees the question's answer,
+# and never decides whether the customer is who they say.
+
+VERIFICATION_PLACEHOLDER = "[answer to the security question — not recorded]"
+VERIFIED = "Thank you, that's confirmed."
+
+
+def verification_question(contract: str, question: str) -> str:
+    return f"Before I look into contract {contract}, I need to check that it's you. {question}"
+
+
+def verification_retry(question: str) -> str:
+    return f"That doesn't match our records. Please try again: {question}"
+
+
+def is_verification_exchange(text: str) -> bool:
+    """A turn of the security-question exchange: the question, a retry, or
+    the placeholder standing for the answer.
+
+    Not conversation the model should continue. Shown the exchange, the model
+    copied it — after a wrong answer and then the right one, it asked the
+    question again. Recognised by the templates above, so it holds for turns
+    rebuilt from storage too."""
+    return (
+        text == VERIFICATION_PLACEHOLDER
+        or text.startswith("That doesn't match our records. Please try again:")
+        or (text.startswith("Before I look into contract ") and "check that it's you" in text)
+    )
+
+
+VERIFICATION_LOCKED = (
+    "I'm sorry — I couldn't confirm that it's you, so I can't share account details or "
+    "register requests for this contract in this chat. A colleague can check your "
+    "identity another way. Would you like me to open a case?"
+)
+
+VERIFICATION_UNAVAILABLE = (
+    "I can't check your identity right now, so I can't share account details or register "
+    "requests in this chat. A colleague can help instead. Would you like me to open a case?"
+)
 
 
 def offer_confirmed(title: str, reference: str) -> str:

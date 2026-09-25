@@ -113,7 +113,8 @@ async def test_the_reference_comes_from_the_database(gateway, clean_db):
     the value is assigned by Postgres and returned — never constructed here.
     """
     first = await create(state_for(DomainKey.cancellation), gateway)
-    second = await create(state_for(DomainKey.cancellation), gateway)
+    # A different contract: the same one would, rightly, get its open case back.
+    second = await create(state_for(DomainKey.cancellation, contract="FP-2023-048812"), gateway)
     assert first.reference != second.reference
     assert int(second.reference) == int(first.reference) + 1
 
@@ -499,3 +500,28 @@ async def test_a_record_the_sql_view_calls_incomplete_is_never_written(gateway, 
     assert isinstance(result, HandoverFailed)
     assert "stated_reason" in result.missing_fields
     assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 0
+
+
+# --- no duplicates across conversations (migration 008) --------------------------
+
+
+async def test_a_second_conversation_gets_the_open_case_not_a_new_one(gateway, clean_db):
+    """The customer comes back tomorrow about the same request: the case they
+    already have, not a second one for the same team (§13's reopen metric)."""
+    first = await create(state_for(DomainKey.cancellation), gateway)
+    tomorrow = state_for(DomainKey.cancellation)  # another conversation, same contract
+
+    again = await create(tomorrow, gateway)
+
+    assert again.reference == first.reference
+    assert again.existing is True
+    assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 1
+
+
+async def test_a_closed_case_or_another_type_is_not_reused(gateway, clean_db):
+    first = await create(state_for(DomainKey.cancellation), gateway)
+    await clean_db.execute(
+        "UPDATE crm.handover_record SET status = 'closed' WHERE reference = $1", first.reference
+    )
+    later = await create(state_for(DomainKey.cancellation), gateway)
+    assert later.reference != first.reference and later.existing is False

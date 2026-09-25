@@ -5,6 +5,8 @@ tags: [billing, failure, systems_disagree]
 billing_stub_mode: none
 turns:
   - user: "good morning, I'd like to know the payment status for contract FP-2020-004199"
+  # The security question for FP-2020-004199 (migration 008).
+  - user: "Micio"
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

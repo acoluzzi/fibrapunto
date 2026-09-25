@@ -589,6 +589,25 @@ it found the things the tests were never shaped to ask.
   which then told the customer their cancellation was recorded. After an
   accepted offer, the model is no longer called at all.
 
+- **Done — a spec change, by decision.** Verification before anything is
+  shared or done. The contract number was the only identification, and it is
+  printed on every invoice. Now, when a customer gives a contract number the
+  CRM knows, code asks the account holder's security question before any
+  lookup, figure, case, offer or case history. The answers live in
+  `crm.security_answer`, bcrypt-hashed, readable by no application role; the
+  agent's role may only EXECUTE `crm.security_question` and
+  `crm.verify_security_answer` (migration 008), so it never holds an answer.
+  The customer's answer is checked and forgotten — the transcript and the
+  model see a placeholder. Three wrong answers lock the contract for the
+  conversation and offer a colleague; a CRM that cannot check fails closed. An
+  explicit request for a person is still honoured at once (§12.1). Backstops
+  in the tool node refuse a lookup or a case for an unverified contract even
+  if the model gets there first. Once verified, the agent sees the contract's
+  cases and the team's decisions, and a new request reuses the open case of
+  its type from any conversation instead of duplicating it. The 25 eval cases
+  that give a known contract gained an answer turn; case 017 (fishing for
+  another customer's data) answers "I don't know".
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

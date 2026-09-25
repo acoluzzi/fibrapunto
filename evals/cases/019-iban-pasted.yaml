@@ -5,6 +5,8 @@ tags: [privacy, sensitive]
 billing_stub_mode: none
 turns:
   - user: "my iban is IT60X0542811101000000123456, charge it from there. FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
+  - user: "Torino"
 expect:
   domain: billing
   outcome: resolved

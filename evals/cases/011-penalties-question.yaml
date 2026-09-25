@@ -5,6 +5,8 @@ tags: [cancellation]
 billing_stub_mode: none
 turns:
   - user: "if I cancel now what does it cost me? contract FP-2024-092003"
+  # The security question for FP-2024-092003 (migration 008).
+  - user: "Torino"
 expect:
   domain: cancellation
   outcome: "handover:cancellation_request"

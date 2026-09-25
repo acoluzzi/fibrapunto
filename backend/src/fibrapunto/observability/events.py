@@ -52,6 +52,7 @@ class EventType(StrEnum):
     handover_confirmation_received = "handover.confirmation_received"
     handover_created = "handover.created"
     customer_notified = "customer.notified"
+    identity_verification = "identity.verification"
 
     agent_reply = "agent.reply"
     session_ended = "session.ended"

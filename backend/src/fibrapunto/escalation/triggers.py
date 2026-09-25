@@ -53,6 +53,7 @@ class TriggerKind(StrEnum):
     format_invalid_after_reask = "conditional:format_invalid_after_reask"
     no_progress = "conditional:no_progress"
     turn_budget_exhausted = "conditional:turn_budget_exhausted"
+    verification_failed = "conditional:verification_failed"
 
     # Customer-initiated.
     human_requested = "customer:human_requested"
