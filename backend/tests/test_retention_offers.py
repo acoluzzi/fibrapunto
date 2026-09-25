@@ -110,6 +110,9 @@ async def test_taking_the_offer_opens_a_retention_case_carrying_it(monkeypatch):
         "status": "accepted",
     }
     assert "A colleague will confirm it and apply it" in reply.text
+    # The SQL completeness view requires the customer's own words on a
+    # cancellation record; the case was written without them, "Complete: no".
+    assert "moved house" in crm.records[0]["stated_reason"]
     assert f"case no. {reply.handover_reference}" in reply.text
 
 
@@ -125,6 +128,7 @@ async def test_declining_registers_the_cancellation_at_once(monkeypatch):
     assert crm.context()["retention_offer"]["status"] == "declined"
     assert crm.context()["escalation_trigger"] == "categorical:cancellation"
     assert reply.text.startswith("Understood — I have gone ahead with your request.")
+    assert "moved house" in crm.records[0]["stated_reason"]
 
 
 async def test_an_offer_gone_by_acceptance_still_registers_the_request(monkeypatch):

@@ -505,6 +505,9 @@ class Conversation:
         offer = state.collected.offer
         contract = state.collected.contract_number or ""
         cancellation = triggers.TriggerKind.categorical_cancellation.value
+        # The retention case carries the customer's own words (§12.2, §13) —
+        # the SQL completeness view requires them on a cancellation record.
+        reason = state.collected.stated_reason or self._words_since_entering(DomainKey.cancellation)
 
         if policy.is_affirmative(text):
             taken = await self._dispatcher.offers.accept(offer, contract, state.id)
@@ -516,14 +519,14 @@ class Conversation:
                     else triggers.TriggerKind.threatened_to_leave.value
                 )
                 result = await self._dispatcher.open_retention_case(
-                    state, trigger, f"Retention offer accepted: {offer.title}"
+                    state, trigger, f"Retention offer accepted: {offer.title}", reason
                 )
                 return self._templated(result, lambda r, s: engine.offer_accepted(offer, r, s))
             state.collected.offer_status = "unavailable"
             if context != "cancellation":
                 return engine.OFFER_UNAVAILABLE
             result = await self._dispatcher.open_retention_case(
-                state, cancellation, engine.subject_for(cancellation)
+                state, cancellation, engine.subject_for(cancellation), reason
             )
             return self._templated(
                 result, lambda r, s: engine.cancellation_after_offer(r, s, unavailable=True)
@@ -533,7 +536,7 @@ class Conversation:
         if context != "cancellation":
             return None  # the dispute carries on with the model
         result = await self._dispatcher.open_retention_case(
-            state, cancellation, engine.subject_for(cancellation)
+            state, cancellation, engine.subject_for(cancellation), reason
         )
         return self._templated(
             result, lambda r, s: engine.cancellation_after_offer(r, s, unavailable=False)

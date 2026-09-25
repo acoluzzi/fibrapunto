@@ -128,7 +128,9 @@ async def record_detail(reference: str) -> dict[str, Any]:
     context = context or {}
 
     routing = for_type(record["record_type"])
-    missing = completeness.missing_fields(record["record_type"], context, record["subject"] or "")
+    missing = completeness.missing_fields(
+        record["record_type"], context, record["subject"] or "", record["stated_reason"]
+    )
 
     return {
         # The top of the page: everything needed to pick up the phone.

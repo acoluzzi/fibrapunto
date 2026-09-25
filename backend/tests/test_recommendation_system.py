@@ -10,7 +10,11 @@ from recommendation_system.main import app
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    # The budget arithmetic below assumes €120, whatever the configured budget.
+    from recommendation_system.settings import get_settings
+
+    monkeypatch.setattr(get_settings(), "budget_eur", 120.0)
     c = TestClient(app)
     c.post("/_control/reset")
     yield c

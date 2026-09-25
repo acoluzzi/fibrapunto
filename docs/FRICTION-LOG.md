@@ -562,6 +562,17 @@ it found the things the tests were never shaped to ask.
   the number behind when the rest of the sentence was filtered — which the
   closing message's filter had been doing too.
 
+- **Done.** The dashboard said two offers accepted and the operator view
+  showed one case. Nothing was miscounted: the test suite ran against the
+  *demo's* database, and its resets wiped a case while the recommendation
+  system's budget — in its own process — kept the offer it had paid for.
+  `backend/tests/conftest.py` now points the suite at `fibrapunto_test`,
+  created and migrated per session; a `make test` no longer touches what is
+  on screen. The same case showed "Complete: no": the SQL completeness view
+  requires a cancellation's stated reason and the Python pre-insert check did
+  not, so the retention case was written without the customer's words. Both
+  checks now agree, and the retention case carries those words.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

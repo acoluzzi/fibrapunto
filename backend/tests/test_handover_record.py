@@ -466,3 +466,36 @@ async def test_a_raw_iban_in_state_never_reaches_the_record(gateway, clean_db):
     assert iban not in row["context"]
     assert iban not in row["stated_reason"]
     assert "[[REDACTED:IBAN]]" in row["context"]
+
+
+def test_python_and_sql_agree_a_cancellation_needs_the_stated_reason():
+    """`crm.v_handover_completeness` requires it; the pre-insert check did not,
+    so a record could be written that the §1 metric then counted incomplete."""
+    context = {
+        "lookups": [],
+        "escalation_trigger": "categorical:cancellation",
+        "what_customer_was_told": ["x"],
+        "request_date": "2026-09-25",
+        "tenure": "3 years",
+        "constraints": {},
+    }
+    assert "stated_reason" in completeness.missing_fields(
+        "cancellation_request", context, "Cancellation request", None
+    )
+    assert (
+        completeness.missing_fields(
+            "cancellation_request", context, "Cancellation request", "I've moved house"
+        )
+        == []
+    )
+
+
+async def test_a_record_the_sql_view_calls_incomplete_is_never_written(gateway, clean_db):
+    state = state_for(DomainKey.cancellation)
+    state.collected.stated_reason = None
+
+    result = await create(state, gateway)
+
+    assert isinstance(result, HandoverFailed)
+    assert "stated_reason" in result.missing_fields
+    assert await clean_db.fetchval("SELECT count(*) FROM crm.handover_record") == 0

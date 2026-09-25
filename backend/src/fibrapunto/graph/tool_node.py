@@ -248,7 +248,11 @@ class ToolDispatcher:
         return collected.offer
 
     async def open_retention_case(
-        self, state: ConversationState, trigger: str, subject: str
+        self,
+        state: ConversationState,
+        trigger: str,
+        subject: str,
+        stated_reason: str | None = None,
     ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
         """The retention team's case, opened by code: for an accepted offer
         (to apply it) or a cancellation after a declined one."""
@@ -260,7 +264,7 @@ class ToolDispatcher:
                 principal=self._principal,
                 subject=subject,
                 trigger=trigger,
-                stated_reason=state.collected.stated_reason,
+                stated_reason=stated_reason or state.collected.stated_reason,
                 record_type="cancellation_request",
                 recorder=_StateRecorder(state),
             )

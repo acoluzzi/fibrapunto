@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     # What the operator is prepared to give away in discounts, in euros, before
     # this system stops offering discounted deals. Spent when an offer is
     # accepted, not when it is shown.
-    budget_eur: float = 120.0
+    budget_eur: float = 15000
 
 
 @lru_cache

@@ -81,12 +81,27 @@ def _required(record_type: str, context: dict[str, Any]) -> tuple[str, ...]:
     return required
 
 
-def missing_fields(record_type: str, context: dict[str, Any], subject: str) -> list[str]:
-    """Which required fields are absent or empty."""
+def missing_fields(
+    record_type: str,
+    context: dict[str, Any],
+    subject: str,
+    stated_reason: str | None = None,
+) -> list[str]:
+    """Which required fields are absent or empty.
+
+    Must agree with `crm.v_handover_completeness`, which recomputes the same
+    rule in SQL for §1's metric. It did not: the view required a cancellation's
+    stated reason and this check did not, so a record could be written that the
+    metric then counted as incomplete. `stated_reason` is a column, not a
+    context key, hence the separate argument.
+    """
     missing: list[str] = []
 
     if not subject or not subject.strip():
         missing.append("subject")
+
+    if record_type == "cancellation_request" and not (stated_reason or "").strip():
+        missing.append("stated_reason")
 
     for key in _ALWAYS_PRESENT:
         if key not in context:
@@ -100,8 +115,10 @@ def missing_fields(record_type: str, context: dict[str, Any], subject: str) -> l
     return missing
 
 
-def is_complete(record_type: str, context: dict[str, Any], subject: str) -> bool:
-    return not missing_fields(record_type, context, subject)
+def is_complete(
+    record_type: str, context: dict[str, Any], subject: str, stated_reason: str | None = None
+) -> bool:
+    return not missing_fields(record_type, context, subject, stated_reason)
 
 
 def required_for(record_type: str) -> tuple[str, ...]:

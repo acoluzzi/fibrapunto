@@ -121,7 +121,9 @@ async def create_handover_record(
 
     # Validate before inserting. §1 wants completeness at 100%, which is only
     # reachable if a thin record cannot be written in the first place.
-    missing = completeness.missing_fields(route.record_type, context, subject)
+    missing = completeness.missing_fields(
+        route.record_type, context, subject, state.collected.stated_reason
+    )
     if missing:
         log.warning("handover.incomplete", missing=missing, record_type=route.record_type)
         return HandoverFailed(missing_fields=missing)
