@@ -118,8 +118,25 @@ def verified_facts_of(state: ConversationState) -> dict[str, Any]:
     """
     collected = state.collected
     facts: dict[str, Any] = {}
+    # Labelled for what it is. Listed as "contract_number" under "facts the
+    # systems returned", a judge read a number the customer typed as proof
+    # the lookup had succeeded, and called "I cannot find that contract" an
+    # invention on every not-found case.
     if collected.contract_number:
-        facts["contract_number"] = collected.contract_number
+        facts["contract_number_given_by_customer"] = collected.contract_number
+    if collected.lookup_outcomes:
+        facts["lookups"] = list(collected.lookup_outcomes)
+    if collected.verification:
+        # The security question is the platform's exchange (§3): asked by
+        # code, checked in the CRM, never seen by the model. A judge reading
+        # "Thank you, that's confirmed" with nothing behind it called the
+        # confirmation invented.
+        facts["verification_by_platform"] = dict(collected.verification)
+    if collected.disambiguation_candidates:
+        facts["candidates"] = [
+            {"contract_number": c.contract_number, "service_address": c.service_address}
+            for c in collected.disambiguation_candidates
+        ]
     billing = collected.billing
     if billing:
         facts["billing"] = {

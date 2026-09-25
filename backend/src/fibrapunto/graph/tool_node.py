@@ -513,7 +513,8 @@ class ToolDispatcher:
                     )
                     for m in result.matches
                 ]
-                # §12.1: unresolved after one disambiguation turn escalates.
+                # §12.1: unresolved after one disambiguation turn escalates —
+                # the trigger reads this counter and fires on the second match.
                 state.disambiguation_turns += 1
 
             case "rejected" if result.reason == "format_invalid":

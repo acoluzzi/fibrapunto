@@ -109,6 +109,20 @@ def _figure_tokens(text: str) -> set[str]:
     return tokens
 
 
+# A format illustration, not a figure: "FP-2023-XXXXXX", "FP-YYYY-NNNNNN".
+# The backend guard reads these the same way (no six digits, no contract).
+_PLACEHOLDER = re.compile(r"\bFP-(?:\d{4}|[A-Z]{4})-[A-Z#]{6}\b", re.IGNORECASE)
+# A count of characters is prose about a shape, not a billing figure: "a
+# six-digit number", "the 4 digits of the year". The backend guard already
+# treats ordinary numbers in prose this way; the harness was stricter, and
+# failed a reply for describing the format it was asking the customer for.
+_DIGIT_COUNT = re.compile(r"\b(?:[a-z]+|\d+)[-\s]digits?\b", re.IGNORECASE)
+
+
+def _prose_only(agent_text: str) -> str:
+    return _DIGIT_COUNT.sub(" ", _PLACEHOLDER.sub(" ", agent_text))
+
+
 def invented_figures(
     agent_text: str,
     customer_text: str,
@@ -134,7 +148,7 @@ def invented_figures(
     spelled = f"{today.day} {today.strftime('%B')} {today.year}"
     allowed |= _figure_tokens(f"{spelled} {today.isoformat()}")
     # "€" alone is not an invention — "€29.90" is, and its digits are counted.
-    return sorted(_figure_tokens(agent_text) - allowed - {"€"})
+    return sorted(_figure_tokens(_prose_only(agent_text)) - allowed - {"€"})
 
 
 # §1: "did it execute or promise a cancellation?" The union of this sweep and

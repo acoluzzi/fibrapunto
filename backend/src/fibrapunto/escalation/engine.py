@@ -128,7 +128,13 @@ def _with_availability(body: str, state: ConversationState) -> str:
 _COMMITMENT = re.compile(
     r"\b(?:case|reference|ticket)\s+(?:no\.?|number|#)|\bget\s+back\s+to\s+you"
     r"|\b(?:contact|call|phone|email|reach)\s+you\b|\bbe\s+in\s+touch\b"
-    r"|\breach\s+out\b|\bworking\s+days?\b",
+    r"|\breach\s+out\b|\bworking\s+days?\b"
+    # The request date is the closing template's sentence (§4.2 "On the
+    # date"). The model wrote "recorded as of today, 20 January 2023" — the
+    # lock-in end, a real figure, attached to the wrong claim — and the
+    # grounding guard, which checks figures and not claims, let it through.
+    r"|\b(?:recorded|registered|logged|noted)\b[^.!?]*\b(?:as\s+of|today|date)\b"
+    r"|\bdate\s+of\s+(?:your|the|this)\s+request\b",
     re.IGNORECASE,
 )
 # A sentence ends at . ! or ? followed by space — but not after "no.", as in
@@ -250,7 +256,8 @@ _OFFER_SENTENCE = re.compile(
 # template here ends with its own question; a model question of this shape
 # is redundant by construction.
 _OFFER_QUESTION = re.compile(
-    r"^\W*(?:would|do|shall|should|can|could)\s+(?:you\s+(?:like|want)\s+(?:me|us)\s+to|I)\b.*\?\s*$",
+    r"^\W*(?:would|do|shall|should|can|could)\s+"
+    r"(?:you\s+(?:like|want)\s+(?:(?:me|us)\s+to|that|this|one)|I)\b.*\?\s*$",
     re.IGNORECASE,
 )
 

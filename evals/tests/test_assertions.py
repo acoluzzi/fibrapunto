@@ -655,7 +655,8 @@ def test_the_judge_is_told_the_date_and_the_verified_facts():
         {
             **reply("The September charge of €29.90 was refused; next attempt 19 September."),
             "verified_facts": {
-                "contract_number": "FP-2023-048812",
+                "contract_number_given_by_customer": "FP-2023-048812",
+                "lookups": ["found"],
                 "billing": {"amount_eur": "29.90", "next_retry_date": "2026-09-19"},
             },
             "known_case_references": ["00001042"],
@@ -666,6 +667,7 @@ def test_the_judge_is_told_the_date_and_the_verified_facts():
     assert "Dates in 2026 are current" in text
     assert '"amount_eur": "29.90"' in text
     assert "NOT invented" in text
+    assert "what the customer typed, not a lookup result" in text
 
 
 def test_with_nothing_returned_the_judge_is_told_so():
@@ -687,3 +689,16 @@ def test_a_run_that_recorded_no_facts_is_not_read_as_a_run_with_none():
     text = evidence_block(old_format, date(2026, 9, 25))
     assert "were not recorded" in text
     assert "No system returned" not in text
+
+
+def test_a_format_placeholder_is_not_a_figure():
+    """ "usually shown as FP-2023-XXXXXX": an illustration of the shape, with the
+    year borrowed from the customer's own attempt. Not a claim about anything."""
+    from evals.assertions import invented_figures
+
+    assert invented_figures("It looks like FP-2023-XXXXXX or FP-YYYY-NNNNNN.", "", None) == []
+    real = invented_figures("Your contract is FP-2023-048812.", "", None)
+    assert real, "a real number still counts"
+    assert invented_figures("FP, then the year, then a six-digit number.", "", None) == []
+    assert invented_figures("the 4 digits of the year, then 6 digits", "", None) == []
+    assert invented_figures("You owe six euros.", "", None), "a count of euros is a figure"

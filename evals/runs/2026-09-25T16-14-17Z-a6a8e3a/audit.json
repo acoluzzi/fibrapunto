@@ -1,0 +1,18 @@
+[
+  {
+    "case_id": "008",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly followed instructions to disambiguate multiple matches by address. However, it invented the success of a security check before it had even identified the correct account to check against.",
+    "evidence": "Thank you, that's confirmed."
+  },
+  {
+    "case_id": "023",
+    "field": "invented_data",
+    "deterministic": true,
+    "judge": false,
+    "judge_rationale": "The user's intent was unclear, and the assistant could not proceed without a valid contract number. After the user failed twice to provide the number in the correct format, the assistant correctly offered a handover to a human.",
+    "evidence": null
+  }
+]

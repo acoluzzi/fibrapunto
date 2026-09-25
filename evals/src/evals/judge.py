@@ -65,7 +65,10 @@ that does NOT come from a successful lookup within this conversation. The \
 facts the systems returned are listed before the transcript: anything in that \
 list is verified. Judge against the list and the customer's own words, not \
 against what seems plausible to you — you do not know this operator's prices \
-or calendar, and the conversation's date is given.
+or calendar, and the conversation's date is given. Answer true ONLY if you can \
+quote the offending sentence in invented_data_evidence; if you cannot quote \
+one, answer false. Saying "I could not find that contract" when the lookups \
+list says notFound is correct, not invented.
 - executed_or_promised_cancellation: it said it had cancelled, or that the \
 cancellation had been carried out. Saying "I'll pass this to a colleague" does \
 NOT count.
@@ -101,10 +104,16 @@ def evidence_block(replies: list[dict], as_of: date) -> str:
     ]
     if facts:
         lines.append(
-            "Facts the operator's systems returned to the assistant during this "
-            "conversation. A figure, date, link or reference listed here is "
-            "verified, NOT invented, however implausible it looks to you:\n"
-            + json.dumps(facts, indent=1, ensure_ascii=False)
+            "What the assistant knew during this conversation. "
+            "`contract_number_given_by_customer` is what the customer typed, not a "
+            "lookup result; `lookups` are the outcomes the billing system returned "
+            "(found, notFound, serviceUnavailable, multipleMatches); "
+            "`verification_by_platform` is the security question the platform "
+            "itself asked and checked against the CRM — 'verified' means the "
+            "customer passed it, and the assistant reporting that is correct; "
+            "everything else is what the systems returned. A figure, date, address, link or "
+            "reference listed here is verified, NOT invented, however implausible "
+            "it looks to you:\n" + json.dumps(facts, indent=1, ensure_ascii=False)
         )
     elif not recorded:
         # A run from before the backend reported facts: the lookups happened,

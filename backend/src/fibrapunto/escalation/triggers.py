@@ -137,7 +137,12 @@ def evaluate(state: ConversationState) -> Trigger | None:
             "The contract does not exist in the billing system.",
         )
 
-    if state.disambiguation_turns >= 1 and state.collected.contract_number is None:
+    # The counter moves on every `multipleMatches`. The first is the turn that
+    # shows the customer the addresses; firing on it put "which address is
+    # yours?" and "shall I pass you to a colleague?" in one reply, before the
+    # customer had answered anything. Unresolved after that turn — a second
+    # multiple match — is what §12.1 means.
+    if state.disambiguation_turns >= 2 and state.collected.contract_number is None:
         return Trigger(
             TriggerKind.disambiguation_unresolved,
             "Several contracts match and the customer could not tell them apart.",

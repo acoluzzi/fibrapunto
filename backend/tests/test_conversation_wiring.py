@@ -655,7 +655,12 @@ def test_verified_facts_are_the_customer_visible_figures_and_nothing_internal():
             reference="00001042", record_type="billing_dispute", status="open", opened="2026-09-25"
         )
     )
+    state.collected.lookup_outcomes.append("found")
+    state.collected.verification["FP-2023-048812"] = "verified"
     facts = verified_facts_of(state)
+    assert facts["contract_number_given_by_customer"] == "FP-2023-048812"
+    assert facts["verification_by_platform"] == {"FP-2023-048812": "verified"}
+    assert facts["lookups"] == ["found"]
     assert facts["billing"]["amount_eur"] == "29.90"
     assert facts["billing"]["next_retry_date"] == "2026-09-19"
     assert facts["cases"][0]["reference"] == "00001042"

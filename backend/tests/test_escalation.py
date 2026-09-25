@@ -106,8 +106,13 @@ def test_a_contract_not_found_escalates():
 
 
 def test_an_unresolved_disambiguation_escalates_after_one_turn():
-    """§12.1: "a multiple match unresolved after one disambiguation turn"."""
-    s = state(disambiguation_turns=1)
+    """§12.1: "a multiple match unresolved after one disambiguation turn".
+
+    The first multiple match is the turn that asks the customer to choose;
+    escalating on it offered a colleague in the same breath as the question.
+    The second — still unresolved after their answer — is the trigger."""
+    assert triggers.evaluate(state(disambiguation_turns=1)) is None
+    s = state(disambiguation_turns=2)
     assert triggers.evaluate(s).kind is TriggerKind.disambiguation_unresolved
 
 
@@ -417,3 +422,30 @@ def test_a_dispute_with_nothing_conditional_is_still_reported():
     s.collected.financial_request = "refund"
     fired = triggers.evaluate(s)
     assert fired is not None and fired.kind is TriggerKind.categorical_amount_dispute
+
+
+def test_the_models_own_request_date_sentence_is_the_templates_to_say():
+    """Seen in an eval run: "Your request is recorded as of today, 20 January
+    2023" — the lock-in end date, a real figure, in the wrong claim. The
+    grounding guard checks figures, not claims; the closing filter owns the
+    sentence."""
+    from fibrapunto.capabilities.outcomes import HandoverCreated
+
+    result = HandoverCreated(
+        reference="00001050", queue_label="the retention team", response_window="one working day"
+    )
+    reply = (
+        "Your request is recorded as of today, 20 January 2023. There were no "
+        "lock-in constraints on this contract. The date of your request has been noted."
+    )
+    kept = engine.without_commitments(reply, result)
+    assert "recorded as of" not in kept
+    assert "date of your request" not in kept
+    assert "no lock-in constraints" in kept
+
+
+def test_would_you_like_that_is_a_dangling_offer_question_too():
+    reply = "This may be on an old invoice. I can pass you to a colleague. Would you like that?"
+    text = engine.offer(reply, TriggerKind.format_invalid_after_reask)
+    assert "Would you like that?" not in text
+    assert text.count("Would you like me to open a case?") == 1

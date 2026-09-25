@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-25T16-19-30Z-a6a8e3a",
+  "git_sha": "a6a8e3a",
+  "agent_model": "anthropic/claude-sonnet-5",
+  "judge_model": "google/gemini-2.5-pro",
+  "case_count": 1,
+  "started_at": "2026-09-25T16-19-30Z",
+  "spend": {
+    "spent": 0.0255,
+    "remaining": 3.3711,
+    "per_case": 0.0255
+  }
+}

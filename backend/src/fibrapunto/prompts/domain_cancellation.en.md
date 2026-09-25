@@ -59,9 +59,11 @@ request whatever they answer.
    presented by the system.
 
 5. Open the case with the reason the customer gave **in their own words**, how
-   long they have been a customer, and the constraints. Then tell them a
-   colleague will contact them within one working day and that the date of the
-   request has been recorded.
+   long they have been a customer, and the constraints. The system then tells
+   the customer when a colleague will contact them and that the date of the
+   request is recorded: you do not write that sentence, and you never state a
+   date as "today" — the only dates you may write are the ones the lookup
+   returned, named for what they are.
 
 6. If the customer is angry, be brief and factual. Do not apologise more than
    once: repeating apologies lengthens the conversation and solves nothing.
