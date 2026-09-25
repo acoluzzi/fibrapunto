@@ -104,7 +104,8 @@ def apply(
 
     # The confirmation lock, checked before anything else — including before the
     # classifier's opinion is consulted at all.
-    if (state.pending_confirmation or state.pending_escalation) and answers_read_back(message):
+    pending = state.pending_confirmation or state.pending_escalation or state.pending_offer
+    if pending and answers_read_back(message):
         log.info("router.locked_by_pending_confirmation", domain=current.value)
         return RoutingOutcome(current, False, "confirmation_lock", decision)
 
@@ -142,7 +143,11 @@ def apply_request_kind(
     words (§12.2) — the text here is already redacted (§9). Nothing is weighed
     afterwards: "these are not judgement calls and the agent is not permitted
     to weigh them"."""
-    if decision is None or decision.financial_request == "none":
+    if decision is None:
+        return
+    if decision.threatens_to_leave:
+        state.threatened_to_leave = True
+    if decision.financial_request == "none":
         return
     collected = state.collected
     if collected.financial_request is None:

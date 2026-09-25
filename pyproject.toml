@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = []
 
 [tool.uv.workspace]
-members = ["backend", "mock-billing", "evals"]
+members = ["backend", "mock-billing", "recommendation-system", "evals"]
 
 [tool.uv]
 package = false

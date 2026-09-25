@@ -29,6 +29,7 @@ from fibrapunto.graph.build import run_domain_turn
 from fibrapunto.graph.tool_node import ToolDispatcher
 from fibrapunto.guardrails import pipeline
 from fibrapunto.integrations.billing_client import BillingClient
+from fibrapunto.integrations.recommendation_client import RecommendationClient
 from fibrapunto.llm.registry import ModelRole, get_registry
 from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceRecorder
@@ -108,6 +109,7 @@ class Conversation:
         *,
         state: ConversationState | None = None,
         trace: TraceRecorder | None = None,
+        recommendations: RecommendationClient | None = None,
     ) -> None:
         resumed = state is not None
         self.state = state or ConversationState(test_mode=test_mode)
@@ -119,6 +121,7 @@ class Conversation:
             billing_client or _default_billing_client(),
             gateway=gateway,
             principal=svc_agent(),
+            offers=recommendations,
         )
         self.trace = trace or TraceRecorder(self.state.id)
         if not resumed:
@@ -182,7 +185,9 @@ class Conversation:
 
         # 1. Classify. The model proposes a domain; policy decides.
         decision = None
-        pending_answer = state.pending_confirmation or state.pending_escalation
+        pending_answer = (
+            state.pending_confirmation or state.pending_escalation or state.pending_offer
+        )
         if not (pending_answer and policy.answers_read_back(text)):
             # The confirmation lock short-circuits before the call — a "Yes"
             # needs no classification, and skipping it saves a round trip on
@@ -240,8 +245,16 @@ class Conversation:
         # 2a. §12.1: the answer to an escalation offer the code made. "Yes"
         # opens the case by code; "no" is respected, and that trigger is not
         # offered again.
+        # 2a0. The answer to a retention offer (recommendation-system/). In a
+        # cancellation the request is registered whatever the answer — taken,
+        # declined or no longer available — so the offer can never delay it.
+        offered = state.pending_offer
+        if offered and state.collected.offer is not None:
+            state.pending_offer = None
+            reply_text = await self._answer_offer(text, offered.context)
+
         escalation = state.pending_escalation
-        if escalation:
+        if reply_text is None and escalation:
             if policy.is_affirmative(text):
                 state.pending_escalation = None
                 result = await self._dispatcher.open_escalation_case(state, escalation.trigger)
@@ -472,6 +485,7 @@ class Conversation:
             state.collected.billing is not None
             and state.collected.handover_reference is None
             and state.pending_escalation is None
+            and state.pending_offer is None
             and not read_back_pending
             and trigger is None
         )
@@ -484,6 +498,46 @@ class Conversation:
             self._dispatcher.last_handover = None
             return None
         return render(result, self.state)
+
+    async def _answer_offer(self, text: str, context: str) -> str | None:
+        """Act on the customer's answer to the offer. None: let the model run."""
+        state = self.state
+        offer = state.collected.offer
+        contract = state.collected.contract_number or ""
+        cancellation = triggers.TriggerKind.categorical_cancellation.value
+
+        if policy.is_affirmative(text):
+            taken = await self._dispatcher.offers.accept(offer, contract, state.id)
+            if taken:
+                state.collected.offer_status = "accepted"
+                trigger = (
+                    cancellation
+                    if context == "cancellation"
+                    else triggers.TriggerKind.threatened_to_leave.value
+                )
+                result = await self._dispatcher.open_retention_case(
+                    state, trigger, f"Retention offer accepted: {offer.title}"
+                )
+                return self._templated(result, lambda r, s: engine.offer_accepted(offer, r, s))
+            state.collected.offer_status = "unavailable"
+            if context != "cancellation":
+                return engine.OFFER_UNAVAILABLE
+            result = await self._dispatcher.open_retention_case(
+                state, cancellation, engine.subject_for(cancellation)
+            )
+            return self._templated(
+                result, lambda r, s: engine.cancellation_after_offer(r, s, unavailable=True)
+            )
+
+        state.collected.offer_status = "declined"
+        if context != "cancellation":
+            return None  # the dispute carries on with the model
+        result = await self._dispatcher.open_retention_case(
+            state, cancellation, engine.subject_for(cancellation)
+        )
+        return self._templated(
+            result, lambda r, s: engine.cancellation_after_offer(r, s, unavailable=False)
+        )
 
     async def _categorical(
         self, reply_text: str, reference_before: str | None, contract_known_before: bool
@@ -506,9 +560,29 @@ class Conversation:
         """
         state = self.state
         collected = state.collected
+
+        # An offer the tool node held during this turn (the model tried to
+        # register the cancellation): present it now, from the catalogue.
+        offered = state.pending_offer
+        if offered and offered.asked_at_turn == state.turn_count and collected.offer:
+            return engine.offer_message(reply_text, collected.offer, offered.context), (
+                "offer_presented"
+            )
+
         if collected.handover_reference != reference_before or not collected.contract_number:
             return reply_text, None
         kind = collected.financial_request
+
+        # §4.1 as amended: a customer unhappy with how a dispute is going who
+        # says they will leave is made one offer, before the read-back.
+        if (
+            state.threatened_to_leave
+            and kind in ("dispute", "refund", "credit")
+            and not (state.pending_confirmation and not state.pending_confirmation.satisfied)
+        ):
+            offer = await self._dispatcher.offer_first(state, "dispute")
+            if offer is not None:
+                return engine.offer_message(reply_text, offer, "dispute"), "offer_presented"
 
         if kind in ("dispute", "refund", "credit") and "billing_dispute" not in collected.handovers:
             if state.pending_confirmation:
@@ -532,6 +606,10 @@ class Conversation:
             and contract_known_before
             and self._agent_turns_in(DomainKey.cancellation) >= 1
         ):
+            # §4.2 as amended: one offer before the request is registered.
+            offer = await self._dispatcher.offer_first(state, "cancellation")
+            if offer is not None:
+                return engine.offer_message(reply_text, offer, "cancellation"), "offer_presented"
             trigger = triggers.TriggerKind.categorical_cancellation.value
             reason = collected.stated_reason or self._words_since_entering(DomainKey.cancellation)
             return await self._open_by_code(reply_text, trigger, reason)
@@ -596,7 +674,7 @@ class Conversation:
             return reply_text, "handled_this_turn"
         if state.pending_confirmation and not state.pending_confirmation.satisfied:
             return reply_text, "read_back_pending"  # one question at a time
-        if state.pending_escalation:
+        if state.pending_escalation or state.pending_offer:
             return reply_text, "offer_pending"
         if trigger.kind.value in state.escalations_offered:
             return reply_text, "already_offered"

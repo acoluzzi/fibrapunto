@@ -39,6 +39,7 @@ from fibrapunto.capabilities.outcomes import (
     HandoverCreated,
     HandoverCreatedWithoutContractLink,
     HandoverFailed,
+    RetentionOfferFirst,
 )
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.capabilities.transfer_to_human import (
@@ -50,13 +51,16 @@ from fibrapunto.domains.registry import Domain, DomainKey
 from fibrapunto.escalation import engine, triggers
 from fibrapunto.handover import routing
 from fibrapunto.integrations.billing_client import BillingClient
+from fibrapunto.integrations.recommendation_client import RecommendationClient
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import Principal, svc_agent
 from fibrapunto.state.models import (
     BillingFacts,
     ContractCandidate,
     ConversationState,
+    OfferFacts,
     PendingConfirmation,
+    PendingOffer,
 )
 
 log = structlog.get_logger(__name__)
@@ -70,8 +74,10 @@ class ToolDispatcher:
         billing_client: BillingClient,
         gateway: CrmGateway | None = None,
         principal: Principal | None = None,
+        offers: RecommendationClient | None = None,
     ) -> None:
         self._billing = billing_client
+        self.offers = offers or RecommendationClient()
         # The agent's own service identity (§8). Passed explicitly rather than
         # defaulted at the call site, so that every CRM access names who is
         # acting — there is no ambient identity anywhere in this codebase.
@@ -141,6 +147,18 @@ class ToolDispatcher:
 
             case "create_handover_record":
                 trigger = _trigger_for(state)
+                holding = (
+                    state.pending_offer is not None
+                    and state.pending_offer.context == "cancellation"
+                )
+                offer = holding or await self.offer_first(state, "cancellation")
+                if offer:
+                    # §4.2 as amended: the customer hears the offer before the
+                    # cancellation is registered. Code presents it after this
+                    # reply; the case opens on their answer, whatever it is.
+                    # Held for as long as the offer is pending — the model
+                    # calling again in its next tool round must not slip past.
+                    return RetentionOfferFirst().model_dump(mode="json")
                 if _needs_read_back(state, trigger):
                     result = self._await_confirmation(state, args, recorder)
                 else:
@@ -198,6 +216,58 @@ class ToolDispatcher:
         state.collected.lookup_outcomes.append(result.outcome)
         if isinstance(result, TransferAccepted):
             state.collected.transferred = True
+        return result
+
+    async def offer_first(self, state: ConversationState, context: str) -> OfferFacts | None:
+        """Fetch and hold one offer, if this is the moment for one.
+
+        At most one offer per conversation, never to a customer who asked for
+        a person or is upset, never once the case is open, and only with a
+        contract to make it on. None when the recommendation system has
+        nothing within budget, or cannot be reached — offers are never a
+        dependency.
+        """
+        collected = state.collected
+        if context == "cancellation" and state.current_domain is not DomainKey.cancellation:
+            return None
+        if (
+            collected.offer_status is not None
+            or state.pending_offer is not None
+            or state.human_requested
+            or state.offer_human_now
+            or not collected.contract_number
+            or "cancellation_request" in collected.handovers
+        ):
+            return None
+        found = await self.offers.best_offer(collected.contract_number)
+        if found is None:
+            return None
+        collected.offer = OfferFacts(**found.model_dump())
+        collected.offer_status = "presented"
+        state.pending_offer = PendingOffer(context=context, asked_at_turn=state.turn_count)
+        return collected.offer
+
+    async def open_retention_case(
+        self, state: ConversationState, trigger: str, subject: str
+    ) -> HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed:
+        """The retention team's case, opened by code: for an accepted offer
+        (to apply it) or a cancellation after a declined one."""
+        self.last_trigger = trigger
+        result = (
+            await create_handover_record(
+                state=state,
+                gateway=self._gateway,
+                principal=self._principal,
+                subject=subject,
+                trigger=trigger,
+                stated_reason=state.collected.stated_reason,
+                record_type="cancellation_request",
+                recorder=_StateRecorder(state),
+            )
+            if self._gateway is not None
+            else HandoverFailed(incident_id="no-gateway")
+        )
+        self.last_handover = result
         return result
 
     async def open_escalation_case(

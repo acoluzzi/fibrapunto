@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # below the stub's timeout-mode delay or the timeout path is never exercised.
     billing_timeout_seconds: float = 5.0
 
+    # --- recommendation system (recommendation-system/) ----------------------
+    recommendation_base_url: str = "http://localhost:8082"
+
     # --- budgets (§12.1) -----------------------------------------------------
     max_turns: int = 12
     turn_budget_without_capability: int = Field(

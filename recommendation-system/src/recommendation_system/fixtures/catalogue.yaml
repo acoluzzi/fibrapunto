@@ -1,0 +1,28 @@
+# The offers this system may make (retention and upsell).
+#
+# `monthly_discount_eur` × `duration_months` is what an accepted offer costs the
+# budget. An offer that costs nothing — a cheaper plan, say — is never blocked
+# by the budget: it gives nothing away.
+#
+# `plans` restricts eligibility to customers on those plans; absent means any.
+
+offers:
+  - offer_id: loyalty-5-off
+    title: "€5 off every month for 12 months"
+    description: "Your plan stays exactly as it is, at €5 less each month for the next 12 months."
+    monthly_discount_eur: "5.00"
+    duration_months: 12
+
+  - offer_id: upgrade-same-price
+    title: "Fibra 1000 at your current price for 12 months"
+    description: "We move you to our fastest plan, Fibra 1000, and keep charging what you pay today for the next 12 months."
+    monthly_discount_eur: "5.00"
+    duration_months: 12
+    plans: ["Fibra 300"]
+
+  - offer_id: downgrade-start
+    title: "Switch to Fibra Start at €19.90 a month"
+    description: "A lighter plan at a lower price, with no penalty for switching."
+    monthly_discount_eur: "0.00"
+    duration_months: 0
+    plans: ["Fibra 1000", "Fibra 300"]

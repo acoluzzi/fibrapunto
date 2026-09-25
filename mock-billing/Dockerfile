@@ -11,6 +11,7 @@ WORKDIR /app
 # because this image is rebuilt on every `make up` during a demo.
 COPY pyproject.toml uv.lock ./
 COPY mock-billing/pyproject.toml mock-billing/
+COPY recommendation-system/pyproject.toml recommendation-system/
 COPY backend/pyproject.toml backend/
 COPY evals/pyproject.toml evals/
 

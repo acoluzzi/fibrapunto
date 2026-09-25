@@ -61,6 +61,15 @@ export interface Faults {
   trace_store: "up" | "down";
 }
 
+/** The recommendation system's discount budget, for the dashboard. */
+export interface OfferBudget {
+  total_eur: string;
+  spent_eur: string;
+  remaining_eur: string;
+  accepted: number;
+  discounts_available: boolean;
+}
+
 /** One of this browser's conversations, as GET /api/sessions lists it. */
 export interface SessionSummary {
   conversation_id: string;

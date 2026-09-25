@@ -35,6 +35,7 @@ demo: up reset ## Start everything and print where to look
 	@echo "  chat + trace + metrics   http://localhost:5173"
 	@echo "  agent API                http://localhost:8000/docs"
 	@echo "  billing system (legacy)  http://localhost:8081/docs"
+	@echo "  recommendation system    http://localhost:8082/docs"
 	@echo
 	@echo "  provoke a failure mid-conversation:  make billing-mode M=timeout"
 	@echo "  prove the perimeter:                 make perimeter-proof"
@@ -87,6 +88,8 @@ billing-mode: ## Force a failure mode: make billing-mode M=timeout (§7)
 .PHONY: reset
 reset: migrate ## Reset to the known data state — idempotent
 	$(UV) run fibrapunto-reset
+	@# The offers budget back to full, if the recommendation system is up.
+	-@curl -sS -X POST localhost:8082/_control/reset >/dev/null 2>&1 || true
 
 # --- credentials (§17.7) -----------------------------------------------------
 

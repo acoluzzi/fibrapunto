@@ -76,6 +76,15 @@ def build_context(state: ConversationState, trigger: str) -> dict[str, Any]:
     if collected.disputed_point:
         context["disputed_point"] = collected.disputed_point
 
+    if collected.offer is not None:
+        # Retention: which offer was put to the customer and what they said,
+        # so the colleague applies the accepted one — or knows it was declined.
+        context["retention_offer"] = {
+            "offer_id": collected.offer.offer_id,
+            "title": collected.offer.title,
+            "status": collected.offer_status,
+        }
+
     if collected.sensitive_data_seen:
         # §9: never write the value into a record. The *kind* is recorded so
         # the operator knows to tell the customer not to send it again.

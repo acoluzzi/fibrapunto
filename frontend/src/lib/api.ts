@@ -3,6 +3,7 @@ import type {
   BillingState,
   Domain,
   Faults,
+  OfferBudget,
   SessionSummary,
   StoredSession,
 } from "./types";
@@ -104,6 +105,15 @@ export const api = {
       method: "POST",
       headers: json,
       body: JSON.stringify({ mode, ttl_seconds: null }),
+    }),
+
+  offerBudget: () => req<OfferBudget>("/recommendations/budget"),
+  recommendationsState: () => req<{ mode: "up" | "down" }>("/recommendations/_control/mode"),
+  setRecommendationsState: (mode: "up" | "down") =>
+    req<{ mode: string }>("/recommendations/_control/mode", {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ mode }),
     }),
 
   faults: () => req<Faults>("/api/faults"),

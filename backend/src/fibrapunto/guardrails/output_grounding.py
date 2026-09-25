@@ -72,6 +72,12 @@ def _grounded_amounts(state: ConversationState) -> set[Decimal]:
     billing = state.collected.billing
     if billing and billing.amount is not None:
         grounded.add(billing.amount)
+    offer = state.collected.offer
+    if offer is not None:
+        # The recommendation system's figures, as presented: title and text.
+        for text in (offer.title, offer.description):
+            grounded.update(a.value for a in figures.amounts(text))
+        grounded.update({offer.monthly_discount_eur, offer.cost_eur})
     # Anything the customer said themselves is grounded: repeating a figure
     # back to the person who supplied it is not invention.
     for turn in state.customer_turns():

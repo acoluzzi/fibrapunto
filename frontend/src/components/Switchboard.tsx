@@ -61,9 +61,14 @@ const HEALTHY = new Set(["normal", "up", "schedule", "available"]);
 export function Switchboard({ onError }: { onError: (message: string | null) => void }) {
   const [billing, setBilling] = useState<BillingState>("normal");
   const [faults, setFaults] = useState<Faults | null>(null);
+  const [recommendations, setRecommendations] = useState<"up" | "down" | null>(null);
 
   const read = useCallback(() => {
     api.billingState().then(({ mode }) => setBilling(mode)).catch(() => undefined);
+    api
+      .recommendationsState()
+      .then(({ mode }) => setRecommendations(mode))
+      .catch(() => setRecommendations(null));
     // 404 when FAULT_INJECTION is off: those switches are simply not shown.
     api.faults().then(setFaults).catch(() => setFaults(null));
   }, []);
@@ -83,6 +88,16 @@ export function Switchboard({ onError }: { onError: (message: string | null) => 
       .setBillingState(mode)
       .then(() => {
         setBilling(mode);
+        onError(null);
+      })
+      .catch(report);
+  }
+
+  function flipRecommendations(mode: "up" | "down") {
+    api
+      .setRecommendationsState(mode)
+      .then(() => {
+        setRecommendations(mode);
         onError(null);
       })
       .catch(report);
@@ -109,6 +124,16 @@ export function Switchboard({ onError }: { onError: (message: string | null) => 
         options={BILLING}
         onChange={(v) => flipBilling(v as BillingState)}
       />
+      {recommendations && (
+        <Switch
+          id="sw-recommendations"
+          label="Recommendations"
+          hint="The recommendation system: retention offers and their budget"
+          value={recommendations}
+          options={UP_DOWN}
+          onChange={(v) => flipRecommendations(v as "up" | "down")}
+        />
+      )}
       {faults &&
         ROWS.map((row) => (
           <Switch

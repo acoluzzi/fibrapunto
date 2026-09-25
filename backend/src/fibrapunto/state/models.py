@@ -19,7 +19,7 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -119,6 +119,32 @@ class PendingEscalation(BaseModel):
     asked_at_turn: int
 
 
+class OfferFacts(BaseModel):
+    """An offer the recommendation system returned (recommendation-system/).
+
+    The only offer that may ever be put to the customer: the agent presents
+    this, word for word, and never composes one."""
+
+    offer_id: str
+    title: str
+    description: str
+    monthly_discount_eur: Decimal
+    duration_months: int
+    cost_eur: Decimal
+
+
+class PendingOffer(BaseModel):
+    """An offer made by code, awaiting the customer's answer.
+
+    `context` says what happens after the answer: in a cancellation the case
+    opens either way — the request is registered with today's date whether the
+    offer is taken or not; after a dispute, a "no" simply lets the dispute
+    continue."""
+
+    context: Literal["cancellation", "dispute"]
+    asked_at_turn: int
+
+
 class OpenedCase(BaseModel):
     reference: str
     contract_linked: bool
@@ -169,6 +195,11 @@ class CollectedState(BaseModel):
     returns *that type's* case — returning the dispute's reference to a
     cancellation told the customer the retention team would call about a case
     that was sitting in billing operations."""
+
+    offer: OfferFacts | None = None
+    offer_status: Literal["presented", "accepted", "declined", "unavailable"] | None = None
+    """One offer per conversation, at most (§4.2 as amended). Once set, never
+    offered again — a customer who said no is not asked twice."""
 
     transferred: bool = False
     """A transfer to a colleague already happened in this conversation — the
@@ -259,6 +290,10 @@ class ConversationState(BaseModel):
     for customers who never asked for one."""
 
     pending_escalation: PendingEscalation | None = None
+    pending_offer: PendingOffer | None = None
+    threatened_to_leave: bool = False
+    """Set by the router when the customer says they will leave — the second
+    moment an offer may be made, during dispute handling."""
     escalations_offered: list[str] = Field(default_factory=list)
     """Triggers already offered once. A declined offer is not repeated every
     turn — pressing a customer who said no is the loop §12.1 warns about."""

@@ -542,6 +542,26 @@ it found the things the tests were never shaped to ask.
   #4): the platform remembers which conversations a browser owns; the agent
   still never sees one conversation's facts in another.
 
+- **Done — a spec change, by decision.** Retention offers, which §4.2 had
+  ruled out. The agent still never composes one. A new service,
+  `recommendation-system/`, owns the catalogue, its own view of each
+  customer's plan, and a discount budget (`RECOMMENDATIONS_BUDGET_EUR`): an
+  accepted offer spends its cost, and once the remainder cannot cover a
+  discount only no-cost offers are returned. Code asks it for one offer at two
+  moments — before a cancellation is registered, and when a customer unhappy
+  with a dispute says they will leave (a new router flag,
+  `threatens_to_leave`) — never to someone who asked for a person or is upset,
+  never twice. In a cancellation the request is registered whatever the
+  answer: accepted goes on the retention case for a colleague to apply;
+  declined or no longer available registers it at once. The budget is on the
+  dashboard and the service has its own live switch; if it is down, there is
+  simply no offer. Found on the first live run: the gate held the model's
+  first attempt to register, and the model's *second* call in its next tool
+  round went through — now every attempt is held while the offer is pending.
+  And the sentence splitter broke "case no. 00001042" after "no.", leaving
+  the number behind when the rest of the sentence was filtered — which the
+  closing message's filter had been doing too.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

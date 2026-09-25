@@ -85,7 +85,13 @@ _REFERENCE = re.compile(r"\b(?:case|reference|ref)\D{0,20}(\d{6,8})\b", re.IGNOR
 
 def check(reply: str, state: ConversationState) -> list[str]:
     """Forbidden commitments, plus any reference number that does not exist."""
-    problems = [label for label, pattern in _FORBIDDEN if pattern.search(reply)]
+    # An offer from the recommendation system, once code has put it to the
+    # customer, may be referred to: it is the catalogue's, not the model's. Any
+    # other offer is still one the company never made.
+    allowed = {"retention offer"} if state.collected.offer is not None else set()
+    problems = [
+        label for label, pattern in _FORBIDDEN if label not in allowed and pattern.search(reply)
+    ]
 
     # §12.4: the agent must not state a reference number it did not receive.
     # The guard is the backstop for the structural rule — the reference comes

@@ -39,9 +39,11 @@ from fibrapunto.state.models import (
     ContractCandidate,
     ConversationState,
     ConversationStatus,
+    OfferFacts,
     OpenedCase,
     PendingConfirmation,
     PendingEscalation,
+    PendingOffer,
     Turn,
     TurnRole,
 )
@@ -69,6 +71,8 @@ class CheckpointFacts(BaseModel):
     disambiguation_candidates: list[ContractCandidate] = Field(default_factory=list)
     handover_reference: str | None = None
     handovers: dict[str, OpenedCase] = Field(default_factory=dict)
+    offer: OfferFacts | None = None
+    offer_status: str | None = None
     transferred: bool = False
     sensitive_data_seen: list[str] = Field(default_factory=list)
 
@@ -91,6 +95,8 @@ class RuntimeCheckpointV1(BaseModel):
     facts: CheckpointFacts
     pending_confirmation: PendingConfirmation | None = None
     pending_escalation: PendingEscalation | None = None
+    pending_offer: PendingOffer | None = None
+    threatened_to_leave: bool = False
     escalations_offered: list[str] = Field(default_factory=list)
     counters: Counters
 
@@ -131,11 +137,15 @@ class RuntimeCheckpointV1(BaseModel):
                 disambiguation_candidates=list(c.disambiguation_candidates),
                 handover_reference=c.handover_reference,
                 handovers=dict(c.handovers),
+                offer=c.offer,
+                offer_status=c.offer_status,
                 transferred=c.transferred,
                 sensitive_data_seen=list(c.sensitive_data_seen),
             ),
             pending_confirmation=pending,
             pending_escalation=state.pending_escalation,
+            pending_offer=state.pending_offer,
+            threatened_to_leave=state.threatened_to_leave,
             escalations_offered=list(state.escalations_offered),
             counters=Counters(
                 turn_count=state.turn_count,
@@ -177,11 +187,15 @@ class RuntimeCheckpointV1(BaseModel):
                 told_to_customer=[t.text for t in rebuilt if t.role is TurnRole.agent],
                 handover_reference=f.handover_reference,
                 handovers=dict(f.handovers),
+                offer=f.offer,
+                offer_status=f.offer_status,
                 transferred=f.transferred,
                 sensitive_data_seen=list(f.sensitive_data_seen),
             ),
             pending_confirmation=self.pending_confirmation,
             pending_escalation=self.pending_escalation,
+            pending_offer=self.pending_offer,
+            threatened_to_leave=self.threatened_to_leave,
             escalations_offered=list(self.escalations_offered),
             terse=self.terse,
             offer_human_now=self.offer_human_now,

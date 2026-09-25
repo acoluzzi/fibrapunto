@@ -16,6 +16,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/billing/, ""),
       },
+      // The recommendation system: its budget for the dashboard and its switch.
+      "/recommendations": {
+        target: "http://localhost:8082",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/recommendations/, ""),
+      },
     },
   },
 });

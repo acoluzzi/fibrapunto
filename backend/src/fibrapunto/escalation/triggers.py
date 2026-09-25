@@ -56,6 +56,7 @@ class TriggerKind(StrEnum):
 
     # Customer-initiated.
     human_requested = "customer:human_requested"
+    threatened_to_leave = "customer:threatened_to_leave"
     distress = "customer:distress"
 
 

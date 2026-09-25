@@ -86,7 +86,9 @@ two differ in an instructive way — one is meant to be resolved, the other is m
 escalated well.
 
 **Out of scope, deliberately.** Technical troubleshooting of the line and the modem is designed
-(§4.3) but not built. Sales, upgrades and retention offers are not the agent's business.
+(§4.3) but not built. Sales and upgrades are not the agent's business, and the agent never
+composes an offer. Retention offers come from a separate recommendation system with a discount
+budget, and are put to the customer by the platform, not the model (§4.1, §4.2).
 Anything touching the contract itself — activation, suspension, change of plan, change of
 payment method — is human work.
 
@@ -143,7 +145,9 @@ made by the system, not an `if` buried in a prompt.
    retry attempt.
 5. If the customer disputes an amount, asks for a refund or asks for a credit, do not argue
    and do not promise anything: summarise the issue in one sentence, confirm that summary with
-   the customer, then create a handover record.
+   the customer, then create a handover record. If, during the dispute, the customer says they
+   will leave, the platform may put one retention offer to them from the recommendation system
+   before the read-back; the agent never composes one.
 6. If the lookup fails, times out, or finds no contract, say so plainly, invent no billing
    data of any kind, and offer to open a handover record.
 7. Never ask for an IBAN, a card number or a password.
@@ -176,7 +180,8 @@ the operator who receives it.
 > so, or asks about penalties and lock-in periods. Acknowledge the request, understand the
 > reason with one question, inform the customer of contractual constraints returned by the
 > lookup, and create a high-priority handover record for the retention team. Do not execute,
-> confirm, refuse or delay the cancellation, and do not make retention offers.
+> confirm, refuse or delay the cancellation. Retention offers come only from the recommendation
+> system and are presented by the platform, once, before the request is registered.
 
 **Instructions**
 
@@ -186,8 +191,13 @@ the operator who receives it.
    question. If the customer does not want to say, do not insist.
 3. Call the billing lookup and state clearly any lock-in end date or remaining instalments it
    returns. If none are returned, say so.
-4. Never execute the cancellation, never confirm that it has been executed, never propose a
-   discount or an offer.
+4. Never execute the cancellation, never confirm that it has been executed, and never compose
+   an offer. Before the request is registered, the platform asks the recommendation system
+   for an offer within its discount budget and, if there is one, puts it to the customer —
+   once, never to a customer who asked for a person or is upset. The request is registered
+   whatever the answer: an accepted offer goes on the retention case for a colleague to apply,
+   a declined or unavailable one does not delay anything. The request date is recorded either
+   way.
 5. Create a handover record with type `cancellation request` and priority `high`, including the
    stated reason, the contract tenure and the constraints. Tell the customer that a colleague
    will contact them within one working day and that the request date has been recorded.

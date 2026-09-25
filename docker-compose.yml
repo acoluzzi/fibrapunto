@@ -34,6 +34,22 @@ services:
       timeout: 3s
       retries: 10
 
+  # Retention and upsell offers, with a discount budget. A separate system from
+  # billing and the CRM; the agent asks it, never invents an offer.
+  recommendations:
+    build:
+      context: .
+      dockerfile: recommendation-system/Dockerfile
+    environment:
+      RECOMMENDATIONS_BUDGET_EUR: ${RECOMMENDATIONS_BUDGET_EUR:-120}
+    ports:
+      - "127.0.0.1:8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:8082/_control/health')\""]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
   backend:
     build:
       context: .
@@ -42,6 +58,7 @@ services:
     environment:
       POSTGRES_HOST: db
       BILLING_BASE_URL: http://billing:8081
+      RECOMMENDATION_BASE_URL: http://recommendations:8082
     volumes:
       # §17.7: the credential store is external to the automation, so it is not
       # baked into the image. Read-only on purpose — the agent resolves a handle
@@ -60,6 +77,8 @@ services:
       db:
         condition: service_healthy
       billing:
+        condition: service_healthy
+      recommendations:
         condition: service_healthy
 
   frontend:

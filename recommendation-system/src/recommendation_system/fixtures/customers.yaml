@@ -1,0 +1,12 @@
+# This system's own view of the customers it can make offers to — a copy fed
+# from the data warehouse, not a read of the CRM. Plan and tenure are what
+# eligibility needs; nothing personal is held here.
+
+customers:
+  FP-2023-048712: { plan: "Fibra 1000", monthly_fee_eur: "29.90" }
+  FP-2021-017350: { plan: "Fibra 300",  monthly_fee_eur: "24.90" }
+  FP-2019-002217: { plan: "Fibra 300",  monthly_fee_eur: "24.90" }
+  FP-2023-048812: { plan: "Fibra 1000", monthly_fee_eur: "29.90" }
+  FP-2024-092003: { plan: "Fibra Start", monthly_fee_eur: "19.90" }
+  FP-2022-031455: { plan: "Fibra 300",  monthly_fee_eur: "24.90" }
+  FP-2020-004199: { plan: "Fibra Start", monthly_fee_eur: "19.90" }

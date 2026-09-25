@@ -72,8 +72,12 @@ function Detail({ event }: { event: TraceEvent }) {
     case "domain.entered":
       return (
         <div className="detail">
+          {/* The domain first: shown alone, the one-tool list of the fallback
+              domain read as if "transfer_to_human" were the domain. */}
+          <strong>{String(event.domain)}</strong>
           {/* §17.1: the capability list is a property of the domain, so show
               what this turn *could* have done, not only what it did. */}
+          <span className="muted" style={{ margin: "0 4px 0 8px" }}>can use</span>
           {(event.capabilities as string[]).map((capability) => (
             <span className="chip" key={capability}>{capability}</span>
           ))}

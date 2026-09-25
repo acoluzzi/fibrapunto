@@ -289,11 +289,34 @@ class HandoverAwaitingConfirmation(BaseModel):
     )
 
 
+class RetentionOfferFirst(BaseModel):
+    """§4.2 as amended: an offer from the recommendation system is put to the
+    customer before the cancellation is registered. Code presents it right
+    after this reply; the case opens on the customer's answer, either way."""
+
+    outcome: Literal["retentionOfferFirst"] = "retentionOfferFirst"
+    guidance: str = InternalOnly(
+        "Operating instruction for the reasoning layer.",
+        default=(
+            "Do not register the cancellation yet, and do not mention or describe "
+            "any offer yourself: the system presents an offer to the customer "
+            "right after your reply, and registers the request on their answer. "
+            "Acknowledge the request and state the contract's constraints."
+        ),
+    )
+
+
 HandoverResult = Annotated[
     HandoverCreated | HandoverCreatedWithoutContractLink | HandoverFailed,
     Field(discriminator="outcome"),
 ]
 
 HANDOVER_OUTCOMES: frozenset[str] = frozenset(
-    {"created", "createdWithoutContractLink", "failed", "awaitingConfirmation"}
+    {
+        "created",
+        "createdWithoutContractLink",
+        "failed",
+        "awaitingConfirmation",
+        "retentionOfferFirst",
+    }
 )

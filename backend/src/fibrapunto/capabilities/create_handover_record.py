@@ -58,9 +58,15 @@ async def create_handover_record(
     trigger: str,
     stated_reason: str | None = None,
     disputed_point: str | None = None,
+    record_type: str | None = None,
 ) -> HandoverResult:
-    """Build the payload from typed state, validate it, insert it."""
-    route = routing.for_domain(state.current_domain)
+    """Build the payload from typed state, validate it, insert it.
+
+    The route follows the domain, unless `record_type` names one: an offer
+    accepted during a dispute is retention's work, not billing's."""
+    route = (
+        routing.for_type(record_type) if record_type else routing.for_domain(state.current_domain)
+    )
 
     # Idempotent per conversation **and record type**. One customer request is
     # one case, and this capability is the only thing that can open one — so

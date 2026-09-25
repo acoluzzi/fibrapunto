@@ -10,6 +10,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 COPY backend/pyproject.toml backend/
 COPY mock-billing/pyproject.toml mock-billing/
+COPY recommendation-system/pyproject.toml recommendation-system/
 COPY evals/pyproject.toml evals/
 
 RUN uv sync --frozen --package fibrapunto --no-install-project

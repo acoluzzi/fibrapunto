@@ -61,3 +61,28 @@ def test_an_unknown_schema_is_refused_not_guessed():
         checkpoint.load(99, stored)
     with pytest.raises(UnsupportedCheckpoint):
         checkpoint.load(checkpoint.SCHEMA_VERSION, {**stored, "schema_version": 2})
+
+
+def test_an_offer_survives_so_it_is_never_made_twice():
+    from decimal import Decimal
+
+    from fibrapunto.state.models import OfferFacts, PendingOffer
+
+    state = ConversationState(current_domain=DomainKey.cancellation)
+    state.collected.offer = OfferFacts(
+        offer_id="loyalty-5-off",
+        title="€5 off every month for 12 months",
+        description="…",
+        monthly_discount_eur=Decimal("5.00"),
+        duration_months=12,
+        cost_eur=Decimal("60.00"),
+    )
+    state.collected.offer_status = "presented"
+    state.pending_offer = PendingOffer(context="cancellation", asked_at_turn=3)
+    state.threatened_to_leave = True
+
+    restored = _roundtrip(state)
+    assert restored.collected.offer.offer_id == "loyalty-5-off"
+    assert restored.collected.offer_status == "presented"
+    assert restored.pending_offer.context == "cancellation"
+    assert restored.threatened_to_leave is True

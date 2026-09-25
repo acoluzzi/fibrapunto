@@ -49,6 +49,14 @@ class RoutingDecision(BaseModel):
     sentiment: Literal["neutral", "frustrated", "angry"] = Field(
         description="The customer's tone in the latest message."
     )
+    threatens_to_leave: bool = Field(
+        default=False,
+        description=(
+            "True if the customer says or clearly implies they will leave, "
+            "cancel or switch operator if this is not sorted out ('or I'm "
+            "leaving', 'I'll go to another provider')."
+        ),
+    )
     financial_request: Literal["none", "dispute", "refund", "credit", "payment_method_change"] = (
         Field(
             default="none",

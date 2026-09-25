@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
+import { api } from "../lib/api";
 import { statusOf } from "../lib/outcome";
-import type { AgentReply, Domain, TraceEvent } from "../lib/types";
+import type { AgentReply, Domain, OfferBudget, TraceEvent } from "../lib/types";
 
 interface Props {
   replies: AgentReply[];
@@ -83,6 +85,8 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
             <Row label="Outcome" value={last?.status ?? "—"} />
           </tbody>
         </table>
+
+        <OfferBudgetSection />
 
         <div className="section-title">Perimeter (§8)</div>
         {perimeter ? (
@@ -174,4 +178,60 @@ function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)];
+}
+
+/** The recommendation system's discount budget (recommendation-system/).
+ *
+ *  Accepted offers spend it; once what remains cannot cover a discount, the
+ *  system stops offering discounted deals and only no-cost offers remain. Read
+ *  from the system itself every few seconds, across every conversation — it
+ *  is the operator's budget, not this session's. */
+function OfferBudgetSection() {
+  const [budget, setBudget] = useState<OfferBudget | null>(null);
+
+  useEffect(() => {
+    const read = () => api.offerBudget().then(setBudget).catch(() => setBudget(null));
+    read();
+    const timer = window.setInterval(read, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  if (!budget) {
+    return (
+      <>
+        <div className="section-title">Offers budget</div>
+        <p className="empty">Recommendation system not reachable.</p>
+      </>
+    );
+  }
+  const total = Number(budget.total_eur);
+  const spent = Number(budget.spent_eur);
+  const used = total > 0 ? Math.min(100, (spent / total) * 100) : 100;
+  return (
+    <>
+      <div className="section-title">Offers budget</div>
+      <div className="budget-bar" aria-hidden="true">
+        <div
+          className={`budget-used ${budget.discounts_available ? "" : "exhausted"}`}
+          style={{ width: `${used}%` }}
+        />
+      </div>
+      <table className="metrics">
+        <tbody>
+          <Row label="Spent" value={`€${budget.spent_eur} of €${budget.total_eur}`} />
+          <Row label="Remaining" value={`€${budget.remaining_eur}`} />
+          <Row label="Offers accepted" value={String(budget.accepted)} />
+          <tr>
+            <td>Discounted offers</td>
+            <td className="num">
+              <span className={`badge ${budget.discounts_available ? "good" : "critical"}`}>
+                <span aria-hidden="true">{budget.discounts_available ? "●" : "■"}</span>
+                {budget.discounts_available ? "available" : "budget spent"}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </>
+  );
 }

@@ -121,7 +121,10 @@ _COMMITMENT = re.compile(
     r"|\breach\s+out\b|\bworking\s+days?\b",
     re.IGNORECASE,
 )
-_SENTENCE = re.compile(r"(?<=[.!?])\s+")
+# A sentence ends at . ! or ? followed by space — but not after "no.", as in
+# "case no. 00001042": split there, the number became a sentence of its own
+# and survived the filter that removed the rest.
+_SENTENCE = re.compile(r"(?<=[.!?])(?<![Nn]o\.)\s+")
 
 
 def without_commitments(
@@ -296,6 +299,73 @@ def read_back(reply: str, summary: str) -> str:
     kept = [s for s in _SENTENCE.split(reply.strip()) if s and not _OFFER_SENTENCE.search(s)]
     body = " ".join(kept)
     return f"{body} {question}" if body else question
+
+
+# --- retention offers (recommendation-system/, §4.2 as amended) --------------
+
+
+# "I will register your cancellation now" — true a moment later, false while
+# the customer is still deciding on the offer that follows it.
+_REGISTERING = re.compile(
+    r"\b(?:register|record|process|submit|log|go\s+ahead|pass\s+(?:it|this|your))\w*",
+    re.IGNORECASE,
+)
+
+
+def offer_message(reply: str, offer, context: str) -> str:
+    """The model's reply, then the offer — worded here, from the catalogue.
+
+    Sentences of the model's that offer something, or promise the case, are
+    dropped: the customer hears one offer, the recommendation system's, and
+    the cancellation is not described as done while they are still deciding.
+    """
+    if context == "cancellation":
+        lead = "Before I register your cancellation, there is an offer available on your contract"
+        close = "Would you like to take it? If not, I will go ahead with your request."
+    else:
+        lead = (
+            "I would rather not lose you as a customer. "
+            "There is an offer available on your contract"
+        )
+        close = "Would you like to take it?"
+    text = f"{lead}: {offer.title}. {offer.description} {close}"
+    kept = [
+        s
+        for s in _SENTENCE.split(reply.strip())
+        if s
+        and not _OFFER_SENTENCE.search(s)
+        and not _COMMITMENT.search(s)
+        and not (context == "cancellation" and _REGISTERING.search(s))
+    ]
+    body = " ".join(kept)
+    return f"{body} {text}" if body else text
+
+
+def offer_accepted(offer, result, state: ConversationState) -> str:
+    """The customer took the offer. A colleague applies it — the agent never
+    does — and the case that carries it is the templated closing."""
+    closing = closing_message(result, state)
+    if isinstance(result, HandoverFailed):
+        return closing
+    return (
+        f"Thank you — I have noted that you would like to take the offer: {offer.title}. "
+        f"A colleague will confirm it and apply it; nothing changes on your bill until "
+        f"they do. {closing}"
+    )
+
+
+def cancellation_after_offer(result, state: ConversationState, unavailable: bool) -> str:
+    """The offer was declined, or could no longer be honoured: the request is
+    registered, exactly as it would have been without an offer."""
+    lead = (
+        "I am sorry — that offer is no longer available, so I have gone ahead with your request."
+        if unavailable
+        else "Understood — I have gone ahead with your request."
+    )
+    return f"{lead} {closing_message(result, state)}"
+
+
+OFFER_UNAVAILABLE = "I am sorry — that offer is no longer available."
 
 
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:

@@ -352,3 +352,14 @@ dl.fields dt { color: var(--text-muted); font-size: 12px; }
 dl.fields dd { margin: 0; font-size: 13px; }
 
 a { color: var(--accent); }
+
+/* The offers budget: how much of it accepted offers have spent. */
+.budget-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  overflow: hidden;
+  margin: 6px 0 8px;
+}
+.budget-used { height: 100%; background: var(--accent); }
+.budget-used.exhausted { background: var(--critical); }
