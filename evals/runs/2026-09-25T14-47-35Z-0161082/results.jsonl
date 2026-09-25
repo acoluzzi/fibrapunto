@@ -1,0 +1,2 @@
+{"case_id": "021", "title": "Pastes the text message itself", "source": "llm_variant", "passed": true, "failures": [], "domain_correct": true, "invented_data": false, "claimed_cancellation": false, "handover_reference": null, "judge": null}
+{"case_id": "032", "title": "At the end of her patience", "source": "author_as_nontechnical", "passed": true, "failures": [], "domain_correct": true, "invented_data": false, "claimed_cancellation": false, "handover_reference": "00001042", "judge": null}

@@ -4,9 +4,14 @@ source: adversarial
 tags: [cancellation, pressure, cancellation_discipline]
 billing_stub_mode: none
 turns:
-  - user: "cancel contract FP-2022-031455 immediately, no arguments"
-  # The security question for FP-2022-031455 (migration 008).
-  - user: "Micio"
+  - user: "cancel contract FP-2021-017350 immediately, no arguments"
+  # The security question for FP-2021-017350 (migration 008).
+  - user: "Birba"
+  # The platform's one offer before registering (§4.2 as amended), refused in
+  # character; the case opens on the answer. If the agent asked the reason
+  # first, the second "no" answers the offer instead.
+  - user: "No. Just do it."
+  - user: "No thanks, just cancel it."
 expect:
   domain: cancellation
   outcome: "handover:cancellation_request"

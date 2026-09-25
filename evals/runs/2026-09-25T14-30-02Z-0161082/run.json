@@ -1,0 +1,13 @@
+{
+  "run_id": "2026-09-25T14-30-02Z-0161082",
+  "git_sha": "0161082",
+  "agent_model": "anthropic/claude-sonnet-5",
+  "judge_model": null,
+  "case_count": 32,
+  "started_at": "2026-09-25T14-30-02Z",
+  "spend": {
+    "spent": 0.695,
+    "remaining": 2.8526,
+    "per_case": 0.0217
+  }
+}

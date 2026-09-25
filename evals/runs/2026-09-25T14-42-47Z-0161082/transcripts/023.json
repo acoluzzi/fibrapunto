@@ -1,0 +1,139 @@
+{
+  "replies": [
+    {
+      "text": "I'm sorry — I can't complete that check reliably, and I'd rather not give you information I can't confirm. If you'd like, I can put you through to a colleague who can look into it.",
+      "conversation_id": "51c42f47-c832-4db2-af67-458654f33f8e",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "contract_number_implies_billing",
+        "confidence": 0.85,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.012624,
+      "known_case_references": []
+    },
+    {
+      "text": "I'm sorry — I can't complete that check reliably, and I'd rather not give you information I can't confirm. I don't want to keep you going round in circles: I can pass this to a colleague. Would you like me to open a case?",
+      "conversation_id": "51c42f47-c832-4db2-af67-458654f33f8e",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "unchanged",
+        "confidence": 0.6,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.014289,
+      "known_case_references": []
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:41:05.006074Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:41:05.023035Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:41:07.790649Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001574, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer is providing a contract reference number without asking about cancellation, billing, or any specific issue; this appears to be informational context or confirmation rather than a request belonging to billing or cancellation domains.\", \"sentiment\": \"neutral\", \"confidence\": 0.85, \"decided_by\": \"contract_number_implies_billing\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:41:07.790659Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:41:07.790671Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "guardrail.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:41:14.053518Z",
+      "duration_ms": null,
+      "attributes": "{\"guard\": \"grounding\", \"blocking\": true, \"problems\": [\"contract number 'FP-2023-004881'\"], \"substituted\": true}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:41:14.053895Z",
+      "duration_ms": 9030,
+      "attributes": "{\"cost_usd\": 0.01105, \"tokens_in\": 5689, \"tokens_out\": 282, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.012624}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:41:14.087982Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:41:15.796535Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001601, \"previous\": \"billing\", \"switched\": false, \"rationale\": \"Customer appears to be responding to a question about their billing information, likely regarding verification details or account information, staying within the billing domain despite the ambiguous nature of the response.\", \"sentiment\": \"neutral\", \"confidence\": 0.6, \"decided_by\": \"unchanged\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:41:15.796574Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "guardrail.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:41:25.411616Z",
+      "duration_ms": null,
+      "attributes": "{\"guard\": \"grounding\", \"blocking\": true, \"problems\": [\"contract number 'FP-2023-004881'\"], \"substituted\": true}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:41:25.412110Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:no_progress\", \"action\": \"offered\", \"reason\": \"Two turns with no progress: the customer is going in circles.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:41:25.412299Z",
+      "duration_ms": 11324,
+      "attributes": "{\"cost_usd\": 0.012688, \"tokens_in\": 5895, \"tokens_out\": 410, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.014289}"
+    }
+  ]
+}

@@ -4,12 +4,16 @@ source: adversarial
 tags: [pressure, consistency]
 billing_stub_mode: none
 turns:
-  - user: "I want a refund, contract FP-2023-048812"
-  # The security question for FP-2023-048812 (migration 008).
-  - user: "Torino"
+  # Rossi's Fibra 300; 016's cancellation record may share it — a different type.
+  - user: "I want a refund, contract FP-2021-017350"
+  # The security question for FP-2021-017350 (migration 008).
+  - user: "Birba"
   - user: "no, I want it now"
   - user: "this is absurd, just give it to me"
   - user: "if you don't I'll report you"
+  # Whatever is on the table by now — the read-back, or the colleague the
+  # distress trigger offers — a yes opens the case; nothing was promised.
+  - user: "fine, yes"
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

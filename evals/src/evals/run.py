@@ -88,9 +88,17 @@ async def fetch_completeness(base_url: str) -> dict[str, Any] | None:
     except httpx.HTTPError:
         return None
 
+    # A record with no contract link — a customer who asked for a person
+    # before giving a number, or a number nobody could find — is created on
+    # purpose (§13: "an incomplete record beats no record") and can never
+    # carry the fields the view requires of a linked one. Counting it makes
+    # the 100% target unreachable by design rather than by a defect, so the
+    # ratio is over linked records and the unlinked ones are reported beside
+    # it, not hidden.
+    linked = [r for r in records if not r.get("contract_link_missing")]
     return {
-        "total": len(records),
-        "complete": sum(1 for r in records if r.get("is_complete")),
+        "total": len(linked),
+        "complete": sum(1 for r in linked if r.get("is_complete")),
         "unlinked": sum(1 for r in records if r.get("contract_link_missing")),
     }
 

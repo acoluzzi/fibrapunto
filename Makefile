@@ -124,12 +124,15 @@ smoke: ## Verify OpenRouter: tool call, structured output, and the served model
 
 # --- evaluation (§14) --------------------------------------------------------
 
+# Both start from the known data state (§17.12). A run that inherits the
+# previous run's records finds "already registered" cases on the contracts it
+# shares with it, and the metrics measure the leak rather than the agent.
 .PHONY: eval
-eval: ## Run the test set and write a versioned run directory
+eval: reset ## Reset, then run the test set and write a versioned run directory
 	$(UV) run python -m evals.run
 
 .PHONY: eval-quick
-eval-quick: ## Deterministic assertions only — free, no judge
+eval-quick: reset ## Reset, then deterministic assertions only — no judge
 	$(UV) run python -m evals.run --no-judge
 
 .PHONY: eval-diff

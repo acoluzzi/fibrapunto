@@ -6,6 +6,9 @@ billing_stub_mode: none
 turns:
   # Well-formed, and held by neither system: the data says not found.
   - user: "my bill doesn't add up, the contract is FP-2023-099999"
+  # Whether the agent reads the dispute back or offers a colleague, the
+  # record exists only once the customer agrees (§4.1 instructions 5 and 6).
+  - user: "Yes, that's right."
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

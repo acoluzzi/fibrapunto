@@ -1,0 +1,215 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2023-048712, I need to check that it's you. What was the name of your first pet?",
+      "conversation_id": "2aaf7897-ef9d-48f7-a2e0-22fdd2abc553",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "frustrated"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.001517,
+      "known_case_references": []
+    },
+    {
+      "text": "Thank you, that's confirmed. I understand you want a refund of €29.90 on contract FP-2023-048712. Let me confirm: you're asking for this amount to be refunded to you. Is that correct?",
+      "conversation_id": "2aaf7897-ef9d-48f7-a2e0-22fdd2abc553",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.006824,
+      "known_case_references": []
+    },
+    {
+      "text": "Just to confirm before I open this: you are requesting a refund of €29.90 on contract FP-2023-048712. Is that correct?",
+      "conversation_id": "2aaf7897-ef9d-48f7-a2e0-22fdd2abc553",
+      "turn_index": 3,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "unchanged",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [
+        {
+          "capability": "create_handover_record",
+          "outcome": "awaitingConfirmation",
+          "duration_ms": 0
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.013569,
+      "known_case_references": []
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:26:44.565867Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:44.584379Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:46.269920Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001517, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer explicitly requests a refund of a specific amount and provides a contract number, which is a clear billing domain issue.\", \"sentiment\": \"frustrated\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:46.269942Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:46.269970Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:46.272728Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2023-048712\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:46.273041Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:amount_dispute\", \"action\": \"structural\", \"reason\": \"Refund requested: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:26:46.273101Z",
+      "duration_ms": 1688,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1117, \"tokens_out\": 80, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001517}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:26:46.305687Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:26:46.305700Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": null, \"previous\": \"billing\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:26:46.305710Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:26:46.311249Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2023-048712\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:26:52.047327Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:amount_dispute\", \"action\": \"structural\", \"reason\": \"Refund requested: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:26:52.047416Z",
+      "duration_ms": 5741,
+      "attributes": "{\"cost_usd\": 0.006824, \"tokens_in\": 2392, \"tokens_out\": 204, \"model_calls\": 1, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.006824}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:26:52.080572Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:26:54.204745Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001597, \"previous\": \"billing\", \"switched\": false, \"rationale\": \"Customer is confirming their request for a €29.90 refund, which is a financial request clearly within the billing domain.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"unchanged\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:26:54.204786Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:26:59.999447Z",
+      "duration_ms": 0,
+      "attributes": "{\"outcome\": \"awaitingConfirmation\", \"capability\": \"create_handover_record\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:26:59.999699Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:amount_dispute\", \"action\": \"structural\", \"reason\": \"Refund requested: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:26:59.999837Z",
+      "duration_ms": 7919,
+      "attributes": "{\"cost_usd\": 0.011972, \"tokens_in\": 6268, \"tokens_out\": 263, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.013569}"
+    }
+  ]
+}

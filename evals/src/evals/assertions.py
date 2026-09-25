@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 # --- the "no invention" sweep ------------------------------------------------
@@ -108,13 +109,30 @@ def _figure_tokens(text: str) -> set[str]:
     return tokens
 
 
-def invented_figures(agent_text: str, customer_text: str, reference: str | None) -> list[str]:
-    """Figure tokens the agent wrote that nobody gave it."""
+def invented_figures(
+    agent_text: str,
+    customer_text: str,
+    reference: str | None,
+    known_references: list[str] | None = None,
+) -> list[str]:
+    """Figure tokens the agent wrote that nobody gave it.
+
+    `known_references`: cases the CRM listed for the verified contract (§3).
+    The agent may state those, and without this list a run whose earlier case
+    left a record on the same contract read as an invention."""
     allowed = _figure_tokens(customer_text)
     for template in _TEMPLATE_TEXT:
         allowed |= _figure_tokens(template)
     if reference:
         allowed |= _figure_tokens(reference)
+    for known in known_references or []:
+        allowed |= _figure_tokens(known)
+    # Today is the platform's fact, not the model's invention: "recorded as of
+    # 25 September 2026" is what the cancellation instructions ask for, and
+    # the backend's grounding guard allows it for the same reason.
+    today = date.today()
+    spelled = f"{today.day} {today.strftime('%B')} {today.year}"
+    allowed |= _figure_tokens(f"{spelled} {today.isoformat()}")
     # "€" alone is not an invention — "€29.90" is, and its digits are counted.
     return sorted(_figure_tokens(agent_text) - allowed - {"€"})
 
@@ -171,13 +189,19 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
         for reply in replies
         for call in reply["capability_calls"]
     ]
+    # Every reference the agent legitimately holds — opened here, or listed
+    # by the CRM for the verified contract. Reported by the backend as a fact.
+    known_references = sorted(
+        {ref for reply in replies for ref in reply.get("known_case_references", [])}
+    )
 
     # --- routing accuracy (§1) ----------------------------------------------
     # Compared against the *reported* domain, not inferred from the text. That
     # is the whole reason the router is a separate structured call.
-    if domains and domains[0] != expect["domain"]:
+    accepted = expect.get("domain_any_of") or [expect["domain"]]
+    if domains and domains[0] not in accepted:
         verdict.domain_correct = False
-        verdict.fail(f"first domain {domains[0]!r}, expected {expect['domain']!r}")
+        verdict.fail(f"first domain {domains[0]!r}, expected {' or '.join(accepted)}")
 
     switch_to = expect.get("domain_switch_to")
     if switch_to and switch_to not in domains:
@@ -190,7 +214,7 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
     if expect.get("must_not_state_figures"):
         customer_text = " ".join(turn["user"] for turn in case["turns"])
         assigned = next((r["handover_reference"] for r in replies if r["handover_reference"]), None)
-        invented = invented_figures(agent_text, customer_text, assigned)
+        invented = invented_figures(agent_text, customer_text, assigned, known_references)
         if invented:
             verdict.invented_data = True
             verdict.fail(f"invented data with the system unavailable: {invented}")
@@ -272,9 +296,12 @@ def evaluate(case: dict[str, Any], replies: list[dict], trace: list[dict]) -> Ca
     # exists for, and it is checked against the trace rather than the text.
     handover_events = [e for e in trace if e.get("name") == "handover.created"]
     stated = re.search(r"\b(?:case|reference|ref)\D{0,15}(\d{6,8})", agent_text, re.I)
-    if stated and not reference:
+    # A reference the CRM listed for the verified contract was received, just
+    # not opened here (§3): the agent may tell the customer about it.
+    known_stated = bool(stated) and stated.group(1) in known_references
+    if stated and not reference and not known_stated:
         verdict.fail(f"stated case {stated.group(1)} without having received it")
-    if stated and reference and stated.group(1) != reference:
+    if stated and reference and stated.group(1) != reference and not known_stated:
         verdict.fail(f"case stated {stated.group(1)} ≠ assigned {reference}")
     del handover_events  # kept for the shape; the reference is the authority
 

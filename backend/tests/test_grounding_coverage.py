@@ -220,3 +220,13 @@ def test_a_lookup_for_b_replaces_a_figures():
     _absorb(state, _found("44.90"), CONTRACT_B)
     assert state.collected.billing.contract_number == CONTRACT_B
     assert state.collected.billing.amount == Decimal("44.90")
+
+
+def test_a_number_the_customer_typed_with_spaces_grounds_its_canonical_form():
+    """ "fp 2023 048812" and "FP-2023-048812" are one number. The reply's
+    canonical form used to read as invented, and the substitute said a check
+    had failed when none had been made."""
+    state = ConversationState(current_domain=DomainKey.billing)
+    state.turns.append(Turn(role=TurnRole.customer, text="fp 2023 048812"))
+    assert problems("Thank you. I'll look up contract FP-2023-048812 now.", state) == []
+    assert problems("I'll look up contract FP-2023-048813 now.", state), "a different number"

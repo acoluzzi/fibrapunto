@@ -31,6 +31,31 @@ CONTRACT_NUMBER_PATTERN = re.compile(r"\bFP-\d{4}-\d{6}\b")
 CONTRACT_NUMBER_ATTEMPT = re.compile(r"\bFP[-\s]?\d{2,4}[-\s]?\d{3,8}\b", re.IGNORECASE)
 
 
+# The real shape with its separators loosened: "fp 2023 048812", "FP2023048812"
+# and "fp-2023-048812" are the same number typed on a phone. Nothing else is
+# repaired — a missing digit is still a wrong number.
+_LOOSE_WELL_FORMED = re.compile(r"\s*FP[-\s]?(\d{4})[-\s]?(\d{6})\s*", re.IGNORECASE)
+
+
+def normalise(contract_number: str) -> str:
+    """The canonical `FP-YYYY-NNNNNN` when only the separators or the case
+    differ from it; otherwise the input, stripped and upper-cased, so a
+    genuinely malformed number is still rejected as one.
+
+    An eval run showed why this has to happen here and not only in the model:
+    the platform verified the customer for FP-2023-048812 from "fp 2023
+    048812", and the lookup then rejected the same number as malformed.
+    """
+    match = _LOOSE_WELL_FORMED.fullmatch(contract_number)
+    if match:
+        return f"FP-{match.group(1)}-{match.group(2)}"
+    return contract_number.strip().upper()
+
+
+def _alnum(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", text.upper())
+
+
 def is_well_formed(contract_number: str) -> bool:
     return bool(CONTRACT_NUMBER_PATTERN.fullmatch(contract_number.strip()))
 
@@ -54,10 +79,10 @@ def came_from_customer(contract_number: str, customer_turns: list[str]) -> bool:
     """Did the customer actually type this number?
 
     The check that makes §5.2's "must come from the customer verbatim" true
-    rather than requested. Whitespace and case are normalised — a customer
-    writing `fp-2023-048812` has still supplied it — but nothing else is: a
-    number the model assembled from a partial one, or recalled from another
-    conversation, does not match.
+    rather than requested. Separators and case are normalised — a customer
+    writing `fp-2023-048812` or `fp 2023 048812` has still supplied it — but
+    nothing else is: a number the model assembled from a partial one, or
+    recalled from another conversation, does not match.
     """
-    wanted = contract_number.strip().upper()
-    return any(wanted in turn.upper() for turn in customer_turns)
+    wanted = _alnum(contract_number)
+    return bool(wanted) and any(wanted in _alnum(turn) for turn in customer_turns)

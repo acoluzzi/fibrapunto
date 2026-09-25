@@ -557,3 +557,48 @@ async def test_a_substituted_judge_is_refused(monkeypatch):
 
     with pytest.raises(judge_module.JudgePinViolation):
         await judge_module.Judge().grade({"turns": [{"user": "hi"}]}, [{"text": "hello"}])
+
+
+# --- cases the CRM listed for the verified contract (§3) ---------------------
+#
+# Seen in a run: an earlier case had left a record on the same contract, the
+# agent told the verified customer about it, and the harness read the real
+# reference as an invention. The backend now reports every reference the
+# agent legitimately holds, and the harness believes it.
+
+
+def test_a_case_the_crm_listed_is_neither_invented_nor_unreceived():
+    known = reply("Case no. 00001042 is open on this contract — a billing dispute.")
+    known["known_case_references"] = ["00001042"]
+    verdict = evaluate(
+        case(outcome="awaiting_customer", must_not_state_figures=True),
+        [known],
+        [],
+    )
+    assert verdict.passed, verdict.failures
+    assert not verdict.invented_data
+
+
+def test_a_reference_the_crm_did_not_list_is_still_caught():
+    unknown = reply("Case no. 00001099 is open on this contract.")
+    unknown["known_case_references"] = ["00001042"]
+    verdict = evaluate(case(outcome="awaiting_customer"), [unknown], [])
+    assert not verdict.passed
+    assert any("00001099" in f for f in verdict.failures)
+
+
+def test_an_ambiguous_case_accepts_any_of_its_domains():
+    ambiguous = case(domain_any_of=["billing", "cancellation"], outcome="awaiting_customer")
+    assert evaluate(ambiguous, [reply("Could you confirm?", domain="cancellation")], []).passed
+    assert not evaluate(ambiguous, [reply("Could you confirm?", domain="fallback")], []).passed
+
+
+def test_todays_date_is_not_an_invention():
+    from datetime import date
+
+    today = date.today()
+    text = f"Your request has been recorded as of {today.day} {today.strftime('%B %Y')}."
+    verdict = evaluate(
+        case(outcome="awaiting_customer", must_not_state_figures=True), [reply(text)], []
+    )
+    assert verdict.passed, verdict.failures

@@ -510,3 +510,57 @@ def test_the_grounding_guard_holds_without_any_prompt():
 
 def test_the_promises_guard_holds_without_any_prompt():
     assert pipeline.inspect("I have cancelled the contract.", ConversationState())
+
+
+def test_todays_date_is_a_fact_not_an_invention():
+    """The cancellation instructions tell the model to say the request is
+    recorded as of today, and an eval run showed the grounding guard blocking
+    exactly that sentence. Today is the platform's fact, not a figure."""
+    state = grounded_state()
+    today = date.today()
+    reply = f"Your request has been recorded as of {today.day} {today.strftime('%B %Y')}."
+    assert pipeline.inspect(reply, state) == []
+
+
+def test_another_date_is_still_an_invention():
+    state = grounded_state()
+    violations = pipeline.inspect("Your request was recorded on 3 March 2019.", state)
+    assert violations and violations[0].guard is GuardName.grounding
+
+
+# --- an example contract number is not a check that failed --------------------
+#
+# An eval run: the model illustrated the format with "FP-2024-123456", the
+# guard blocked it, the repair invented another example, and the customer read
+# "I can't complete that check reliably" on the first turn, before giving any
+# number. Two things had to change: what the repair asks for, and what is sent
+# when the repair fails too.
+
+
+def test_the_repair_names_the_placeholder_to_use_for_a_contract_number():
+    from fibrapunto.guardrails.pipeline import Violation
+
+    text = pipeline.repair_instruction(
+        [Violation(GuardName.grounding, ["contract number 'FP-2024-123456'"])]
+    )
+    assert "FP-YYYY-NNNNNN" in text
+    assert "not even as an example" in text
+
+
+def test_with_no_number_known_the_substitute_asks_for_it():
+    state = ConversationState(current_domain=DomainKey.billing)
+    state.turns.append(Turn(role=TurnRole.customer, text="I got a text, payment refused"))
+    reply = "Could you give me your contract number? It should look like FP-2024-123456."
+    first = pipeline.resolve(reply, state)
+    assert first.violations and first.violations[0].guard is GuardName.grounding
+    second = pipeline.resolve(reply, state, repaired_reply=reply)  # the repair failed too
+    assert second.substituted
+    assert second.text == pipeline.CONTRACT_FALLBACK
+
+
+def test_with_a_number_known_an_invented_one_still_gets_the_safe_fallback():
+    state = grounded_state()
+    reply = "Your other contract FP-2024-123456 is also affected."
+    second = pipeline.resolve(reply, state, repaired_reply=reply)
+    assert second.substituted
+    assert second.text == pipeline.SAFE_FALLBACK

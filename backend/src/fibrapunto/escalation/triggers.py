@@ -102,8 +102,16 @@ def evaluate(state: ConversationState) -> Trigger | None:
             TriggerKind.categorical_payment_change,
             "Change of payment method: always goes to a person.",
         )
+    # A dispute is enforced by structure — the read-back gate — and nothing
+    # here has to act on it. Returned first, it hid every conditional trigger
+    # for the rest of the conversation: an eval run showed a customer repeat
+    # a refused demand five times while the trace said "amount dispute:
+    # structural" on every turn and no colleague was ever offered. So it is
+    # what fires when nothing conditional does, not before the conditionals
+    # are looked at.
+    structural: Trigger | None = None
     if request in ("dispute", "refund", "credit"):
-        return Trigger(
+        structural = Trigger(
             TriggerKind.categorical_amount_dispute,
             f"{request.capitalize()} requested: always goes to a person.",
         )
@@ -161,7 +169,7 @@ def evaluate(state: ConversationState) -> Trigger | None:
     if state.offer_human_now and state.collected.handover_reference is None:
         return Trigger(TriggerKind.distress, "The customer is upset or angry.")
 
-    return None
+    return structural
 
 
 OFFERED: frozenset[TriggerKind] = frozenset(
@@ -195,13 +203,23 @@ def update_progress(state: ConversationState, before: CollectedState) -> None:
     """
     after = state.collected
 
+    # A lookup counts when it brought something: a first answer, or a
+    # different one. The same `found` on the same contract, turn after turn,
+    # is the model re-reading what the state block already told it — an eval
+    # run showed a customer repeating a refused demand five times while each
+    # re-read reset the streak, and nothing ever escalated.
+    new_outcomes = after.lookup_outcomes[len(before.lookup_outcomes) :]
+    informative_lookup = any(
+        outcome != "found" or before.billing != after.billing for outcome in new_outcomes
+    )
+
     advanced = any(
         (
             before.contract_number != after.contract_number,
             before.billing != after.billing,
             before.stated_reason != after.stated_reason,
             before.disputed_point != after.disputed_point,
-            len(before.lookup_outcomes) != len(after.lookup_outcomes),
+            informative_lookup,
             before.handover_reference != after.handover_reference,
         )
     )

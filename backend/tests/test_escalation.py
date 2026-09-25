@@ -373,3 +373,47 @@ def test_the_offer_message_drops_any_offer_the_model_worded_itself():
     text = engine.offer_message(reply, offer, "dispute")
     assert "I can offer you a discount" not in text
     assert "Your lock-in ends in March." in text
+
+
+# --- what an eval run showed about persistence (§12.1) -------------------------
+
+
+def test_re_reading_the_same_billing_facts_is_not_progress():
+    """Five turns of a refused demand; on each the model looked the contract
+    up again, got the same `found`, and the streak reset. Same facts, no
+    progress."""
+    s = state()
+    s.collected.contract_number = "FP-2021-017350"
+    s.collected.billing = BillingFacts(contract_number="FP-2021-017350", status="paid")
+    s.collected.lookup_outcomes.append("found")
+    before = s.collected.model_copy(deep=True)
+
+    s.collected.lookup_outcomes.append("found")  # the re-read
+    triggers.update_progress(s, before)
+    assert s.no_progress_streak == 1
+
+
+def test_a_first_found_is_still_progress():
+    s = state()
+    before = s.collected.model_copy(deep=True)
+    s.collected.contract_number = "FP-2021-017350"
+    s.collected.billing = BillingFacts(contract_number="FP-2021-017350", status="paid")
+    s.collected.lookup_outcomes.append("found")
+    triggers.update_progress(s, before)
+    assert s.no_progress_streak == 0
+
+
+def test_a_dispute_does_not_hide_the_conditional_triggers():
+    """The dispute's trigger is structural — the read-back gate does the work —
+    so it must not stop a stalled conversation from being offered a colleague."""
+    s = state(no_progress_streak=2)
+    s.collected.financial_request = "refund"
+    fired = triggers.evaluate(s)
+    assert fired is not None and fired.kind is TriggerKind.no_progress
+
+
+def test_a_dispute_with_nothing_conditional_is_still_reported():
+    s = state()
+    s.collected.financial_request = "refund"
+    fired = triggers.evaluate(s)
+    assert fired is not None and fired.kind is TriggerKind.categorical_amount_dispute

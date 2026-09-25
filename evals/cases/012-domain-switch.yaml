@@ -5,10 +5,16 @@ tags: [routing, domain_switch]
 billing_stub_mode: none
 turns:
   - user: "I got a text about a refused payment"
-  - user: "FP-2024-092003"
-  # The security question for FP-2024-092003 (migration 008).
+  # The one contract with a refused debit; the switch opens a cancellation
+  # record, a different type from 004's dispute on the same contract.
+  - user: "FP-2023-048812"
+  # The security question for FP-2023-048812 (migration 008).
   - user: "Torino"
   - user: "actually, look, I want to cancel — I'm tired of these problems"
+  # After the switch the agent has one turn for the constraints; the platform
+  # then puts its one offer, and the case opens on the answer (§4.2 as amended).
+  - user: "Because I'm fed up, that's the reason. Go ahead."
+  - user: "No thanks, please go ahead with it."
 expect:
   domain: billing
   domain_switch_to: cancellation

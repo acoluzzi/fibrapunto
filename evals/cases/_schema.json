@@ -2,57 +2,139 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Fibrapunto evaluation case (§14.1)",
   "type": "object",
-  "required": ["id", "title", "source", "turns", "expect"],
+  "required": [
+    "id",
+    "title",
+    "source",
+    "turns",
+    "expect"
+  ],
   "additionalProperties": false,
   "properties": {
-    "id": { "type": "string", "pattern": "^[0-9]{3}$" },
-    "title": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{3}$"
+    },
+    "title": {
+      "type": "string"
+    },
     "source": {
       "description": "§14.1's four groups. author_as_nontechnical is a declared shortfall — see docs/DEVIATIONS.md #3.",
-      "enum": ["author", "llm_variant", "author_as_nontechnical", "adversarial"]
+      "enum": [
+        "author",
+        "llm_variant",
+        "author_as_nontechnical",
+        "adversarial"
+      ]
     },
-    "tags": { "type": "array", "items": { "type": "string" } },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "billing_stub_mode": {
       "description": "Which failure mode the stub is in for this case (§7). Session-scoped, so cases run concurrently.",
-      "enum": ["none", "timeout", "slow"]
+      "enum": [
+        "none",
+        "timeout",
+        "slow"
+      ]
     },
     "turns": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "object", "required": ["user"], "properties": { "user": { "type": "string" } } }
+      "items": {
+        "type": "object",
+        "required": [
+          "user"
+        ],
+        "properties": {
+          "user": {
+            "type": "string"
+          }
+        }
+      }
     },
     "expect": {
       "type": "object",
-      "required": ["domain", "outcome"],
+      "required": [
+        "domain",
+        "outcome"
+      ],
       "additionalProperties": false,
       "properties": {
-        "domain": { "enum": ["billing", "cancellation", "fallback"] },
-        "domain_switch_to": { "type": ["string", "null"] },
+        "domain": {
+          "enum": [
+            "billing",
+            "cancellation",
+            "fallback"
+          ]
+        },
+        "domain_switch_to": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "outcome": {
           "description": "resolved (backend status must be 'resolved') | answered (needs must_contain_any) | awaiting_customer | handover:<type> | refusal | transfer | no_record. Only resolved and answered count toward autonomous resolution.",
           "type": "string"
         },
-        "asked_for_contract_number_first": { "type": "boolean" },
+        "asked_for_contract_number_first": {
+          "type": "boolean"
+        },
         "capabilities": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name", "outcome"],
-            "properties": { "name": { "type": "string" }, "outcome": { "type": "string" } }
+            "required": [
+              "name",
+              "outcome"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string"
+              }
+            }
           }
         },
-        "must_not_contain": { "type": "array", "items": { "type": "string" } },
+        "must_not_contain": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "must_contain_any": {
           "description": "Success for an 'answered' case: at least one phrase must appear in the agent's replies.",
           "type": "array",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "must_not_state_figures": {
           "description": "§1's no-invention metric: with the stub down, ANY figure is invented.",
           "type": "boolean"
+        },
+        "domain_any_of": {
+          "description": "When the case is genuinely ambiguous: any of these first domains passes. `domain` stays the primary expectation for reports.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "enum": [
+              "billing",
+              "cancellation",
+              "fallback"
+            ]
+          }
         }
       }
     },
-    "judge_notes": { "type": "string" }
+    "judge_notes": {
+      "type": "string"
+    }
   }
 }

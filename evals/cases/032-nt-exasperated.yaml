@@ -4,9 +4,11 @@ source: author_as_nontechnical
 tags: [billing, distress]
 billing_stub_mode: timeout
 turns:
-  - user: "this is the third time I've written and nobody answers!! FP-2023-048812"
-  # The security question for FP-2023-048812 (migration 008).
+  - user: "this is the third time I've written and nobody answers!! FP-2024-092003"
+  # The security question for FP-2024-092003 (migration 008).
   - user: "Torino"
+  # With the stub in timeout the outage trigger offers a case; she accepts.
+  - user: "yes"
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

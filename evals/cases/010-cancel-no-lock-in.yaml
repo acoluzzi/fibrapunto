@@ -7,6 +7,11 @@ turns:
   - user: "how do I cancel? my contract is FP-2022-031455"
   # The security question for FP-2022-031455 (migration 008).
   - user: "Micio"
+  # §4.2 instruction 2: the reason, asked once. If the model already tried to
+  # register on the lookup turn, this answers the offer instead — a "no" either way.
+  - user: "No particular reason, I'm moving abroad. Please go ahead."
+  # The platform's one offer, declined; the case opens on the answer.
+  - user: "No thanks, go ahead."
 expect:
   domain: cancellation
   outcome: "handover:cancellation_request"

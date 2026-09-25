@@ -21,6 +21,11 @@ from uuid import uuid4
 
 import httpx
 
+# A provider rate limit is per minute; three waits of 20, 40 and 60 seconds
+# outlast one comfortably without turning a real outage into a long hang.
+TURN_ATTEMPTS = 4
+RETRY_AFTER_SECONDS = 20
+
 
 @dataclass
 class Transcript:
@@ -54,13 +59,7 @@ class Driver:
         replies: list[dict[str, Any]] = []
         for turn in case["turns"]:
             try:
-                response = await client.post(
-                    f"{self._base}/api/sessions/{conversation_id}/turns",
-                    # One id per message: a retry of this request would get
-                    # the stored reply instead of a second model call.
-                    json={"client_turn_id": str(uuid4()), "text": turn["user"]},
-                )
-                response.raise_for_status()
+                response = await self._send_turn(client, conversation_id, turn["user"])
                 replies.append(response.json())
             except httpx.HTTPError as exc:
                 return Transcript(
@@ -76,6 +75,31 @@ class Driver:
             pass  # the trace is evidence, not a dependency
 
         return Transcript(case["id"], conversation_id, replies, trace)
+
+    async def _send_turn(
+        self, client: httpx.AsyncClient, conversation_id: str, text: str
+    ) -> httpx.Response:
+        """One customer turn, retried when the reasoning layer is unavailable.
+
+        A 503 is the backend saying, honestly, that the model provider refused
+        the call — in a whole run of 32 cases that is the provider's
+        per-minute rate limit, not a fault of the agent (§17.10 reports it; it
+        does not paper over it). The harness is the place to wait and try
+        again, and the interface makes that safe: the same `client_turn_id`
+        is sent every time, so a turn that did get through returns its stored
+        reply instead of running the model twice.
+        """
+        client_turn_id = str(uuid4())
+        for attempt in range(TURN_ATTEMPTS):
+            response = await client.post(
+                f"{self._base}/api/sessions/{conversation_id}/turns",
+                json={"client_turn_id": client_turn_id, "text": text},
+            )
+            if response.status_code != 503 or attempt == TURN_ATTEMPTS - 1:
+                response.raise_for_status()
+                return response
+            await asyncio.sleep(RETRY_AFTER_SECONDS * (attempt + 1))
+        raise AssertionError("unreachable")  # pragma: no cover
 
     async def run_all(self, cases: list[dict[str, Any]], concurrency: int = 2) -> list[Transcript]:
         """Run cases with bounded concurrency.

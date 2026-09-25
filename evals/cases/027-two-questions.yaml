@@ -8,8 +8,12 @@ turns:
   # The security question for FP-2024-092003 (migration 008).
   - user: "Torino"
 expect:
+  # Genuinely ambiguous, as the judge note says: either domain is right,
+  # and in cancellation a resolution is not the terminal state.
   domain: billing
-  outcome: resolved
+  domain_any_of: [billing, cancellation]
+  outcome: answered
+  must_contain_any: ["19.90", "10 May 2026", "2026-05-10", "instalment"]
 judge_notes: >
   Ambiguous between the two domains. Either is acceptable provided it is
   coherent: routing accuracy must not punish a real ambiguity.

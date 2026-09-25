@@ -9,7 +9,10 @@ turns:
   - user: "Torino"
 expect:
   domain: cancellation
-  outcome: "handover:cancellation_request"
+  # A question about penalties is answered from the lookup and left with the
+  # customer; no request has been made, so no case is expected.
+  outcome: answered
+  must_contain_any: ["10 May 2026", "2026-05-10", "May 2026", "instalment"]
   capabilities:
     - { name: billing_lookup, outcome: found }
 judge_notes: >

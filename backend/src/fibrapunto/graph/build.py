@@ -217,6 +217,18 @@ def _turn_constraints(state: ConversationState) -> str:
             "- You have already asked for the contract number once. If it is "
             "still wrong, do not insist: offer a colleague."
         )
+    verified = [
+        number for number, status in state.collected.verification.items() if status == "verified"
+    ]
+    if verified and not state.collected.billing:
+        # Seen in an eval run: verified, then straight to "let me confirm your
+        # refund" without ever reading billing — a read-back with nothing
+        # behind it. §4.1 instruction 2: the lookup comes first.
+        lines.append(
+            f"- The customer is verified for {', '.join(verified)} and billing has "
+            "not been read yet. Call the billing lookup before summarising, "
+            "confirming or opening anything."
+        )
     if state.collected.billing and state.collected.contract_number:
         # Seen in an eval run: the facts were in the state block above and the
         # model looked the contract up again on the next turn — seconds for the

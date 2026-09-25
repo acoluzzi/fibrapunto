@@ -51,6 +51,12 @@ from fibrapunto.guardrails.figures import DateMention
 from fibrapunto.state.models import ConversationState
 
 _CONTRACT = re.compile(r"\bFP-\d{4}-\d{6}\b", re.IGNORECASE)
+# What the customer may have typed for the same number: "fp 2023 048812",
+# "FP2023048812". The reply's canonical form is grounded by any of them — an
+# eval run showed the guard blocking "FP-2023-048812" as invented when the
+# customer had written it with spaces, and substituting a reply that said a
+# check had failed when none had been made.
+_CONTRACT_TYPED = re.compile(r"\bFP[-\s]?(\d{4})[-\s]?(\d{6})\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +110,20 @@ def _grounded_dates(state: ConversationState) -> list[DateMention]:
     return grounded
 
 
+def _is_today(readings: list[DateMention]) -> bool:
+    """The reply names today's date, in full.
+
+    Today is a fact of the platform, not a figure the model could invent: the
+    cancellation instructions tell the model to say the request is recorded as
+    of today, and an eval run showed the guard blocking exactly that sentence.
+    Only an explicit day counts — "the end of the month" is not made true by
+    the calendar happening to be near it, so relative forms stay ungrounded.
+    """
+    today = date.today()
+    fact = DateMention(today.year, today.month, today.day)
+    return any(r.edge is None and r.day is not None and figures.supports(fact, r) for r in readings)
+
+
 def _grounded_contracts(state: ConversationState) -> set[str]:
     grounded = set()
     if state.collected.contract_number:
@@ -111,7 +131,7 @@ def _grounded_contracts(state: ConversationState) -> set[str]:
     for candidate in state.collected.disambiguation_candidates:
         grounded.add(candidate.contract_number.upper())
     for turn in state.customer_turns():
-        grounded.update(m.upper() for m in _CONTRACT.findall(turn))
+        grounded.update(f"FP-{year}-{number}" for year, number in _CONTRACT_TYPED.findall(turn))
     return grounded
 
 
@@ -128,8 +148,11 @@ def check(reply: str, state: ConversationState) -> list[Ungrounded]:
 
     dates = _grounded_dates(state)
     for readings in figures.dates(text):
-        if not any(figures.supports(v, r) for r in readings for v in dates):
-            problems.append(Ungrounded("date", readings[0].text))
+        if any(figures.supports(v, r) for r in readings for v in dates):
+            continue
+        if _is_today(readings):
+            continue
+        problems.append(Ungrounded("date", readings[0].text))
 
     amounts = _grounded_amounts(state)
     for amount in figures.amounts(figures.date_spans(text)):

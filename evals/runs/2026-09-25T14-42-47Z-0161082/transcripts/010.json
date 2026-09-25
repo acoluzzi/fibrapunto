@@ -1,0 +1,337 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2022-031455, I need to check that it's you. What was the name of your first pet?",
+      "conversation_id": "2d348967-fa23-4845-89ee-68f082a35e29",
+      "turn_index": 1,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.00151,
+      "known_case_references": []
+    },
+    {
+      "text": "Thank you, that's confirmed. You are within your rights to cancel, and I will help you get this moving.\n\nCould you tell me briefly why you'd like to cancel? It's not required, but it helps us handle your request properly.\n\nAlso, for your contract FP-2022-031455: there is no lock-in period and no remaining instalments tied to it, so there are no contractual constraints on cancelling.\n\nOnce I have your reason (or if you'd rather not share one), I will log your request so a colleague can contact you within one working day. The date of your request will be recorded as of today.",
+      "conversation_id": "2d348967-fa23-4845-89ee-68f082a35e29",
+      "turn_index": 2,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 983
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": "FP-2022-031455",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.022498,
+      "known_case_references": [
+        "00001043"
+      ]
+    },
+    {
+      "text": "Understood — thank you for confirming. As noted, contract FP-2022-031455 has no lock-in period and no remaining instalments, so there are no contractual constraints on cancelling. Before I register your cancellation, there is an offer available on your contract: €5 off every month for 12 months. Your plan stays exactly as it is, at €5 less each month for the next 12 months. Would you like to take it? If not, I will go ahead with your request.",
+      "conversation_id": "2d348967-fa23-4845-89ee-68f082a35e29",
+      "turn_index": 3,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": false,
+        "decided_by": "unchanged",
+        "confidence": 0.99,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 983
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": "FP-2022-031455",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.016492,
+      "known_case_references": [
+        "00001043"
+      ]
+    },
+    {
+      "text": "Understood — I have gone ahead with your request. I've opened case no. 00001048. A colleague in the retention team will get back to you within one working day. I've recorded the request with today's date.",
+      "conversation_id": "2d348967-fa23-4845-89ee-68f082a35e29",
+      "turn_index": 4,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": false,
+        "decided_by": "confirmation_lock",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 983
+        },
+        {
+          "capability": "create_handover_record",
+          "outcome": "created",
+          "duration_ms": 2
+        }
+      ],
+      "status": "handed_over",
+      "handover_reference": "00001048",
+      "contract_number": "FP-2022-031455",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": null,
+      "known_case_references": [
+        "00001043",
+        "00001048"
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:38:14.617270Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:14.630730Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:16.426397Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": 0.00151, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"The customer is explicitly asking how to cancel their contract by providing their contract number, which clearly belongs to the cancellation domain.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:16.426408Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"cancellation\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:16.426421Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:16.427641Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2022-031455\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:16.427834Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:38:16.427864Z",
+      "duration_ms": 1797,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1105, \"tokens_out\": 81, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.00151}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:16.448680Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:16.448692Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": null, \"previous\": \"cancellation\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:16.448700Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:16.453140Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2022-031455\"}"
+    },
+    {
+      "name": "guardrail.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:33.388698Z",
+      "duration_ms": null,
+      "attributes": "{\"guard\": \"visibility\", \"blocking\": false, \"problems\": [\"reason\"], \"substituted\": false}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:33.389229Z",
+      "duration_ms": 983,
+      "attributes": "{\"outcome\": \"found\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:33.389462Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:38:33.389530Z",
+      "duration_ms": 16940,
+      "attributes": "{\"cost_usd\": 0.022498, \"tokens_in\": 8034, \"tokens_out\": 643, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.022498}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:38:33.420725Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:38:35.099915Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": 0.001694, \"previous\": \"cancellation\", \"switched\": false, \"rationale\": \"Customer explicitly confirms they want to cancel their contract due to moving abroad and authorizes the agent to proceed with the cancellation request.\", \"sentiment\": \"neutral\", \"confidence\": 0.99, \"decided_by\": \"unchanged\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:38:35.099994Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:39:02.838660Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:39:05.529917Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": 0.001684, \"previous\": \"cancellation\", \"switched\": false, \"rationale\": \"The customer confirms they want to cancel due to moving abroad and explicitly asks the agent to proceed with the cancellation request.\", \"sentiment\": \"neutral\", \"confidence\": 0.99, \"decided_by\": \"unchanged\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:39:05.529942Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:39:14.052935Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"offer_presented\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 3,
+      "start_ts": "2026-09-25T14:39:14.053040Z",
+      "duration_ms": 11214,
+      "attributes": "{\"cost_usd\": 0.014808, \"tokens_in\": 7108, \"tokens_out\": 396, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.016492}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.090254Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.090358Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": null, \"previous\": \"cancellation\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"confirmation_lock\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.090369Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.093289Z",
+      "duration_ms": 2,
+      "attributes": "{\"outcome\": \"created\", \"capability\": \"create_handover_record\", \"incident_id\": null}"
+    },
+    {
+      "name": "handover.created",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.093295Z",
+      "duration_ms": null,
+      "attributes": "{\"trigger\": \"categorical:cancellation\", \"confirmed\": false, \"reference\": \"00001048\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.093341Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 4,
+      "start_ts": "2026-09-25T14:39:14.093356Z",
+      "duration_ms": 3,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 0, \"tokens_out\": 0, \"model_calls\": 0, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": null}"
+    }
+  ]
+}

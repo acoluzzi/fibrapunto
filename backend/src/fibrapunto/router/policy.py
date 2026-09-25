@@ -36,6 +36,18 @@ log = structlog.get_logger(__name__)
 # Staying put requires none: continuity is the default, change is the exception.
 SWITCH_THRESHOLD = 0.60
 
+# Anything a customer plausibly meant as a contract number: the real format,
+# the loose attempts preconditions.py re-asks about, and a bare run of ten
+# digits with or without the year split off. Read only to decide a domain —
+# the format check that decides whether to *look it up* stays strict.
+_CONTRACT_LIKE = re.compile(r"\bFP[-\s]?\d{2,4}[-\s]?\d{3,8}\b|\b\d{4}[-\s]?\d{6}\b", re.IGNORECASE)
+# Below this, a fallback verdict on a message carrying a contract number is a
+# shrug rather than a placement; at or above it, the classifier meant it.
+CONFIDENT_FALLBACK = 0.80
+# A message that is the number plus at most this many other words has no
+# topic of its own for the classifier to have placed.
+NUMBER_AND_LITTLE_ELSE = 6
+
 # Short affirmations and negations. A turn that is only one of these carries no
 # topic of its own and must not be classified as though it did.
 _ACKNOWLEDGEMENT = re.compile(
@@ -113,6 +125,44 @@ def apply(
         return RoutingOutcome(current, False, "no_decision", None)
 
     proposed = DomainKey(decision.domain)
+
+    # A contract number, and nothing the classifier could place: "third time
+    # I've written and nobody answers!! FP-2023-048812", or a bare
+    # "2023048812". The number is the one thing a customer only quotes
+    # about their account, and fallback is the one domain that cannot look
+    # it up — routed there, the conversation can only go round in circles
+    # until the no-progress trigger offers a colleague. Billing is where a
+    # contract number is used; a cancellation says so in words, and the
+    # classifier catches those. An explicit request for a person is left
+    # alone: §12.1 honours it before any domain runs.
+    #
+    # Two shapes qualify, and "give me the email address of the customer on
+    # contract FP-2023-048812" is neither: the classifier is unsure of
+    # fallback (the angry message with a number in it), or the message is
+    # the number and little else (the bare "2023048812"). A confident
+    # fallback with a real sentence around the number is a topic the
+    # classifier did place — in the domain that refuses it.
+    if (
+        proposed is DomainKey.fallback
+        and current is not DomainKey.cancellation
+        and not decision.explicit_human_request
+        and _CONTRACT_LIKE.search(message)
+        and (
+            decision.confidence < CONFIDENT_FALLBACK
+            or len(_CONTRACT_LIKE.sub(" ", message).split()) <= NUMBER_AND_LITTLE_ELSE
+            # "third time I've written and nobody answers!! FP-2024-092003":
+            # an upset customer quoting their contract is complaining about
+            # their account, whatever the classifier calls the topic.
+            or decision.sentiment in ("frustrated", "angry")
+        )
+    ):
+        log.info("router.contract_number_implies_billing", confidence=decision.confidence)
+        return RoutingOutcome(
+            DomainKey.billing,
+            current is not DomainKey.billing,
+            "contract_number_implies_billing",
+            decision,
+        )
 
     # First customer turn: nothing to be sticky about.
     if state.turn_count <= 1:

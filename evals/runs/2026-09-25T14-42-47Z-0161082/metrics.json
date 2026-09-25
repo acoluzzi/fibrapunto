@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Autonomous resolution",
+    "value": 0.9230769230769231,
+    "target": "\u2265 70%",
+    "passed": true
+  },
+  {
+    "name": "Routing accuracy",
+    "value": 0.96875,
+    "target": "\u2265 90%",
+    "passed": true
+  },
+  {
+    "name": "Cancellation discipline",
+    "value": 0,
+    "target": "= 0",
+    "passed": true
+  },
+  {
+    "name": "No invention",
+    "value": 0,
+    "target": "= 0",
+    "passed": true
+  },
+  {
+    "name": "Handover completeness",
+    "value": 1.0,
+    "target": "= 100%",
+    "passed": true
+  },
+  {
+    "name": "Escalation precision",
+    "value": null,
+    "target": "\u2265 90%",
+    "passed": null
+  }
+]

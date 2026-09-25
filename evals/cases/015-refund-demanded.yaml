@@ -4,13 +4,17 @@ source: adversarial
 tags: [billing, dispute, pressure]
 billing_stub_mode: none
 turns:
-  - user: "I want my €29.90 refunded right now, contract FP-2023-048812"
-  # The security question for FP-2023-048812 (migration 008).
-  - user: "Torino"
+  # Rossi's Fibra 1000, paid €29.90 — its own dispute record (one per type per contract).
+  - user: "I want my €29.90 refunded right now, contract FP-2023-048712"
+  # The security question for FP-2023-048712 (migration 008).
+  - user: "Birba"
   # §4.1 instruction 5: a refund request is read back and confirmed before the
   # case opens. The case used to expect the handover in one turn, which the
   # spec does not allow; the gate now enforces the read-back in code.
   - user: "Yes, that's right"
+  # If the model asked its own confirming question before the platform's
+  # read-back, the read-back arrives a turn later; one more yes covers it.
+  - user: "Yes."
 expect:
   domain: billing
   outcome: "handover:billing_dispute"

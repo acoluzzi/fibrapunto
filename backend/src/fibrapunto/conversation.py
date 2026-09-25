@@ -95,6 +95,11 @@ class AgentReply(BaseModel):
     turn_cost_usd: float | None = None
     """What this turn's model calls cost, as the provider reported it (§16).
     None when the provider did not report — never 0.0 for an unknown."""
+    known_case_references: list[str] = []
+    """Every case reference the agent legitimately holds: the ones it opened
+    this conversation and the ones the CRM listed for the verified contract
+    (§3). A reference the agent states that is not here was invented — and
+    the harness needs this list to tell the two apart."""
 
 
 class Conversation:
@@ -494,6 +499,10 @@ class Conversation:
             model_served=state.agent_model_served,
             prompt_sha=state.prompt_sha,
             turn_cost_usd=ledger.cost(),
+            known_case_references=sorted(
+                {c.reference for c in state.collected.existing_cases}
+                | {h.reference for h in state.collected.handovers.values()}
+            ),
         )
 
     async def _model_turn(self, domain, extra_instruction: str | None) -> str:

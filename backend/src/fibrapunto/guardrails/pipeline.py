@@ -103,6 +103,23 @@ SAFE_FALLBACK = (
     "a colleague who can look into it."
 )
 
+# When the only thing wrong is a contract number the customer never gave —
+# typically the model illustrating the format with made-up digits — and no
+# number is known yet. No check was made, so SAFE_FALLBACK's "I can't complete
+# that check" would be untrue; what the customer needs is the question.
+CONTRACT_FALLBACK = (
+    "To look into this I need your contract number. You'll find it at the top "
+    "right of your invoice, and it starts with FP-."
+)
+
+
+def _only_a_contract_number(violations: list[Violation]) -> bool:
+    blocking = [v for v in violations if v.blocking]
+    return bool(blocking) and all(
+        v.guard is GuardName.grounding and all(p.startswith("contract number") for p in v.problems)
+        for v in blocking
+    )
+
 
 def inspect(reply: str, state: ConversationState) -> list[Violation]:
     """Run every guard. Returns what fired, in ORDER."""
@@ -145,6 +162,16 @@ def repair_instruction(violations: list[Violation]) -> str:
                     + ". You may not state them. If you have not verified "
                     "something, tell the customer so."
                 )
+                if any(p.startswith("contract number") for p in violation.problems):
+                    # The usual cause: illustrating the format with digits.
+                    # Seen in an eval run — "It should look like this:
+                    # FP-2024-123456" — and the repair has to say what to
+                    # write instead, or the rewrite invents another example.
+                    lines.append(
+                        "- Never write a contract number the customer has not "
+                        "given you, not even as an example. To show the format, "
+                        "write exactly FP-YYYY-NNNNNN."
+                    )
             case GuardName.promises:
                 lines.append(
                     "- It contains a commitment you cannot make: "
@@ -209,12 +236,13 @@ def resolve(
             conversation_id=str(state.id),
         )
         only_language = all(v.guard is GuardName.english for v in violations if v.blocking)
-        return GuardResult(
-            text=ENGLISH_FALLBACK if only_language else SAFE_FALLBACK,
-            violations=violations,
-            repaired=True,
-            substituted=True,
-        )
+        if only_language:
+            text = ENGLISH_FALLBACK
+        elif _only_a_contract_number(violations) and state.collected.contract_number is None:
+            text = CONTRACT_FALLBACK
+        else:
+            text = SAFE_FALLBACK
+        return GuardResult(text=text, violations=violations, repaired=True, substituted=True)
 
     # Non-blocking only (style, register): send it and record the miss. A reply
     # with an anglicism in it is worse than one without, and better than a

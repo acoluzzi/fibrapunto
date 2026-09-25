@@ -228,3 +228,28 @@ async def test_the_contract_declares_every_outcome_we_map():
     registration = ExternalServiceRegistration()
     declared = registration.expected_statuses("/billing/{contract_number}")
     assert {200, 300, 404, 504}.issubset(declared)
+
+
+# --- the number as the customer typed it (§5.2) -------------------------------
+#
+# An eval run: verified for FP-2023-048812 from "fp 2023 048812", then the
+# lookup rejected the same number as malformed. Separators and case are the
+# customer's keyboard, not the number.
+
+
+def test_separators_and_case_are_normalised_nothing_else_is():
+    from fibrapunto.capabilities.preconditions import normalise
+
+    assert normalise("fp 2023 048812") == "FP-2023-048812"
+    assert normalise("FP2023048812") == "FP-2023-048812"
+    assert normalise(" fp-2023-048812 ") == "FP-2023-048812"
+    assert normalise("2023048812") == "2023048812", "no prefix: still malformed"
+    assert normalise("FP-2023-04881") == "FP-2023-04881", "a missing digit is not repaired"
+
+
+def test_a_number_typed_with_spaces_still_came_from_the_customer():
+    from fibrapunto.capabilities.preconditions import came_from_customer
+
+    assert came_from_customer("FP-2023-048812", ["the number is fp 2023 048812"])
+    assert not came_from_customer("FP-2023-048813", ["the number is fp 2023 048812"])
+    assert not came_from_customer("", ["anything"])

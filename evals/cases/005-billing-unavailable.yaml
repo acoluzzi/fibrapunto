@@ -4,9 +4,11 @@ source: author
 tags: [billing, failure, no_invention]
 billing_stub_mode: timeout
 turns:
-  - user: "payment refused, contract FP-2023-048812, how much do I owe?"
-  # The security question for FP-2023-048812 (migration 008).
-  - user: "Torino"
+  # Esposito's contract (one open case per type per contract — 004 holds the
+  # dispute on FP-2023-048812). With the stub in timeout, billing is never read.
+  - user: "payment refused, contract FP-2022-031455, how much do I owe?"
+  # The security question for FP-2022-031455 (migration 008).
+  - user: "Micio"
   # §4.1 instruction 6 says *offer* to open a case, and the outage trigger is
   # conditional: the code offers, the customer decides. Without this turn the
   # conversation ends on the offer and no record exists.

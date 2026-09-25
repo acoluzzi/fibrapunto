@@ -18,7 +18,7 @@ from fibrapunto.capabilities.outcomes import (
     BillingRejected,
     BillingServiceUnavailable,
 )
-from fibrapunto.capabilities.preconditions import came_from_customer, is_well_formed
+from fibrapunto.capabilities.preconditions import came_from_customer, is_well_formed, normalise
 from fibrapunto.capabilities.runtime import typed_capability
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.settings import get_settings
@@ -59,7 +59,7 @@ async def billing_lookup(
     from the customer verbatim" cannot be checked without it — and a rule that
     cannot be checked is a request.
     """
-    number = contract_number.strip().upper()
+    number = normalise(contract_number)
 
     if not is_well_formed(number):
         # §4.1 instruction 2: ask once more, then offer a human. The `rejected`

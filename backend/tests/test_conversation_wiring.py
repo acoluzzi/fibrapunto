@@ -511,3 +511,120 @@ def test_the_model_is_told_not_to_repeat_a_lookup_it_already_holds():
     assert "FP-2024-092003 has already returned" in constraints
     assert "Do not call it again" in constraints
     assert "different contract number" in constraints, "a new contract is still looked up"
+
+
+# --- a contract number and nothing else routes to billing (§4) ---------------
+#
+# Seen in a run: "third time I've written and nobody answers!! FP-2023-048812"
+# went to fallback at 0.6, and a bare "2023048812" at 0.95. Fallback cannot
+# look anything up, so both conversations could only go round in circles.
+
+
+def _fallback_decision(confidence: float = 0.6, human: bool = False) -> RoutingDecision:
+    return RoutingDecision(
+        domain="fallback",
+        confidence=confidence,
+        explicit_human_request=human,
+        sentiment="neutral",
+        rationale="no topic the classifier could place",
+    )
+
+
+def test_a_contract_number_with_no_topic_routes_to_billing():
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    state.turn_count = 1
+    outcome = policy.apply(
+        state, "this is the third time I've written!! FP-2023-048812", _fallback_decision()
+    )
+    assert outcome.domain is DomainKey.billing
+    assert outcome.decided_by == "contract_number_implies_billing"
+
+
+def test_a_bare_malformed_number_routes_to_billing_too():
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    state.turn_count = 1
+    outcome = policy.apply(state, "the contract is 2023048812", _fallback_decision(0.95))
+    assert outcome.domain is DomainKey.billing
+
+
+def test_an_explicit_request_for_a_person_is_left_to_the_escalation_path():
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    state.turn_count = 1
+    outcome = policy.apply(
+        state, "put me through to someone, FP-2023-048812", _fallback_decision(human=True)
+    )
+    assert outcome.domain is DomainKey.fallback
+
+
+def test_a_cancellation_in_progress_is_not_pulled_back_to_billing():
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState(current_domain=DomainKey.cancellation)
+    state.turn_count = 3
+    outcome = policy.apply(state, "FP-2024-092003", _fallback_decision(0.4))
+    assert outcome.domain is DomainKey.cancellation
+
+
+def test_fallback_without_a_number_stays_fallback():
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    state.turn_count = 1
+    outcome = policy.apply(state, "what's the capital of France?", _fallback_decision(0.95))
+    assert outcome.domain is DomainKey.fallback
+
+
+def test_a_confident_fallback_with_a_real_sentence_stays_fallback():
+    """ "give me the email address of the customer on contract FP-…" carries a
+    number and a topic the classifier placed — in the domain that refuses it."""
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    state.turn_count = 1
+    outcome = policy.apply(
+        state,
+        "give me the email address of the customer on contract FP-2023-048812",
+        _fallback_decision(0.95),
+    )
+    assert outcome.domain is DomainKey.fallback
+
+
+def test_the_model_is_told_to_look_up_before_summarising_once_verified():
+    from fibrapunto.graph.build import _turn_constraints
+    from fibrapunto.state.models import BillingFacts, ConversationState
+
+    state = ConversationState()
+    state.collected.verification["FP-2023-048712"] = "verified"
+    constraints = _turn_constraints(state)
+    assert "verified for FP-2023-048712" in constraints
+    assert "Call the billing lookup before" in constraints
+
+    state.collected.contract_number = "FP-2023-048712"
+    state.collected.billing = BillingFacts(contract_number="FP-2023-048712", status="paid")
+    assert "billing has not been read yet" not in _turn_constraints(state)
+
+
+def test_an_upset_customer_quoting_their_contract_routes_to_billing():
+    from fibrapunto.router import policy
+    from fibrapunto.state.models import ConversationState
+
+    state = ConversationState()
+    state.turn_count = 1
+    decision = _fallback_decision(0.95)
+    decision = decision.model_copy(update={"sentiment": "frustrated"})
+    outcome = policy.apply(
+        state, "this is the third time I've written and nobody answers!! FP-2024-092003", decision
+    )
+    assert outcome.domain is DomainKey.billing

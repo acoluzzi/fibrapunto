@@ -1,0 +1,96 @@
+{
+  "replies": [
+    {
+      "text": "Of course. I'm putting you through to a colleague now — the wait is about a few minutes. I've opened case no. 00001050, so they'll have everything you've told me.",
+      "conversation_id": "3d155b93-1c7a-402f-973f-c15097e22bd5",
+      "turn_index": 1,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "frustrated"
+      },
+      "capability_calls": [
+        {
+          "capability": "create_handover_record",
+          "outcome": "createdWithoutContractLink",
+          "duration_ms": 5
+        },
+        {
+          "capability": "transfer_to_human",
+          "outcome": "transferred",
+          "duration_ms": 0
+        }
+      ],
+      "status": "handed_over",
+      "handover_reference": "00001050",
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.001575,
+      "known_case_references": [
+        "00001050"
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:27:54.401742Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:54.420354Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:55.987081Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.001575, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"Customer is explicitly requesting to speak to a human rather than continuing with the bot, which is a meta-request about the support channel itself and does not belong to billing or cancellation domains.\", \"sentiment\": \"frustrated\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:55.987208Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:55.993180Z",
+      "duration_ms": 5,
+      "attributes": "{\"outcome\": \"createdWithoutContractLink\", \"capability\": \"create_handover_record\", \"incident_id\": null}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:55.993192Z",
+      "duration_ms": 0,
+      "attributes": "{\"outcome\": \"transferred\", \"capability\": \"transfer_to_human\", \"incident_id\": null}"
+    },
+    {
+      "name": "handover.created",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:55.993199Z",
+      "duration_ms": null,
+      "attributes": "{\"trigger\": \"customer:human_requested\", \"confirmed\": false, \"reference\": \"00001050\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:27:55.993242Z",
+      "duration_ms": 1572,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1105, \"tokens_out\": 94, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001575}"
+    }
+  ]
+}
