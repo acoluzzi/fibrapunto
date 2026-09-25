@@ -1,0 +1,96 @@
+{
+  "replies": [
+    {
+      "text": "Of course. I'm putting you through to a colleague now — the wait is about a few minutes. I've opened case no. 00001052, so they'll have everything you've told me.",
+      "conversation_id": "79776f31-ef8b-415a-b695-fc2b936a8e71",
+      "turn_index": 1,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "frustrated"
+      },
+      "capability_calls": [
+        {
+          "capability": "create_handover_record",
+          "outcome": "createdWithoutContractLink",
+          "duration_ms": 3
+        },
+        {
+          "capability": "transfer_to_human",
+          "outcome": "transferred",
+          "duration_ms": 0
+        }
+      ],
+      "status": "handed_over",
+      "handover_reference": "00001052",
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.00152,
+      "known_case_references": [
+        "00001052"
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:55:16.658792Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:16.676942Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:18.261400Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.00152, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"Customer explicitly requests to speak to a human and has not raised any billing or cancellation issue, so this remains in fallback domain.\", \"sentiment\": \"frustrated\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:18.261443Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:18.266090Z",
+      "duration_ms": 3,
+      "attributes": "{\"outcome\": \"createdWithoutContractLink\", \"capability\": \"create_handover_record\", \"incident_id\": null}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:18.266104Z",
+      "duration_ms": 0,
+      "attributes": "{\"outcome\": \"transferred\", \"capability\": \"transfer_to_human\", \"incident_id\": null}"
+    },
+    {
+      "name": "handover.created",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:18.266144Z",
+      "duration_ms": null,
+      "attributes": "{\"trigger\": \"customer:human_requested\", \"confirmed\": false, \"reference\": \"00001052\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:18.266196Z",
+      "duration_ms": 1589,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1105, \"tokens_out\": 83, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.00152}"
+    }
+  ]
+}

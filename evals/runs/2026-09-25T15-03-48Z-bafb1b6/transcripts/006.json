@@ -1,0 +1,179 @@
+{
+  "replies": [
+    {
+      "text": "I could not find a contract with that number. Could you please check it and send it again? It should look like FP-2023-XXXXXX. I can't change amounts or issue refunds myself, but I can pass this to a colleague in billing with everything collected. To confirm: On contract FP-2023-099999, you're disputing a charge. Is that correct?",
+      "conversation_id": "cba01f52-0352-4aa6-b390-f14074a7774a",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "notFound",
+          "duration_ms": 990
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": "FP-2023-099999",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.015628,
+      "known_case_references": []
+    },
+    {
+      "text": "I've opened case no. 00001045. I couldn't link it to your contract, so a colleague in billing operations will ask you to confirm the number when they get back to you within two working days.",
+      "conversation_id": "cba01f52-0352-4aa6-b390-f14074a7774a",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "confirmation_lock",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "notFound",
+          "duration_ms": 990
+        },
+        {
+          "capability": "create_handover_record",
+          "outcome": "createdWithoutContractLink",
+          "duration_ms": 1
+        }
+      ],
+      "status": "handed_over",
+      "handover_reference": "00001045",
+      "contract_number": "FP-2023-099999",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": null,
+      "known_case_references": [
+        "00001045"
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:52:48.787828Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:52:48.801496Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:52:50.496092Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001524, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"The customer is disputing a bill amount and providing their contract reference, which is a clear billing domain issue involving a potential dispute over charges.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:52:50.496098Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:52:50.496104Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:53:00.344351Z",
+      "duration_ms": 990,
+      "attributes": "{\"outcome\": \"notFound\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:53:00.344790Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:contract_not_found\", \"action\": \"read_back_requested\", \"reason\": \"The contract does not exist in the billing system.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:53:00.344898Z",
+      "duration_ms": 11543,
+      "attributes": "{\"cost_usd\": 0.014104, \"tokens_in\": 5851, \"tokens_out\": 545, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.015628}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.381364Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.381470Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": null, \"previous\": \"billing\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"confirmation_lock\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.381481Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "handover.confirmation_received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.381493Z",
+      "duration_ms": null,
+      "attributes": "{\"asked_at_turn\": 1}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.383503Z",
+      "duration_ms": 1,
+      "attributes": "{\"outcome\": \"createdWithoutContractLink\", \"capability\": \"create_handover_record\", \"incident_id\": null}"
+    },
+    {
+      "name": "handover.created",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.383509Z",
+      "duration_ms": null,
+      "attributes": "{\"trigger\": \"conditional:contract_not_found\", \"confirmed\": true, \"reference\": \"00001045\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.383556Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:contract_not_found\", \"action\": \"case_open\", \"reason\": \"The contract does not exist in the billing system.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:53:00.383582Z",
+      "duration_ms": 2,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 0, \"tokens_out\": 0, \"model_calls\": 0, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": null}"
+    }
+  ]
+}

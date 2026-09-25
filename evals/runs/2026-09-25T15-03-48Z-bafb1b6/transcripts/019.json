@@ -1,0 +1,188 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2023-048812, I need to check that it's you. In which city were you born?",
+      "conversation_id": "98254088-7270-4c30-883d-a7d2c779a101",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.92,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.001535,
+      "known_case_references": []
+    },
+    {
+      "text": "Thank you, that's confirmed. Here is the status on contract FP-2023-048812:\n\n- The September 2026 invoice of €29.90 was not collected because there were not enough funds in the account at the time. - The next automatic retry is scheduled for 19 September. - You can also pay right away using this secure link: https://pay.fibrapunto.example/c/FP-2023-048812\n\nPlease do not send bank details in this chat. If you want to change the account used for the direct debit, that has to be done through the secure payment page or by calling our line. Also, for your reference, I can see two open cases on this contract:\n- Case 00001048 — a cancellation request, opened 25 September 2026, still open. Is there anything else you need regarding this billing issue? This is already registered as case no. 00001043. A colleague in billing operations will get back to you within two working days.",
+      "conversation_id": "98254088-7270-4c30-883d-a7d2c779a101",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 717
+        },
+        {
+          "capability": "create_handover_record",
+          "outcome": "created",
+          "duration_ms": 2
+        }
+      ],
+      "status": "handed_over",
+      "handover_reference": "00001043",
+      "contract_number": "FP-2023-048812",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.015586,
+      "known_case_references": [
+        "00001043",
+        "00001048"
+      ]
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T14:55:15.398488Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "privacy.redaction_applied",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:15.417043Z",
+      "duration_ms": null,
+      "attributes": "{\"kinds\": [\"IBAN\"], \"redacted\": true}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:15.417054Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:17.347306Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001535, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer is providing their IBAN and requesting to be charged from that account, which is a payment method change.\", \"sentiment\": \"neutral\", \"confidence\": 0.92, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:17.347331Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:17.347351Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:17.349243Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2023-048812\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:17.349547Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:payment_method_change\", \"action\": \"structural\", \"reason\": \"Change of payment method: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T14:55:17.349608Z",
+      "duration_ms": 1932,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1125, \"tokens_out\": 82, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001535}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:17.396733Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:17.396766Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": null, \"previous\": \"billing\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:17.396786Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:17.402592Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2023-048812\"}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:26.913216Z",
+      "duration_ms": 717,
+      "attributes": "{\"outcome\": \"found\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:26.913230Z",
+      "duration_ms": 2,
+      "attributes": "{\"outcome\": \"created\", \"capability\": \"create_handover_record\", \"incident_id\": null}"
+    },
+    {
+      "name": "handover.created",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:26.913236Z",
+      "duration_ms": null,
+      "attributes": "{\"trigger\": \"categorical:payment_method_change\", \"confirmed\": false, \"reference\": \"00001043\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:26.913338Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:payment_method_change\", \"action\": \"case_opened_by_code\", \"reason\": \"Change of payment method: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T14:55:26.913387Z",
+      "duration_ms": 9516,
+      "attributes": "{\"cost_usd\": 0.015586, \"tokens_in\": 5423, \"tokens_out\": 474, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.015586}"
+    }
+  ]
+}
