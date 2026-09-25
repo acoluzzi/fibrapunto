@@ -244,3 +244,86 @@ async def test_the_router_call_is_verified(monkeypatch):
     monkeypatch.setattr(classifier, "build_chat_model", lambda *_a, **_k: FakeRouterModel())
     with pytest.raises(chat.ReasoningLayerUnavailable, match="was served"):
         await classifier.classify("hello", [], DomainKey.fallback)
+
+
+# --- cost per conversation (§16) ---------------------------------------------
+#
+# "Conversational agents are priced per conversation, one way or another."
+# The provider is asked to report what each call cost, and the wrapper records
+# it onto whichever ledger is open for the turn. No ledger, nothing recorded.
+
+
+def test_routing_options_ask_the_provider_to_report_cost():
+    options = get_registry().provider_options()
+    assert options["usage"] == {"include": True}, (
+        "§16 makes cost per conversation a criterion; without usage accounting "
+        "on the response there is no number behind it"
+    )
+
+
+def _costed(model_id: str, cost: float | None, prompt: int = 120, completion: int = 30):
+    from langchain_core.messages import AIMessage
+
+    usage = {"prompt_tokens": prompt, "completion_tokens": completion}
+    if cost is not None:
+        usage["cost"] = cost
+    return AIMessage("ok", response_metadata={"model_name": model_id, "token_usage": usage})
+
+
+async def test_the_ledger_records_every_call_of_the_turn_with_its_cost():
+    agent = get_registry()[ModelRole.agent].id
+    router = get_registry()[ModelRole.router].id
+
+    with chat.CostLedger() as ledger:
+        await chat.ainvoke(_Returns(_costed(router, 0.0004, 300, 40)), [], role=ModelRole.router)
+        await chat.ainvoke(_Returns(_costed(agent, 0.0121)), [], role=ModelRole.agent)
+        await chat.ainvoke(_Returns(_costed(agent, 0.0079)), [], role=ModelRole.agent)
+
+    assert ledger.count() == 3
+    assert ledger.count(ModelRole.agent) == 2
+    assert ledger.cost(ModelRole.router) == 0.0004
+    assert ledger.cost(ModelRole.agent) == 0.02
+    assert ledger.cost() == 0.0204
+    assert ledger.tokens() == (540, 100)
+
+
+async def test_a_provider_that_does_not_report_cost_yields_none_not_zero():
+    agent = get_registry()[ModelRole.agent].id
+    with chat.CostLedger() as ledger:
+        await chat.ainvoke(_Returns(_costed(agent, None)), [], role=ModelRole.agent)
+    assert ledger.count() == 1
+    assert ledger.cost() is None, "an unreported cost is unknown, not free"
+    assert ledger.tokens() == (120, 30), "token counts still arrive without a cost"
+
+
+async def test_a_call_the_pinned_model_did_not_answer_is_not_a_cost_of_the_turn():
+    with chat.CostLedger() as ledger:
+        with pytest.raises(chat.ReasoningLayerUnavailable):
+            await chat.ainvoke(
+                _Returns(_costed("vendor/other-model", 0.5)), [], role=ModelRole.agent
+            )
+    assert ledger.count() == 0
+
+
+async def test_structured_output_is_costed_from_the_raw_message():
+    router = get_registry()[ModelRole.router].id
+    parsed = object()
+    with chat.CostLedger() as ledger:
+        ok = {"raw": _costed(router, 0.0003), "parsed": parsed, "parsing_error": None}
+        assert await chat.ainvoke(_Returns(ok), [], role=ModelRole.router) is parsed
+    assert ledger.cost(ModelRole.router) == 0.0003
+
+
+async def test_without_an_open_ledger_nothing_is_recorded_and_nothing_breaks():
+    agent = get_registry()[ModelRole.agent].id
+    response = await chat.ainvoke(_Returns(_costed(agent, 0.01)), [], role=ModelRole.agent)
+    assert response.content == "ok"
+
+
+async def test_the_ledger_closes_after_the_turn():
+    agent = get_registry()[ModelRole.agent].id
+    with chat.CostLedger() as first:
+        await chat.ainvoke(_Returns(_costed(agent, 0.01)), [], role=ModelRole.agent)
+    # A call after the turn must not land on the previous turn's ledger.
+    await chat.ainvoke(_Returns(_costed(agent, 0.02)), [], role=ModelRole.agent)
+    assert first.count() == 1

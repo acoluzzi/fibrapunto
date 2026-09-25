@@ -31,6 +31,7 @@ from fibrapunto.graph.tool_node import ToolDispatcher
 from fibrapunto.guardrails import pipeline
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.integrations.recommendation_client import RecommendationClient
+from fibrapunto.llm.chat import CostLedger
 from fibrapunto.llm.registry import ModelRole, get_registry
 from fibrapunto.observability.events import EventType
 from fibrapunto.observability.trace import TraceRecorder
@@ -91,6 +92,9 @@ class AgentReply(BaseModel):
     contract_number: str | None = None
     model_served: str | None = None
     prompt_sha: str
+    turn_cost_usd: float | None = None
+    """What this turn's model calls cost, as the provider reported it (§16).
+    None when the provider did not report — never 0.0 for an unknown."""
 
 
 class Conversation:
@@ -151,7 +155,19 @@ class Conversation:
         return cls(billing_client, state.test_mode, gateway, state=state, trace=trace)
 
     async def send(self, text: str) -> AgentReply:
+        """One customer turn, with its model calls costed (§16).
+
+        The ledger is opened here and read at the end of the turn, so every
+        call made on the way — the router, each graph round, a guard repair —
+        lands on this turn's trace events without being passed an accumulator.
+        """
+        with CostLedger() as ledger:
+            self._ledger = ledger
+            return await self._send(text)
+
+    async def _send(self, text: str) -> AgentReply:
         state = self.state
+        ledger = self._ledger
         started = time.perf_counter()
         previous_domain = state.current_domain
         calls_before = len(state.capability_calls)
@@ -217,6 +233,9 @@ class Conversation:
             # Internal only — the rationale is for the engineer reading the
             # trace, and must never be surfaced to the customer (§5.2).
             rationale=decision.rationale if decision else None,
+            # What the classification cost (§16). None on a turn the
+            # confirmation lock short-circuited: no call, no cost.
+            cost_usd=ledger.cost(ModelRole.router),
         )
         if outcome.switched:
             self.trace.emit(
@@ -424,11 +443,20 @@ class Conversation:
         self._settle_status(trigger)
 
         state.record_turn(TurnRole.agent, reply_text)
+        tokens_in, tokens_out = ledger.tokens()
         self.trace.emit(
             EventType.agent_reply,
             turn_seq=state.turn_count,
             duration_ms=int((time.perf_counter() - started) * 1000),
             model_served=state.agent_model_served,
+            # §16: cost per conversation, as the provider reported it. The
+            # agent's share and the whole turn (router included) separately,
+            # so the panel can sum turns and the trace can show where it went.
+            cost_usd=ledger.cost(ModelRole.agent),
+            turn_cost_usd=ledger.cost(),
+            model_calls=ledger.count(),
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
         )
         # §12.2: what the agent already told the customer, so the receiving
         # human does not contradict it.
@@ -465,6 +493,7 @@ class Conversation:
             contract_number=state.collected.contract_number,
             model_served=state.agent_model_served,
             prompt_sha=state.prompt_sha,
+            turn_cost_usd=ledger.cost(),
         )
 
     async def _model_turn(self, domain, extra_instruction: str | None) -> str:

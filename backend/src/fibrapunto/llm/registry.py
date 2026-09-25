@@ -128,12 +128,18 @@ class LLMRegistry:
         anything. `data_collection: "deny"` restricts routing to providers that
         do not retain prompts, which is a §9 control rather than a README
         promise.
+
+        `usage.include` asks the provider to report what each call cost, in
+        its own accounting, on the response. §16 makes cost per conversation a
+        stated criterion; this is what turns it from an assertion into a number
+        on the trace (llm/chat.py, `CostLedger`).
         """
         return {
             "provider": {
                 "allow_fallbacks": False,
                 "data_collection": "deny",
-            }
+            },
+            "usage": {"include": True},
         }
 
     @staticmethod

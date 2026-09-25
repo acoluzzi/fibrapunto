@@ -1,5 +1,13 @@
 import { statusOf } from "../lib/outcome";
 import type { TraceEvent } from "../lib/types";
+import { formatCost } from "./MetricsPanel";
+
+/** A cost chip, or nothing when the provider did not report one (§16). */
+function CostChip({ usd }: { usd: unknown }) {
+  if (typeof usd !== "number") return null;
+  const { value, unit } = formatCost(usd);
+  return <span className="chip">{value}{unit}</span>;
+}
 
 /** §17.10 made visible: which domain fired, which capabilities were called,
  *  and with what typed outcome.
@@ -65,9 +73,28 @@ function Detail({ event }: { event: TraceEvent }) {
           {event.sentiment !== "neutral" && event.sentiment != null && (
             <span className="chip">{String(event.sentiment)}</span>
           )}
+          <CostChip usd={event.cost_usd} />
         </div>
       );
     }
+
+    case "agent.reply":
+      return (
+        <div className="detail">
+          {event.model_served != null && (
+            <span className="chip">{String(event.model_served)}</span>
+          )}
+          {/* §16: what the turn cost, router included. The model-call count
+              is the honest companion: three calls at a cent each is a
+              different story from one call at three cents. */}
+          {typeof event.model_calls === "number" && event.model_calls > 0 && (
+            <span className="chip">
+              {event.model_calls} {event.model_calls === 1 ? "call" : "calls"}
+            </span>
+          )}
+          <CostChip usd={event.turn_cost_usd} />
+        </div>
+      );
 
     case "domain.entered":
       return (

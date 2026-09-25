@@ -34,6 +34,20 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
   const guardrailHits = events.filter((e) => e.name === "guardrail.triggered").length;
   const last = replies.at(-1);
 
+  /* §16: cost per conversation. Each agent.reply carries what its whole turn
+   * cost — router included — as the provider reported it, so the session's
+   * cost is the sum over turns. Turns with no report are left out of the sum
+   * and counted, so the tile can say "3 of 5 turns" rather than a total that
+   * silently omits them. */
+  const replyEvents = events.filter((e) => e.name === "agent.reply");
+  const costed = replyEvents.filter((e) => typeof e.turn_cost_usd === "number");
+  const costUsd = costed.reduce((acc, e) => acc + (e.turn_cost_usd as number), 0);
+  const cost = formatCost(costed.length > 0 ? costUsd : null);
+  const modelCalls = replyEvents.reduce(
+    (acc, e) => acc + (typeof e.model_calls === "number" ? e.model_calls : 0),
+    0,
+  );
+
   return (
     <section className="panel">
       <div className="panel-head">
@@ -50,7 +64,15 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           />
           <Tile label="Lookups" value={String(sum(outcomes))} />
           <Tile label="Guardrails" value={String(guardrailHits)} />
+          <Tile label="Model calls" value={String(modelCalls)} />
+          <Tile label="Cost" value={cost.value} unit={cost.unit} />
         </div>
+        {costed.length > 0 && costed.length < replyEvents.length && (
+          <p className="note">
+            Cost covers {costed.length} of {replyEvents.length} turns: the provider
+            did not report the others.
+          </p>
+        )}
 
         <div className="section-title">Capability outcomes</div>
         {outcomes.size === 0 ? (
@@ -173,6 +195,14 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const sum = (map: Map<string, number>) => [...map.values()].reduce((a, b) => a + b, 0);
+
+/** Cents while a conversation costs less than a dollar — which is the whole
+ *  point of the tile — and dollars once it does not. */
+export function formatCost(usd: number | null): { value: string; unit?: string } {
+  if (usd == null) return { value: "—" };
+  if (usd < 1) return { value: (usd * 100).toFixed(2), unit: "¢" };
+  return { value: usd.toFixed(2), unit: "$" };
+}
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null;

@@ -260,7 +260,7 @@ details.raw pre {
 
 /* --- metrics: stat tiles, not charts -------------------------------------- */
 
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
 
 .tile {
   border: 1px solid var(--border);

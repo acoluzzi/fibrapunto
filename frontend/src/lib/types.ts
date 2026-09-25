@@ -29,6 +29,9 @@ export interface AgentReply {
   contract_number: string | null;
   model_served: string | null;
   prompt_sha: string;
+  /** What this turn's model calls cost in USD, as the provider reported it
+   *  (§16). null when the provider did not report — never 0 for unknown. */
+  turn_cost_usd?: number | null;
 }
 
 export interface TraceEvent {

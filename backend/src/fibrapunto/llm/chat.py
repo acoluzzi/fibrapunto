@@ -22,6 +22,8 @@ which is what keeps the model choice reversible.
 from __future__ import annotations
 
 import re
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
 from langchain_openai import ChatOpenAI
@@ -90,6 +92,100 @@ def interpret_provider_error(exc: Exception) -> ReasoningLayerUnavailable:
     return ReasoningLayerUnavailable(detail, hint=hint)
 
 
+# --- what a turn cost (§16) ---------------------------------------------------
+#
+# "Conversational agents are priced per conversation, one way or another."
+# The eval harness measures a whole run from the provider's balance
+# (evals/spend.py); this is the per-conversation half. Every call through
+# `ainvoke` records what the provider said it cost, and the conversation sums
+# the calls of one turn onto its trace events. The figure is the provider's
+# own — `usage.include` in the routing options — never a tariff table kept
+# here that would drift the day a price changes.
+
+
+@dataclass(frozen=True, slots=True)
+class ModelCall:
+    role: ModelRole
+    cost_usd: float | None
+    input_tokens: int | None
+    output_tokens: int | None
+
+
+_ledger: ContextVar[list[ModelCall] | None] = ContextVar("fibrapunto_model_calls", default=None)
+
+
+class CostLedger:
+    """The model calls of one turn, in the order they were made.
+
+    A context manager because the calls happen several frames below the
+    conversation — the router, the graph, the guard repair — and none of them
+    should have to carry an accumulator argument to make cost observable.
+    Nothing active means nothing is recorded, which is what the unit tests
+    that drive `ainvoke` directly get.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[ModelCall] = []
+        self._token = None
+
+    def __enter__(self) -> CostLedger:
+        self._token = _ledger.set(self.calls)
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        if self._token is not None:
+            _ledger.reset(self._token)
+            self._token = None
+
+    def cost(self, role: ModelRole | None = None) -> float | None:
+        """The cost of the calls made so far, or None if no call reported one.
+
+        None rather than 0.0: a provider that did not report is not a free
+        conversation, and a tile reading "$0.00" would say the wrong thing.
+        """
+        reported = [
+            c.cost_usd
+            for c in self.calls
+            if c.cost_usd is not None and (role is None or c.role is role)
+        ]
+        return round(sum(reported), 6) if reported else None
+
+    def tokens(self, role: ModelRole | None = None) -> tuple[int, int]:
+        calls = [c for c in self.calls if role is None or c.role is role]
+        return (
+            sum(c.input_tokens or 0 for c in calls),
+            sum(c.output_tokens or 0 for c in calls),
+        )
+
+    def count(self, role: ModelRole | None = None) -> int:
+        return sum(1 for c in self.calls if role is None or c.role is role)
+
+
+def usage_of(role: ModelRole, response: Any) -> ModelCall:
+    """What one response cost, as the provider reported it.
+
+    The cost sits in the provider's `usage` block, which LangChain carries
+    through as `response_metadata["token_usage"]`. Token counts prefer the
+    standard `usage_metadata`, with the raw block as the fallback.
+    """
+    metadata = getattr(response, "response_metadata", {}) or {}
+    raw = metadata.get("token_usage") or {}
+    standard = getattr(response, "usage_metadata", None) or {}
+    cost = raw.get("cost")
+    return ModelCall(
+        role=role,
+        cost_usd=float(cost) if isinstance(cost, int | float) else None,
+        input_tokens=standard.get("input_tokens") or raw.get("prompt_tokens"),
+        output_tokens=standard.get("output_tokens") or raw.get("completion_tokens"),
+    )
+
+
+def _record(role: ModelRole, response: Any) -> None:
+    calls = _ledger.get()
+    if calls is not None:
+        calls.append(usage_of(role, response))
+
+
 def build_chat_model(role: ModelRole, **overrides: Any) -> ChatOpenAI:
     """A chat model for `role`, pinned and budgeted."""
     settings = get_settings()
@@ -150,6 +246,10 @@ async def ainvoke(model: Any, messages: Any, *, role: ModelRole) -> Any:
                 "something else. Check the pin in .env against the provider's catalogue."
             ),
         ) from exc
+
+    # Recorded after the pin check: a call the pinned model did not answer is
+    # a failure of the reasoning layer, not a cost of the conversation.
+    _record(role, raw)
 
     if structured:
         if response.get("parsing_error") is not None or response.get("parsed") is None:
