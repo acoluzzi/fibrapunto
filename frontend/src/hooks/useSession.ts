@@ -80,6 +80,17 @@ export function useSession() {
     stream.onmessage = (message) => {
       const event = JSON.parse(message.data) as TraceEvent;
       setEvents((current) => [...current, event]);
+      // A colleague's decision posted into this conversation: it is stored as
+      // a turn, so reload the transcript rather than appending — replays of
+      // the same event on reconnect then cannot show it twice.
+      if (event.name === "customer.notified" && activeRef.current === id) {
+        api
+          .session(id)
+          .then((stored) => {
+            if (activeRef.current === id) setMessages(stored.messages);
+          })
+          .catch(() => undefined);
+      }
     };
     // A dropped stream must not take the conversation with it: the reply
     // itself comes back on the POST, so the trace degrading is cosmetic.

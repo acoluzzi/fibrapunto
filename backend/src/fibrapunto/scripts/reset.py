@@ -53,6 +53,7 @@ async def reset(conn: asyncpg.Connection) -> dict[str, int]:
                      platform.conversation_checkpoint,
                      platform.conversation,
                      platform.browser_principal,
+                     platform.notification_outbox,
                      platform.eval_run
             RESTART IDENTITY CASCADE
             """

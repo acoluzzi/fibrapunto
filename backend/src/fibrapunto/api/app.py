@@ -18,7 +18,8 @@ from __future__ import annotations
 import asyncio
 import json
 from contextlib import asynccontextmanager, suppress
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Literal
 from uuid import UUID
 
 import structlog
@@ -34,6 +35,8 @@ from fibrapunto.api.auth import require_operator
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
+from fibrapunto.escalation import engine
+from fibrapunto.integrations.recommendation_client import RecommendationClient
 from fibrapunto.llm.chat import ReasoningLayerUnavailable
 from fibrapunto.observability.events import EventType, TraceEvent
 from fibrapunto.observability.trace import TraceRecorder, TraceStore, stream_events
@@ -46,10 +49,11 @@ from fibrapunto.persistence.sessions import (
     SessionStore,
     TurnConflict,
 )
-from fibrapunto.privacy import retention
+from fibrapunto.privacy import redaction, retention
 from fibrapunto.prompts.loader import reload_all
 from fibrapunto.state import checkpoint
 from fibrapunto.state.checkpoint import UnsupportedCheckpoint
+from fibrapunto.state.models import TurnRole
 
 log = structlog.get_logger(__name__)
 
@@ -357,6 +361,152 @@ async def _persist(what: str, write) -> bool:
     except Exception as exc:  # noqa: BLE001 — any store failure is non-fatal
         log.error("trace_store.write_failed", what=what, error=str(exc))
         return False
+    return True
+
+
+# --- a colleague's decision on an accepted offer ------------------------------
+
+
+class OfferDecision(BaseModel):
+    decision: Literal["confirm", "decline"]
+    reason: str | None = Field(
+        default=None,
+        description="Required to decline: shown to the customer, in their conversation.",
+    )
+
+
+@app.post("/api/operator/records/{reference}/offer", dependencies=[Depends(require_operator)])
+async def decide_offer(reference: str, request: OfferDecision) -> dict[str, Any]:
+    """Confirm or decline the offer a customer accepted, and tell them.
+
+    The customer hears it in their own conversation — a message written from a
+    template at this decision, never by the model — and by email, queued in the
+    outbox (not sent: demo). A declined offer's cost goes back to the budget.
+    The customer's conversation is updated under its lease, like any turn, so
+    the agent knows the outcome if they reply.
+    """
+    if _operator_pool is None:
+        raise HTTPException(503, "database unavailable")
+    row = await _operator_pool.fetchrow(
+        """
+        SELECT r.id, r.reference, r.origin_session_id, r.collected_context, c.email
+          FROM crm.handover_record r
+          LEFT JOIN crm.customer c ON c.id = r.customer_id
+         WHERE r.reference = $1
+        """,
+        reference,
+    )
+    if row is None:
+        raise HTTPException(404, f"no record with reference {reference}")
+    context = _attributes(row["collected_context"])
+    offer = context.get("retention_offer") or {}
+    if offer.get("status") != "accepted":
+        raise HTTPException(409, "no accepted offer awaiting a decision on this case")
+    reason = (request.reason or "").strip()
+    if request.decision == "decline" and not reason:
+        raise HTTPException(422, "a reason is required to decline: the customer is told it")
+
+    # The operator's words reach the customer: scrubbed like any outbound text.
+    reason = redaction.for_customer(reason)[0] if reason else ""
+    confirmed = request.decision == "confirm"
+    text = (
+        engine.offer_confirmed(offer["title"], reference)
+        if confirmed
+        else engine.offer_declined(offer["title"], reference, reason)
+    )
+    cid = row["origin_session_id"]
+
+    # 1. Tell the customer in their conversation. Refused (409) if a turn is in
+    #    progress, before anything else changes, so the colleague can retry.
+    notified = await _notify_conversation(
+        cid, text, "confirmed" if confirmed else "declined_by_team"
+    )
+
+    # 2. A declined offer gives its cost back to the budget.
+    released = None
+    if not confirmed:
+        released = await RecommendationClient().release(offer["offer_id"], cid)
+
+    # 3. The case and the outbox, together.
+    offer.update(
+        status="confirmed" if confirmed else "declined_by_team",
+        decision_reason=reason or None,
+        decided_at=datetime.now(UTC).isoformat(),
+        customer_notified_in_chat=notified,
+    )
+    context["retention_offer"] = offer
+    async with _operator_pool.acquire() as conn, conn.transaction():
+        await conn.execute(
+            """
+            UPDATE crm.handover_record
+               SET collected_context = $2::jsonb, status = $3::crm.record_status
+             WHERE id = $1
+            """,
+            row["id"],
+            json.dumps(context, default=str, ensure_ascii=False),
+            "closed" if confirmed else "in_progress",
+        )
+        if row["email"]:
+            await conn.execute(
+                """
+                INSERT INTO platform.notification_outbox
+                    (reference, conversation_id, channel, recipient, subject, body)
+                VALUES ($1, $2, 'email', $3, $4, $5)
+                """,
+                reference,
+                cid,
+                row["email"],
+                f"Your Fibrapunto offer — case {reference}",
+                text,
+            )
+    return {
+        "reference": reference,
+        "status": offer["status"],
+        "customer_notified_in_chat": notified,
+        "email_queued": bool(row["email"]),
+        "budget_released": released,
+    }
+
+
+async def _notify_conversation(cid: UUID, text: str, offer_status: str) -> bool:
+    """Append a message to the customer's conversation, as the platform.
+
+    Same lease as a customer turn, so it cannot interleave with one; retried
+    briefly, then refused. False when the conversation no longer exists
+    (purged) — the email still goes to the outbox.
+    """
+    store = _store_required()
+    for _ in range(10):
+        try:
+            lease = await store.acquire(cid)
+            break
+        except ConversationBusy:
+            await asyncio.sleep(0.3)
+        except ConversationNotFound:
+            return False
+    else:
+        raise HTTPException(409, "the customer is mid-turn; try again in a moment")
+
+    committed = False
+    try:
+        state = checkpoint.load(lease.schema_version, lease.state_json).to_state(
+            await store.transcript(cid)
+        )
+        state.record_turn(TurnRole.agent, text)
+        state.collected.told_to_customer.append(text)
+        state.collected.offer_status = offer_status
+        await store.commit(lease, state, None, None)
+        committed = True
+    except UnsupportedCheckpoint:
+        return False
+    finally:
+        if not committed:
+            await store.release(lease)
+
+    trace = await _recorder_for(cid)
+    trace.emit(EventType.customer_notified, text=text, source="operator")
+    if await _persist("store_events", lambda s: s.store_events(trace.pending)):
+        trace.mark_persisted()
     return True
 
 

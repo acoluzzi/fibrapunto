@@ -161,12 +161,14 @@ function Cases({
         </table>
       )}
 
-      {selected && <Detail record={selected} />}
+      {selected && (
+        <Detail record={selected} onChanged={() => open(selected.summary.reference)} />
+      )}
     </div>
   );
 }
 
-function Detail({ record }: { record: any }) {
+function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
   const s = record.summary;
   return (
     <div style={{ marginTop: 28 }}>
@@ -211,6 +213,34 @@ function Detail({ record }: { record: any }) {
           ))}
         </dd>
 
+        {record.retention_offer && (
+          <>
+            <dt>Retention offer</dt>
+            <dd>
+              <OfferDecision
+                reference={s.reference}
+                offer={record.retention_offer}
+                onDecided={onChanged}
+              />
+            </dd>
+          </>
+        )}
+
+        {record.outbox?.length > 0 && (
+          <>
+            <dt>Emails to the customer</dt>
+            <dd>
+              {record.outbox.map((mail: any, index: number) => (
+                <div key={index} style={{ marginBottom: 6 }}>
+                  <span className="chip">{mail.sent ? "sent" : "queued, not sent (demo)"}</span>{" "}
+                  to {mail.recipient} — <em>{mail.subject}</em>
+                  <div className="muted" style={{ fontSize: 12 }}>{mail.body}</div>
+                </div>
+              ))}
+            </dd>
+          </>
+        )}
+
         <dt>How to reach them</dt>
         <dd>
           {record.customer_contact.email || record.customer_contact.phone ? (
@@ -251,5 +281,82 @@ function Detail({ record }: { record: any }) {
         <pre>{JSON.stringify(record.context, null, 2)}</pre>
       </details>
     </div>
+  );
+}
+
+/** An offer the customer accepted: a colleague confirms it or declines it.
+ *
+ *  Either way the customer is told — in their conversation (a templated
+ *  message, not the model) and by email. A decline needs a reason, because the
+ *  customer is shown it; its cost goes back to the offers budget. */
+function OfferDecision({
+  reference,
+  offer,
+  onDecided,
+}: {
+  reference: string;
+  offer: any;
+  onDecided: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function decide(decision: "confirm" | "decline") {
+    setBusy(true);
+    setError(null);
+    api
+      .operatorDecideOffer(reference, decision, reason)
+      .then(onDecided)
+      .catch((e: ApiError) => setError(e.message))
+      .finally(() => setBusy(false));
+  }
+
+  if (offer.status !== "accepted") {
+    return (
+      <>
+        {offer.title}{" "}
+        <span className="chip">
+          {offer.status === "confirmed"
+            ? "confirmed by the team"
+            : offer.status === "declined_by_team"
+              ? "declined by the team"
+              : offer.status}
+        </span>
+        {offer.decision_reason && (
+          <div className="muted" style={{ fontSize: 12 }}>
+            Reason given to the customer: {offer.decision_reason}
+          </div>
+        )}
+        {offer.decided_at && (
+          <div className="muted" style={{ fontSize: 12 }}>
+            {offer.customer_notified_in_chat
+              ? "The customer was told in their conversation."
+              : "The conversation no longer exists; the customer was told by email only."}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {offer.title} <span className="chip">accepted by the customer — awaiting your decision</span>
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        <button className="primary" disabled={busy} onClick={() => decide("confirm")}>
+          Confirm and apply
+        </button>
+        <input
+          placeholder="Reason, shown to the customer"
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          style={{ minWidth: 260 }}
+        />
+        <button disabled={busy || !reason.trim()} onClick={() => decide("decline")}>
+          Decline
+        </button>
+      </div>
+      {error && <p className="login-error">{error}</p>}
+    </>
   );
 }

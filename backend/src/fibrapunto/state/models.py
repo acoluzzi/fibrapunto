@@ -197,7 +197,10 @@ class CollectedState(BaseModel):
     that was sitting in billing operations."""
 
     offer: OfferFacts | None = None
-    offer_status: Literal["presented", "accepted", "declined", "unavailable"] | None = None
+    offer_status: (
+        Literal["presented", "accepted", "declined", "unavailable", "confirmed", "declined_by_team"]
+        | None
+    ) = None
     """One offer per conversation, at most (§4.2 as amended). Once set, never
     offered again — a customer who said no is not asked twice."""
 

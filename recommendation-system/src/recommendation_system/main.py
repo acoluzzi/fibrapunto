@@ -153,11 +153,28 @@ async def accept(offer_id: str, request: AcceptRequest) -> Budget:
     _require_up()
     key = (str(request.conversation_id), offer_id)
     if key not in _ledger.accepted:
-        offer = next((o for o in _eligible(request.contract_number) if o.offer_id == offer_id), None)
+        offer = next(
+            (o for o in _eligible(request.contract_number) if o.offer_id == offer_id), None
+        )
         if offer is None:
             raise HTTPException(409, "offer no longer available")
         _ledger.accepted[key] = offer.cost_eur
         _ledger.spent += offer.cost_eur
+    return await budget()
+
+
+class ReleaseRequest(BaseModel):
+    conversation_id: UUID
+
+
+@app.post("/offers/{offer_id}/release", response_model=Budget)
+async def release(offer_id: str, request: ReleaseRequest) -> Budget:
+    """A colleague declined an offer the customer had accepted: its cost goes
+    back to the budget. Idempotent — releasing twice refunds once."""
+    _require_up()
+    cost = _ledger.accepted.pop((str(request.conversation_id), offer_id), None)
+    if cost is not None:
+        _ledger.spent -= cost
     return await budget()
 
 

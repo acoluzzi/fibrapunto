@@ -350,7 +350,7 @@ def offer_accepted(offer, result, state: ConversationState) -> str:
     return (
         f"Thank you — I have noted that you would like to take the offer: {offer.title}. "
         f"A colleague will confirm it and apply it; nothing changes on your bill until "
-        f"they do. {closing}"
+        f"they do. {closing} You will see their answer here, in this conversation."
     )
 
 
@@ -368,6 +368,27 @@ def cancellation_after_offer(result, state: ConversationState, unavailable: bool
 
 
 OFFER_UNAVAILABLE = "I am sorry — that offer is no longer available."
+
+
+def offer_confirmed(title: str, reference: str) -> str:
+    """Posted into the customer's conversation when a colleague confirms the
+    offer (operator view). Written here, at the colleague's decision — never by
+    the model — so it says exactly what was confirmed and nothing more."""
+    return (
+        f"An update on case no. {reference}: our retention team has confirmed your offer, "
+        f"{title}. It applies from your next bill. There is nothing more you need to do."
+    )
+
+
+def offer_declined(title: str, reference: str, reason: str) -> str:
+    """Posted when a colleague declines it, with the reason they gave. The
+    customer's original request stands, dated as it was made."""
+    return (
+        f"An update on case no. {reference}: our retention team could not apply the offer "
+        f"{title}. Their reason: {reason.strip()} Your original request is still registered "
+        f"with the date you made it, and a colleague from the retention team will contact "
+        f"you about it."
+    )
 
 
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:

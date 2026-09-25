@@ -448,3 +448,134 @@ def test_a_cancellation_opens_by_code_across_rebuilt_turns(monkeypatch):
             cid,
         )
         assert [r["domain"] for r in agent_domains] == ["cancellation"] * 3
+
+
+# --- a colleague decides on an accepted offer ------------------------------------
+
+
+def _accepted_offer(monkeypatch, client) -> tuple[str, str, list]:
+    """A customer who accepts a retention offer. Returns (conversation, case,
+    releases recorded)."""
+    from decimal import Decimal
+
+    from fibrapunto.integrations.recommendation_client import (
+        RecommendationClient,
+        RetentionOffer,
+    )
+
+    offer = RetentionOffer(
+        offer_id="loyalty-5-off",
+        title="€5 off every month for 12 months",
+        description="Your plan stays as it is, at €5 less each month.",
+        monthly_discount_eur=Decimal("5.00"),
+        duration_months=12,
+        cost_eur=Decimal("60.00"),
+    )
+    releases: list = []
+
+    async def best_offer(self, contract):
+        return offer
+
+    async def accept(self, o, contract, cid):
+        return True
+
+    async def release(self, offer_id, cid):
+        releases.append(offer_id)
+        return True
+
+    monkeypatch.setattr(RecommendationClient, "best_offer", best_offer)
+    monkeypatch.setattr(RecommendationClient, "accept", accept)
+    monkeypatch.setattr(RecommendationClient, "release", release)
+
+    browser(client)
+    cid = new_session(client)
+    routed_to(monkeypatch, "cancellation")
+    scripted(monkeypatch, [AIMessage("Of course. What is your contract number?")])
+    turn(client, cid, "i want to close my contract, i've moved house")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": "FP-2021-017350"}),
+            AIMessage("There is no lock-in on your contract."),
+        ],
+    )
+    turn(client, cid, "FP-2021-017350")
+    # The offer comes on the turn after the agent has the contract in hand.
+    scripted(monkeypatch, [AIMessage("Thank you for telling me.")])
+    offered = turn(client, cid, "I'm moving to another city").json()
+    assert "€5 off every month" in offered["text"]
+    scripted(monkeypatch, [])
+    accepted = turn(client, cid, "yes please").json()
+    assert "You will see their answer here, in this conversation." in accepted["text"]
+    return cid, accepted["handover_reference"], releases
+
+
+def _operator(monkeypatch, client) -> None:
+    from pydantic import SecretStr
+
+    monkeypatch.setattr(get_settings(), "operator_password", SecretStr("pw"))
+    assert client.post("/api/operator/login", json={"password": "pw"}).status_code == 204
+
+
+def test_a_declined_offer_reaches_the_customer_with_the_reason(monkeypatch):
+    with backend() as client:
+        cid, reference, releases = _accepted_offer(monkeypatch, client)
+        _operator(monkeypatch, client)
+
+        no_reason = client.post(
+            f"/api/operator/records/{reference}/offer", json={"decision": "decline"}
+        )
+        assert no_reason.status_code == 422, "the customer is told why, so why is required"
+
+        decided = client.post(
+            f"/api/operator/records/{reference}/offer",
+            json={"decision": "decline", "reason": "This offer is for customers of 2+ years."},
+        )
+        assert decided.status_code == 200, decided.text
+        assert decided.json()["customer_notified_in_chat"] is True
+        assert releases == ["loyalty-5-off"], "its cost goes back to the budget"
+
+        last = client.get(f"/api/sessions/{cid}").json()["messages"][-1]
+        assert last["role"] == "agent"
+        assert "could not apply the offer" in last["text"]
+        assert "This offer is for customers of 2+ years." in last["text"]
+
+        record = client.get(f"/api/operator/records/{reference}").json()
+        assert record["retention_offer"]["status"] == "declined_by_team"
+        assert record["outbox"][0]["recipient"] == "giulia.rossi@example.it"
+        assert record["outbox"][0]["sent"] is False, "queued, never sent"
+        status = sql(
+            "SELECT status::text AS s FROM crm.handover_record WHERE reference = $1", reference
+        )
+        assert status[0]["s"] == "in_progress"
+
+        again = client.post(
+            f"/api/operator/records/{reference}/offer", json={"decision": "confirm"}
+        )
+        assert again.status_code == 409, "one decision per offer"
+
+
+def test_a_confirmed_offer_closes_the_case_and_the_agent_knows(monkeypatch):
+    with backend() as client:
+        cid, reference, releases = _accepted_offer(monkeypatch, client)
+        _operator(monkeypatch, client)
+
+        decided = client.post(
+            f"/api/operator/records/{reference}/offer", json={"decision": "confirm"}
+        )
+        assert decided.status_code == 200, decided.text
+        assert releases == []
+
+        last = client.get(f"/api/sessions/{cid}").json()["messages"][-1]
+        assert "has confirmed your offer" in last["text"]
+        status = sql(
+            "SELECT status::text AS s FROM crm.handover_record WHERE reference = $1", reference
+        )
+        assert status[0]["s"] == "closed"
+
+        # The customer replies: the rebuilt conversation carries the outcome.
+        model = scripted(monkeypatch, [AIMessage("You're welcome.")])
+        routed_to(monkeypatch, "cancellation")
+        assert turn(client, cid, "great, thanks").status_code == 200
+        prompt = "\n".join(str(m.content) for m in model.calls[0])
+        assert "has confirmed your offer" in prompt, "the model sees what it was told"

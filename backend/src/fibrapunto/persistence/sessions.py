@@ -306,10 +306,13 @@ class SessionStore:
         self,
         lease: Lease,
         state: ConversationState,
-        client_turn_id: UUID,
-        response: dict[str, Any],
+        client_turn_id: UUID | None,
+        response: dict[str, Any] | None,
     ) -> None:
-        """Transcript, checkpoint, stored reply and activity — all or nothing."""
+        """Transcript, checkpoint, stored reply and activity — all or nothing.
+
+        `client_turn_id` None: a message to the customer with no request behind
+        it — a colleague's decision posted into the conversation."""
         snapshot = RuntimeCheckpointV1.from_state(state).model_dump(mode="json")
         new_turns = [
             (
@@ -358,16 +361,17 @@ class SessionStore:
                 # Raising inside the transaction rolls the transcript rows back
                 # with it: nothing of this turn is saved.
                 raise CheckpointConflict(str(lease.conversation_id))
-            await conn.execute(
-                """
-                UPDATE platform.turn_request
-                   SET status = 'done', response_json = $3::jsonb
-                 WHERE conversation_id = $1 AND client_turn_id = $2
-                """,
-                lease.conversation_id,
-                client_turn_id,
-                json.dumps(response, default=str),
-            )
+            if client_turn_id is not None:
+                await conn.execute(
+                    """
+                    UPDATE platform.turn_request
+                       SET status = 'done', response_json = $3::jsonb
+                     WHERE conversation_id = $1 AND client_turn_id = $2
+                    """,
+                    lease.conversation_id,
+                    client_turn_id,
+                    json.dumps(response, default=str),
+                )
             await conn.execute(
                 """
                 UPDATE platform.conversation

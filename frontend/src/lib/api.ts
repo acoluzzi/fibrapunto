@@ -92,6 +92,15 @@ export const api = {
 
   operatorQueues: () => req<any[]>("/api/operator/queues"),
   operatorRecords: () => req<any[]>("/api/operator/records"),
+  // A colleague's decision on an offer the customer accepted. The customer is
+  // told in their conversation, and by email (queued, not sent: demo).
+  operatorDecideOffer: (reference: string, decision: "confirm" | "decline", reason?: string) =>
+    req<any>(`/api/operator/records/${reference}/offer`, {
+      method: "POST",
+      headers: json,
+      body: JSON.stringify({ decision, reason: reason || null }),
+    }),
+
   operatorRecord: (reference: string) =>
     req<any>(`/api/operator/records/${reference}`),
 

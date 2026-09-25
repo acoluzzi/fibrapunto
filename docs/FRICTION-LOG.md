@@ -573,6 +573,22 @@ it found the things the tests were never shaped to ask.
   not, so the retention case was written without the customer's words. Both
   checks now agree, and the retention case carries those words.
 
+- **Done.** A colleague now decides on an offer the customer accepted, in the
+  operator view: confirm and apply, or decline with a reason — required,
+  because the customer is shown it. The customer is told in their own
+  conversation, by a templated message written at the colleague's decision
+  (never by the model), live if the chat is open and on their next visit if
+  not; the message goes into the conversation's checkpoint under its lease,
+  so the agent knows the outcome if they reply. A declined offer's cost goes
+  back to the budget, and an email is queued in `platform.notification_outbox`
+  (migration 007) — never sent, and shown as "queued, not sent" so the demo
+  never pretends to email anyone. When accepting, the customer is told they
+  will see the answer in the same chat. Found on the way: every rebuilt turn
+  had lost its domain (migration 006 now stores it), which silently broke the
+  code-opened cancellation and let an accepted offer fall back to the model,
+  which then told the customer their cancellation was recorded. After an
+  accepted offer, the model is no longer called at all.
+
 Stated rather than fixed, because the fix belongs to a production build: the
 promises guard is a list of known phrasings, not a classifier. The operator
 view now has a demo gate — one shared password, a signed session cookie, ports

@@ -156,10 +156,34 @@ async def record_detail(reference: str) -> dict[str, Any]:
         "context": {
             k: v
             for k, v in context.items()
-            if k not in {"what_customer_was_told", "escalation_trigger", "lookups"}
+            if k
+            not in {"what_customer_was_told", "escalation_trigger", "lookups", "retention_offer"}
         },
         # These two columns the agent cannot read at all (§8). Their presence
         # here is the operator identity doing something the agent could not.
+        # An offer the customer accepted awaits a colleague's decision here;
+        # once decided, the decision and its reason.
+        "retention_offer": context.get("retention_offer"),
+        # Messages queued to the customer by email — never sent by the demo.
+        "outbox": [
+            {
+                "channel": o["channel"],
+                "recipient": o["recipient"],
+                "subject": o["subject"],
+                "body": o["body"],
+                "created_at": o["created_at"],
+                "sent": o["sent_at"] is not None,
+            }
+            for o in await _require_pool().fetch(
+                """
+                SELECT channel, recipient, subject, body, created_at, sent_at
+                  FROM platform.notification_outbox
+                 WHERE reference = $1
+                 ORDER BY created_at
+                """,
+                record["reference"],
+            )
+        ],
         "internal_comments": record["internal_comments"],
         "customer_contact": {"email": record["email"], "phone": record["phone"]},
         "completeness": {"is_complete": record["is_complete"], "missing": missing},

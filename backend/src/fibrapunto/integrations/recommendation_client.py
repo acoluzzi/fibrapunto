@@ -49,6 +49,20 @@ class RecommendationClient:
             return None
         return offers[0] if offers else None
 
+    async def release(self, offer_id: str, conversation_id: UUID) -> bool:
+        """Return a declined offer's cost to the budget. False if the system
+        cannot be reached — the operator is told, the decision still stands."""
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.post(
+                    f"{self._base}/offers/{offer_id}/release",
+                    json={"conversation_id": str(conversation_id)},
+                )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("recommendations.release_failed", error=str(exc))
+            return False
+        return response.status_code == 200
+
     async def accept(
         self, offer: RetentionOffer, contract_number: str, conversation_id: UUID
     ) -> bool:
