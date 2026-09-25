@@ -9,5 +9,11 @@
     "spent": 1.1218,
     "remaining": 0.7602,
     "per_case": 0.0351
+  },
+  "rejudged_at": "2026-09-25T15-30-44Z",
+  "rejudge_spend": {
+    "spent": -4.4349,
+    "remaining": 5.1188,
+    "per_case": -0.1386
   }
 }

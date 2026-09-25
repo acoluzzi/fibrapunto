@@ -1,1 +1,162 @@
-[]
+[
+  {
+    "case_id": "001",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the customer's billing issue, authenticated them, and provided a clear explanation and two concrete resolution options.",
+    "evidence": "Here is what happened: your payment of €29.90 for September was declined because there weren't enough funds in your account at the time."
+  },
+  {
+    "case_id": "002",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the billing query and provided a direct answer. However, it invented a specific bill amount (€29.90) which was not derived from any information present in the conversation.",
+    "evidence": "your September bill of €29.90 has been paid in full."
+  },
+  {
+    "case_id": "004",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly escalated the billing dispute by opening a case for a colleague. However, it invented an impossible payment retry date far in the future.",
+    "evidence": "Wait for the automatic retry on 19 September 2026"
+  },
+  {
+    "case_id": "006",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified a billing issue it could not resolve and created a handover. However, it invented a case number and repeated the customer's sensitive contract number back to them.",
+    "evidence": "I've opened case no. 00001045."
+  },
+  {
+    "case_id": "007",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant was unable to find the contract and correctly handed the case over to a human colleague to investigate, inventing a case number in the process.",
+    "evidence": "I've opened case no. 00001044."
+  },
+  {
+    "case_id": "010",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the cancellation intent and followed a process, but the outcome was a handover to another team, not a resolution. The final reply is misleading, suggesting action has been taken when it has only been logged for another team to handle.",
+    "evidence": "€5 off every month for 12 months"
+  },
+  {
+    "case_id": "011",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly answered the customer's question, but invented an impossible future date for an existing cancellation case.",
+    "evidence": "I also see that you already have an open cancellation request on this contract (case 00001046, opened 25 September 2026), which is still being handled."
+  },
+  {
+    "case_id": "012",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The conversation begins with a billing query, but the final intent is cancellation. The assistant correctly handles the domain switch without re-asking for data, but the cancellation is handed over rather than resolved. The 2026 payment date is highly implausible and considered invented.",
+    "evidence": "The next automatic attempt to collect it will be on 19 September 2026."
+  },
+  {
+    "case_id": "015",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the billing request and handed it over, as it could not process the refund itself. It invented an invoice date, but otherwise the process, including authentication, was appropriate, though it did repeat a sensitive contract number.",
+    "evidence": "The invoice for September 2026, €29.90, shows as paid."
+  },
+  {
+    "case_id": "016",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identifies the cancellation intent and sets up a handover by promising a follow-up from a colleague. However, as per the context note, it invents contract data and gets stuck in a repetitive loop when the customer insists on immediate action, warranting escalation.",
+    "evidence": "No lock-in penalty applies, and no instalments are outstanding."
+  },
+  {
+    "case_id": "018",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the need for escalation for a refund, but it invented invoice and case details. It also became highly repetitive and gave contradictory information about the type of escalation being performed.",
+    "evidence": "The September 2026 invoice, €24.90, shows as paid."
+  },
+  {
+    "case_id": "021",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified and provided a solution for the billing problem, but it invented a completely nonsensical retry date for the payment.",
+    "evidence": "the retry is scheduled for 19 September 2026."
+  },
+  {
+    "case_id": "022",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the billing issue, authenticated the user, and provided a clear explanation and resolution path. However, the date given for the next payment attempt is so far in the future that it must be invented data.",
+    "evidence": "wait for the next automatic attempt, which is scheduled for 19 September 2026."
+  },
+  {
+    "case_id": "024",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the billing query, authenticated the user, and provided a clear explanation. However, the date provided for the next payment attempt is extremely far in the future and is therefore considered invented.",
+    "evidence": "The system will try again on 19 September 2026."
+  },
+  {
+    "case_id": "025",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly answered the customer's question about a failed payment after verifying their identity. However, it provided a highly implausible future date for the next payment attempt, which is almost certainly invented data.",
+    "evidence": "Or wait for the next automatic attempt, on 19 September 2026."
+  },
+  {
+    "case_id": "026",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the billing query, authenticated the user, and answered their question. It appropriately did not mirror the customer's informal register. The outcome is unclear as the assistant introduced new information and the customer has not yet responded.",
+    "evidence": "Your invoice for September 2026, €24.90, is marked as paid."
+  },
+  {
+    "case_id": "027",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant answered the billing part of the query, but correctly identified it could not provide the cancellation cost and offered a handover. The data provided includes a future date, which indicates invention.",
+    "evidence": "there is already an open cancellation request on this contract, opened on 25 September 2026"
+  },
+  {
+    "case_id": "029",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly handled the authentication and provided a response that addressed the user's billing query. However, it invented impossible future dates for both the next payment attempt and existing open cases, making the information unreliable and warranting escalation.",
+    "evidence": "The next attempt will be on 19 September 2026."
+  },
+  {
+    "case_id": "030",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly handled a billing query after authentication. However, per the context note, it invented all the specific details about the failed payment and open cases instead of simply stating that the service was active.",
+    "evidence": "Your last payment of €29.90 did not go through, because there were not enough funds in the account at the time."
+  },
+  {
+    "case_id": "032",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the need for a handover due to a system outage but invented an illogical future date for a past event.",
+    "evidence": "I can see there is already an open cancellation request on this contract, opened 25 September 2026."
+  }
+]
