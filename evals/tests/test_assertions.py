@@ -640,3 +640,50 @@ def test_judge_failures_are_grouped_by_kind():
     assert grouped["truncated"] == ["001", "003"]
     assert grouped["Judge"] == ["004"]
     assert failures({"002": {"domain_fired": "billing"}}) == {}
+
+
+# --- what the judge is shown besides the transcript (§14.2) --------------------
+
+
+def test_the_judge_is_told_the_date_and_the_verified_facts():
+    from datetime import date
+
+    from evals.judge import evidence_block
+
+    replies = [
+        reply("Before I look into it, in which city were you born?"),
+        {
+            **reply("The September charge of €29.90 was refused; next attempt 19 September."),
+            "verified_facts": {
+                "contract_number": "FP-2023-048812",
+                "billing": {"amount_eur": "29.90", "next_retry_date": "2026-09-19"},
+            },
+            "known_case_references": ["00001042"],
+        },
+    ]
+    text = evidence_block(replies, date(2026, 9, 25))
+    assert "25 September 2026" in text
+    assert "Dates in 2026 are current" in text
+    assert '"amount_eur": "29.90"' in text
+    assert "NOT invented" in text
+
+
+def test_with_nothing_returned_the_judge_is_told_so():
+    from datetime import date
+
+    from evals.judge import evidence_block
+
+    outage = {**reply("The billing system is not responding."), "verified_facts": {}}
+    text = evidence_block([outage], date(2026, 9, 25))
+    assert "No system returned any figure" in text
+
+
+def test_a_run_that_recorded_no_facts_is_not_read_as_a_run_with_none():
+    from datetime import date
+
+    from evals.judge import evidence_block
+
+    old_format = [reply("The September charge of €29.90 was refused.")]  # no verified_facts key
+    text = evidence_block(old_format, date(2026, 9, 25))
+    assert "were not recorded" in text
+    assert "No system returned" not in text

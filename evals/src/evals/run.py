@@ -165,7 +165,9 @@ async def main_async(args: argparse.Namespace) -> int:
 
         if judge:
             try:
-                judged[case["id"]] = await judge.grade(case, transcript.replies)
+                judged[case["id"]] = await judge.grade(
+                    case, transcript.replies, as_of=datetime.now(UTC).date()
+                )
             except Exception as exc:  # noqa: BLE001
                 judged[case["id"]] = {"error": str(exc)}
 
@@ -326,6 +328,9 @@ async def judge_command(run_name: str) -> int:
         print(f"{RED}{exc}{RESET}", file=sys.stderr)
         return 2
     print(f"{DIM}judge: {judge.model}  run: {run_dir.name}{RESET}\n")
+    # The date the transcripts were produced, so a re-grade months later still
+    # reads their dates as current. The run id starts with that timestamp.
+    as_of = datetime.strptime(run_dir.name[:10], "%Y-%m-%d").date()
 
     balance_before = await spend.balance()
     verdicts: list[CaseVerdict] = []
@@ -344,7 +349,7 @@ async def judge_command(run_name: str) -> int:
         # with the assertions as they are now.
         verdicts.append(evaluate(case, replies, trace))
         try:
-            judged[case_id] = await judge.grade(case, replies)
+            judged[case_id] = await judge.grade(case, replies, as_of=as_of)
         except Exception as exc:  # noqa: BLE001
             judged[case_id] = {"error": str(exc)}
         state = "✗" if "error" in judged[case_id] else "✓"

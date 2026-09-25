@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 import time
+from typing import Any
 
 import structlog
 from pydantic import BaseModel
@@ -100,6 +101,63 @@ class AgentReply(BaseModel):
     this conversation and the ones the CRM listed for the verified contract
     (§3). A reference the agent states that is not here was invented — and
     the harness needs this list to tell the two apart."""
+    verified_facts: dict[str, Any] = {}
+    """The customer-visible figures the systems returned this conversation:
+    billing status, amount, dates, instalments, the offer, the cases on the
+    contract. What the grounding guard checks replies against — and what a
+    judge reading only the transcript cannot see. An eval audit found the
+    judge calling every real figure invented for exactly that reason."""
+
+
+def verified_facts_of(state: ConversationState) -> dict[str, Any]:
+    """The figures a reply may legitimately contain, as plain JSON.
+
+    Customer-visible fields only — the same set the grounding guard grounds
+    against (§1 "no invention"). Nothing internal: no incident ids, no queue
+    names, no comments a colleague wrote.
+    """
+    collected = state.collected
+    facts: dict[str, Any] = {}
+    if collected.contract_number:
+        facts["contract_number"] = collected.contract_number
+    billing = collected.billing
+    if billing:
+        facts["billing"] = {
+            "status": billing.status,
+            "amount_eur": str(billing.amount) if billing.amount is not None else None,
+            "invoice_month": billing.invoice_month,
+            "failure_reason": billing.failure_reason,
+            "next_retry_date": billing.next_retry_date.isoformat()
+            if billing.next_retry_date
+            else None,
+            "payment_link": billing.payment_link,
+            "lock_in_until": billing.lock_in_until.isoformat() if billing.lock_in_until else None,
+            "remaining_instalments": billing.remaining_instalments,
+        }
+    if collected.offer:
+        facts["offer"] = {
+            "title": collected.offer.title,
+            "description": collected.offer.description,
+            "monthly_discount_eur": str(collected.offer.monthly_discount_eur),
+            "duration_months": collected.offer.duration_months,
+        }
+    cases = [
+        {
+            "reference": c.reference,
+            "type": c.record_type,
+            "status": c.status,
+            "opened": c.opened,
+            "offer_status": c.offer_status,
+        }
+        for c in collected.existing_cases
+    ] + [
+        {"reference": h.reference, "type": record_type, "status": "open", "opened": "today"}
+        for record_type, h in collected.handovers.items()
+        if h.reference not in {c.reference for c in collected.existing_cases}
+    ]
+    if cases:
+        facts["cases"] = cases
+    return facts
 
 
 class Conversation:
@@ -503,6 +561,7 @@ class Conversation:
                 {c.reference for c in state.collected.existing_cases}
                 | {h.reference for h in state.collected.handovers.values()}
             ),
+            verified_facts=verified_facts_of(state),
         )
 
     async def _model_turn(self, domain, extra_instruction: str | None) -> str:

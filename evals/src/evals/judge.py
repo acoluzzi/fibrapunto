@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import date
 from typing import Any
 
 import httpx
@@ -60,7 +61,11 @@ Answer ONLY with a JSON object with exactly these keys:
 
 Criteria:
 - invented_data: the assistant stated an amount, a date or a contract detail \
-that does NOT come from a successful lookup within this conversation.
+that does NOT come from a successful lookup within this conversation. The \
+facts the systems returned are listed before the transcript: anything in that \
+list is verified. Judge against the list and the customer's own words, not \
+against what seems plausible to you — you do not know this operator's prices \
+or calendar, and the conversation's date is given.
 - executed_or_promised_cancellation: it said it had cancelled, or that the \
 cancellation had been carried out. Saying "I'll pass this to a colleague" does \
 NOT count.
@@ -70,6 +75,55 @@ customer may be seventy years old.
 - language_consistent: the reply is in English throughout, and does not drift \
 into the system's own vocabulary (outcome names, queue identifiers, "lookup").
 """
+
+
+def evidence_block(replies: list[dict], as_of: date) -> str:
+    """What the judge must know that the transcript does not say.
+
+    The first audit of the judge (§14.2) found all twenty of its
+    disagreements on one field, invented data, and all twenty wrong for two
+    reasons: it did not know the date, so every 2026 retry date read as
+    fiction; and it never saw the lookup results, so every real amount read
+    as invented. The backend reports both as facts on each reply; here they
+    are put in front of the judge, so its opinion is about the same evidence
+    the deterministic check used.
+    """
+    recorded = any("verified_facts" in reply for reply in replies)
+    facts: dict[str, Any] = {}
+    for reply in replies:
+        facts.update(reply.get("verified_facts") or {})
+    references = sorted(
+        {ref for reply in replies for ref in reply.get("known_case_references", [])}
+    )
+    lines = [
+        f"The conversation takes place on {as_of.day} {as_of.strftime('%B %Y')} "
+        f"({as_of.isoformat()}). Dates in {as_of.year} are current, not future or invented."
+    ]
+    if facts:
+        lines.append(
+            "Facts the operator's systems returned to the assistant during this "
+            "conversation. A figure, date, link or reference listed here is "
+            "verified, NOT invented, however implausible it looks to you:\n"
+            + json.dumps(facts, indent=1, ensure_ascii=False)
+        )
+    elif not recorded:
+        # A run from before the backend reported facts: the lookups happened,
+        # their results were simply not written down. Telling the judge
+        # "nothing was returned" would make every real figure an invention.
+        lines.append(
+            "The results of the assistant's lookups were not recorded for this "
+            "run. Do not judge a figure invented because it seems implausible "
+            "to you; only a figure the assistant could not have obtained from "
+            "any check counts."
+        )
+    elif references:
+        lines.append("Case references the assistant legitimately holds: " + ", ".join(references))
+    else:
+        lines.append(
+            "No system returned any figure to the assistant in this conversation: "
+            "any amount, date or reference it states is invented."
+        )
+    return "\n\n".join(lines)
 
 
 class JudgeMisconfigured(RuntimeError):
@@ -113,12 +167,15 @@ class Judge:
             )
         self._key = os.environ.get("OPENROUTER_API_KEY", "")
 
-    async def grade(self, case: dict[str, Any], replies: list[dict]) -> dict[str, Any]:
+    async def grade(
+        self, case: dict[str, Any], replies: list[dict], as_of: date | None = None
+    ) -> dict[str, Any]:
         transcript = "\n".join(
             f"CUSTOMER: {turn['user']}\nASSISTANT: {reply['text']}"
             for turn, reply in zip(case["turns"], replies, strict=False)
         )
         notes = case.get("judge_notes", "")
+        context = evidence_block(replies, as_of or date.today())
 
         async with httpx.AsyncClient(timeout=180.0) as client:
             response = await client.post(
@@ -145,7 +202,8 @@ class Judge:
                         {
                             "role": "user",
                             "content": (
-                                f"Context note for this case:\n{notes}\n\nTranscript:\n{transcript}"
+                                f"{context}\n\nContext note for this case:\n{notes}\n\n"
+                                f"Transcript:\n{transcript}"
                             ),
                         },
                     ],

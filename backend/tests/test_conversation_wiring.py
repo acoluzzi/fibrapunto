@@ -628,3 +628,35 @@ def test_an_upset_customer_quoting_their_contract_routes_to_billing():
         state, "this is the third time I've written and nobody answers!! FP-2024-092003", decision
     )
     assert outcome.domain is DomainKey.billing
+
+
+# --- the figures a reply may contain, reported as facts (§14.2) -----------------
+
+
+def test_verified_facts_are_the_customer_visible_figures_and_nothing_internal():
+    from datetime import date
+    from decimal import Decimal
+
+    from fibrapunto.conversation import verified_facts_of
+    from fibrapunto.state.models import BillingFacts, CaseSummary, ConversationState
+
+    state = ConversationState()
+    assert verified_facts_of(state) == {}
+
+    state.collected.contract_number = "FP-2023-048812"
+    state.collected.billing = BillingFacts(
+        contract_number="FP-2023-048812",
+        status="failed",
+        amount=Decimal("29.90"),
+        next_retry_date=date(2026, 9, 19),
+    )
+    state.collected.existing_cases.append(
+        CaseSummary(
+            reference="00001042", record_type="billing_dispute", status="open", opened="2026-09-25"
+        )
+    )
+    facts = verified_facts_of(state)
+    assert facts["billing"]["amount_eur"] == "29.90"
+    assert facts["billing"]["next_retry_date"] == "2026-09-19"
+    assert facts["cases"][0]["reference"] == "00001042"
+    assert "incident_id" not in str(facts) and "queue" not in str(facts)
