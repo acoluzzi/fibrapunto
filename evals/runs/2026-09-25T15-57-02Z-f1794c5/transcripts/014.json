@@ -1,0 +1,63 @@
+{
+  "replies": [
+    {
+      "text": "I can't help with that here — on this channel I handle billing and cancellations. For a router issue like this, I can connect you with a colleague who handles technical support.",
+      "conversation_id": "e81c7ca5-6558-4b5c-8125-1d5fd62ccfbc",
+      "turn_index": 1,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "frustrated"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.005403,
+      "known_case_references": [],
+      "verified_facts": {}
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T15:43:09.962694Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:09.980545Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:11.448023Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.001523, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"The customer is reporting a technical fault with their router and internet connection, which is a technical issue rather than a billing or cancellation matter.\", \"sentiment\": \"frustrated\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:11.448056Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:15.400624Z",
+      "duration_ms": 5420,
+      "attributes": "{\"cost_usd\": 0.00388, \"tokens_in\": 2553, \"tokens_out\": 182, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.005403}"
+    }
+  ]
+}

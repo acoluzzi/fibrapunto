@@ -1,0 +1,178 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2022-031455, I need to check that it's you. What was the name of your first pet?",
+      "conversation_id": "1e7f6235-5cbd-4356-b465-1c2217677444",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.85,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.001569,
+      "known_case_references": [],
+      "verified_facts": {}
+    },
+    {
+      "text": "Thank you, that's confirmed. For contract FP-2022-031455, the invoice for September 2026 is €24.90 and it is still pending payment. There is a retry scheduled for 25 September.\n\nAlso, for your information, there are two open cases already on this contract:\n- A cancellation request, opened 25 September 2026, still open.\n- A billing dispute, opened 25 September 2026, still open.\n\nIs there anything specific about the pending €24.90 you'd like help with, or does this relate to one of those open cases?",
+      "conversation_id": "1e7f6235-5cbd-4356-b465-1c2217677444",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 908
+        }
+      ],
+      "status": "resolved",
+      "handover_reference": null,
+      "contract_number": "FP-2022-031455",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.012696,
+      "known_case_references": [
+        "00001043",
+        "00001047"
+      ],
+      "verified_facts": {
+        "contract_number": "FP-2022-031455",
+        "billing": {
+          "status": "pending",
+          "amount_eur": "24.90",
+          "invoice_month": "2026-09",
+          "failure_reason": null,
+          "next_retry_date": "2026-09-25",
+          "payment_link": null,
+          "lock_in_until": null,
+          "remaining_instalments": 0
+        },
+        "cases": [
+          {
+            "reference": "00001047",
+            "type": "cancellation_request",
+            "status": "open",
+            "opened": "25 September 2026",
+            "offer_status": "declined"
+          },
+          {
+            "reference": "00001043",
+            "type": "billing_dispute",
+            "status": "open",
+            "opened": "25 September 2026",
+            "offer_status": null
+          }
+        ]
+      }
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T15:46:24.094942Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:46:24.113615Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:46:25.830309Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001569, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"The customer is asking about what their mother owes on a specific contract, which is a direct inquiry about charges and payment status—a core billing matter.\", \"sentiment\": \"neutral\", \"confidence\": 0.85, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:46:25.830336Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:46:25.830364Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:46:25.834544Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2022-031455\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:46:25.835218Z",
+      "duration_ms": 1721,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1139, \"tokens_out\": 86, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001569}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:46:25.867495Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:46:25.867508Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": null, \"previous\": \"billing\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:46:25.867517Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:46:25.872913Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2022-031455\"}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:46:33.196123Z",
+      "duration_ms": 908,
+      "attributes": "{\"outcome\": \"found\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:46:33.196311Z",
+      "duration_ms": 7328,
+      "attributes": "{\"cost_usd\": 0.012696, \"tokens_in\": 5168, \"tokens_out\": 236, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.012696}"
+    }
+  ]
+}

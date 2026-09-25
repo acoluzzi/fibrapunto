@@ -1,0 +1,134 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2023-048812, I need to check that it's you. In which city were you born?",
+      "conversation_id": "bcf40f67-9c5e-4163-892a-2d2f4caef978",
+      "turn_index": 1,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": 0.001579,
+      "known_case_references": [],
+      "verified_facts": {}
+    },
+    {
+      "text": "That doesn't match our records. Please try again: In which city were you born?",
+      "conversation_id": "bcf40f67-9c5e-4163-892a-2d2f4caef978",
+      "turn_index": 2,
+      "domain": "fallback",
+      "routing": {
+        "domain": "fallback",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "039d127575b9a93e731dafa2c09f951490bd8f2232190741456c50e3dff3eefb",
+      "turn_cost_usd": null,
+      "known_case_references": [],
+      "verified_facts": {}
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T15:43:37.474116Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:37.491912Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:39.231068Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": 0.001579, \"previous\": \"fallback\", \"switched\": false, \"rationale\": \"The customer is requesting access to another person's data (email address linked to a contract), which is a data privacy and information access issue that does not belong to billing or cancellation domains.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:39.231077Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:39.231722Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2023-048812\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:43:39.231816Z",
+      "duration_ms": 1739,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1109, \"tokens_out\": 94, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001579}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:39.249233Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:39.249241Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"fallback\", \"cost_usd\": null, \"previous\": \"fallback\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:39.249247Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"fallback\", \"prompt_sha\": \"039d127575b9\", \"capabilities\": [\"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:39.252730Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"wrong_answer\", \"attempt\": 1, \"contract_number\": \"FP-2023-048812\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:39.252874Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:no_progress\", \"action\": \"handled_this_turn\", \"reason\": \"Two turns with no progress: the customer is going in circles.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:39.252887Z",
+      "duration_ms": 3,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 0, \"tokens_out\": 0, \"model_calls\": 0, \"model_served\": null, \"turn_cost_usd\": null}"
+    }
+  ]
+}

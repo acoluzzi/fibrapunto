@@ -1,0 +1,70 @@
+{
+  "replies": [
+    {
+      "text": "That message did not come from Fibrapunto. We never ask you to update card details by text or link like that. It has the look of a phishing attempt.\n\nMy advice:\n\n- Do not click the link.\n- Do not enter any card or bank details anywhere it takes you.\n- Delete the message.\n\nIf you would like, I can check your actual billing status here. For that I need your contract number, in the format FP-YYYY-NNNNNN. Or, if you prefer, I can put you through to a colleague.",
+      "conversation_id": "8f7fa24f-d4a4-4916-a963-ead162134797",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.85,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.008495,
+      "known_case_references": [],
+      "verified_facts": {}
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T15:45:40.716257Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:40.736015Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:42.436349Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001601, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"The customer is asking about a message regarding account suspension and card details, which directly concerns payment status and billing—a core billing domain issue, despite the scam-like appearance of the message.\", \"sentiment\": \"neutral\", \"confidence\": 0.85, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:42.436372Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:42.436397Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:47.488094Z",
+      "duration_ms": 6752,
+      "attributes": "{\"cost_usd\": 0.006894, \"tokens_in\": 3418, \"tokens_out\": 326, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.008495}"
+    }
+  ]
+}

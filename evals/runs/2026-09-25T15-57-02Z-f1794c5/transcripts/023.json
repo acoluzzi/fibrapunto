@@ -1,0 +1,127 @@
+{
+  "replies": [
+    {
+      "text": "The contract number you gave me isn't in the right format. It should look like this: FP-YYYY-NNNNNN.\n\nCould you send it again in that format?",
+      "conversation_id": "a5c20723-4584-4fe9-a3c5-0fa9423dac0e",
+      "turn_index": 1,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": true,
+        "decided_by": "contract_number_implies_billing",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.011828,
+      "known_case_references": [],
+      "verified_facts": {}
+    },
+    {
+      "text": "I understand. That number isn't in the format I need to look up your account, and I can't search for it another way. I don't want to keep you going round in circles: I can pass this to a colleague. Would you like me to open a case?",
+      "conversation_id": "a5c20723-4584-4fe9-a3c5-0fa9423dac0e",
+      "turn_index": 2,
+      "domain": "billing",
+      "routing": {
+        "domain": "billing",
+        "switched": false,
+        "decided_by": "unchanged",
+        "confidence": 0.8,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "53639103e66094692e1d2ada29ff7107eafdda5f2710ecefa714b4df519b052d",
+      "turn_cost_usd": 0.008047,
+      "known_case_references": [],
+      "verified_facts": {}
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T15:45:09.477562Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:09.498703Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:11.776405Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001474, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer is providing contract identification information without asking about billing, cancellation, or any other specific domain issue.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"contract_number_implies_billing\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:11.776429Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"billing\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:11.776457Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:45:16.570638Z",
+      "duration_ms": 7071,
+      "attributes": "{\"cost_usd\": 0.010354, \"tokens_in\": 5736, \"tokens_out\": 183, \"model_calls\": 3, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.011828}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:45:16.605290Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:45:18.178955Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"billing\", \"cost_usd\": 0.001487, \"previous\": \"billing\", \"switched\": false, \"rationale\": \"Customer is persisting on the contract number format issue within the billing domain context, indicating inability to provide correctly formatted details.\", \"sentiment\": \"neutral\", \"confidence\": 0.8, \"decided_by\": \"unchanged\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:45:18.179002Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"billing\", \"prompt_sha\": \"53639103e660\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:45:23.930813Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"conditional:no_progress\", \"action\": \"offered\", \"reason\": \"Two turns with no progress: the customer is going in circles.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:45:23.930872Z",
+      "duration_ms": 7325,
+      "attributes": "{\"cost_usd\": 0.00656, \"tokens_in\": 3467, \"tokens_out\": 260, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.008047}"
+    }
+  ]
+}

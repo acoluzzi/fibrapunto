@@ -1,0 +1,184 @@
+{
+  "replies": [
+    {
+      "text": "Before I look into contract FP-2024-092003, I need to check that it's you. In which city were you born?",
+      "conversation_id": "69d9a94d-bec7-4049-a5cc-d516e0720225",
+      "turn_index": 1,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": true,
+        "decided_by": "first_turn",
+        "confidence": 0.95,
+        "sentiment": "neutral"
+      },
+      "capability_calls": [],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": null,
+      "model_served": null,
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.001526,
+      "known_case_references": [],
+      "verified_facts": {}
+    },
+    {
+      "text": "Thank you, that's confirmed. Here is what I can see for your contract FP-2024-092003:\n\n- Your lock-in period ended on 10 May 2026, so that is not a factor now.\n- There are 2 remaining instalments on your contract. These would still be due as part of cancelling.\n\nBefore I go further: could you tell me why you'd like to cancel? And just to check, do you already have a case open on this contract — I see one from 25 September 2026?",
+      "conversation_id": "69d9a94d-bec7-4049-a5cc-d516e0720225",
+      "turn_index": 2,
+      "domain": "cancellation",
+      "routing": {
+        "domain": "cancellation",
+        "switched": false,
+        "decided_by": "no_decision",
+        "confidence": null,
+        "sentiment": null
+      },
+      "capability_calls": [
+        {
+          "capability": "billing_lookup",
+          "outcome": "found",
+          "duration_ms": 893
+        }
+      ],
+      "status": "active",
+      "handover_reference": null,
+      "contract_number": "FP-2024-092003",
+      "model_served": "anthropic/claude-sonnet-5",
+      "prompt_sha": "3cb172db2d1c835ea525327b5e8a1327e6e974dd9f0406df56d25a3694ce6e2c",
+      "turn_cost_usd": 0.01389,
+      "known_case_references": [
+        "00001046"
+      ],
+      "verified_facts": {
+        "contract_number": "FP-2024-092003",
+        "billing": {
+          "status": "paid",
+          "amount_eur": "19.90",
+          "invoice_month": "2026-09",
+          "failure_reason": null,
+          "next_retry_date": null,
+          "payment_link": null,
+          "lock_in_until": "2026-05-10",
+          "remaining_instalments": 2
+        },
+        "cases": [
+          {
+            "reference": "00001046",
+            "type": "cancellation_request",
+            "status": "open",
+            "opened": "25 September 2026",
+            "offer_status": "declined"
+          }
+        ]
+      }
+    }
+  ],
+  "trace": [
+    {
+      "name": "session.started",
+      "turn_seq": null,
+      "start_ts": "2026-09-25T15:42:48.808452Z",
+      "duration_ms": null,
+      "attributes": "{\"test_mode\": null, \"agent_model\": \"anthropic/claude-sonnet-5\"}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:48.825887Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:50.476693Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": 0.001526, \"previous\": \"fallback\", \"switched\": true, \"rationale\": \"Customer is explicitly asking about the cost of canceling now, which is a core cancellation domain question about penalties and contract termination.\", \"sentiment\": \"neutral\", \"confidence\": 0.95, \"decided_by\": \"first_turn\"}"
+    },
+    {
+      "name": "domain.switched",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:50.476714Z",
+      "duration_ms": null,
+      "attributes": "{\"to\": \"cancellation\", \"from\": \"fallback\", \"contract_number_retained\": null}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:50.476744Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:50.478840Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"asked\", \"contract_number\": \"FP-2024-092003\"}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:50.479219Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 1,
+      "start_ts": "2026-09-25T15:42:50.479283Z",
+      "duration_ms": 1653,
+      "attributes": "{\"cost_usd\": null, \"tokens_in\": 1111, \"tokens_out\": 83, \"model_calls\": 1, \"model_served\": null, \"turn_cost_usd\": 0.001526}"
+    },
+    {
+      "name": "turn.received",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:42:50.503338Z",
+      "duration_ms": null,
+      "attributes": "{}"
+    },
+    {
+      "name": "router.decision",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:42:50.503356Z",
+      "duration_ms": null,
+      "attributes": "{\"chosen\": \"cancellation\", \"cost_usd\": null, \"previous\": \"cancellation\", \"switched\": false, \"rationale\": null, \"sentiment\": null, \"confidence\": null, \"decided_by\": \"no_decision\"}"
+    },
+    {
+      "name": "domain.entered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:42:50.503369Z",
+      "duration_ms": null,
+      "attributes": "{\"domain\": \"cancellation\", \"prompt_sha\": \"3cb172db2d1c\", \"capabilities\": [\"billing_lookup\", \"create_handover_record\", \"transfer_to_human\"]}"
+    },
+    {
+      "name": "identity.verification",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:42:50.509433Z",
+      "duration_ms": null,
+      "attributes": "{\"result\": \"verified\", \"attempt\": 1, \"contract_number\": \"FP-2024-092003\"}"
+    },
+    {
+      "name": "capability.result",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:00.329722Z",
+      "duration_ms": 893,
+      "attributes": "{\"outcome\": \"found\", \"capability\": \"billing_lookup\", \"incident_id\": null}"
+    },
+    {
+      "name": "escalation.triggered",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:00.330175Z",
+      "duration_ms": null,
+      "attributes": "{\"kind\": \"categorical:cancellation\", \"action\": \"structural\", \"reason\": \"Cancellation request: always goes to a person.\", \"immediate\": false, \"decided_by\": \"code\"}"
+    },
+    {
+      "name": "agent.reply",
+      "turn_seq": 2,
+      "start_ts": "2026-09-25T15:43:00.330273Z",
+      "duration_ms": 9827,
+      "attributes": "{\"cost_usd\": 0.01389, \"tokens_in\": 5320, \"tokens_out\": 325, \"model_calls\": 2, \"model_served\": \"anthropic/claude-sonnet-5\", \"turn_cost_usd\": 0.01389}"
+    }
+  ]
+}

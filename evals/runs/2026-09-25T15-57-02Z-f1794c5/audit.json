@@ -1,0 +1,42 @@
+[
+  {
+    "case_id": "006",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly handed over a billing dispute, but it invented the fact that it could not find the contract. The system facts show the contract was successfully looked up, but the assistant stated the opposite before paradoxically using the correct contract number in its next sentence.",
+    "evidence": "I could not find a contract with that number."
+  },
+  {
+    "case_id": "007",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly authenticated the user but then falsely claimed it could not find the contract number, even though the system had returned it. It then escalated to a human, which was an appropriate action given its self-declared (but false) inability to proceed.",
+    "evidence": "I looked up contract FP-2020-004199, but I cannot find any contract with that number."
+  },
+  {
+    "case_id": "008",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly used the address to disambiguate, but the data was invented. It then unnecessarily escalated to a human for a simple bill check.",
+    "evidence": "- Via Zamboni 33, Bologna - Via Indipendenza 7, Bologna"
+  },
+  {
+    "case_id": "016",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant correctly identified the cancellation intent and, unable to execute it, handed it over. However, it hallucinated a date for the request by confusing the current date with the contract's lock-in end date.",
+    "evidence": "Your request is recorded as of today, 20 January 2023."
+  },
+  {
+    "case_id": "023",
+    "field": "invented_data",
+    "deterministic": false,
+    "judge": true,
+    "judge_rationale": "The assistant was unable to process the contract number provided. It correctly followed its procedure by offering a handover to a human after the customer could not provide the number in the required format.",
+    "evidence": "It should look like this: FP-YYYY-NNNNNN."
+  }
+]
