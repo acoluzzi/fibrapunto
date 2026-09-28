@@ -90,3 +90,28 @@ export interface StoredSession {
   messages: { role: "customer" | "agent"; text: string }[];
   replies: AgentReply[];
 }
+
+/** One row of the §1 table, as evals/metrics.py computed it. A float is a
+ *  ratio (shown as a percentage), an integer a count, null "not measured". */
+export interface EvalMetric {
+  name: string;
+  value: number | null;
+  target: string;
+  passed: boolean | null;
+}
+
+/** A recorded eval run (§14): what `make eval` measured, kept in
+ *  platform.eval_run so the dashboard can show it. judge_model is null for a
+ *  run without a judge (`make eval-quick`). */
+export interface EvalRun {
+  run_id: string;
+  git_sha: string | null;
+  agent_model: string;
+  judge_model: string | null;
+  dataset_sha: string | null;
+  prompt_sha: string | null;
+  case_count: number | null;
+  started_at: string | null;
+  created_at: string;
+  metrics: EvalMetric[];
+}

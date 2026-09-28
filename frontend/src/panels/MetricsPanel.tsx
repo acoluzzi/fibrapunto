@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { statusOf } from "../lib/outcome";
-import type { AgentReply, Domain, OfferBudget, TraceEvent } from "../lib/types";
+import type { AgentReply, Domain, EvalMetric, EvalRun, OfferBudget, TraceEvent } from "../lib/types";
 
 interface Props {
   replies: AgentReply[];
@@ -15,8 +15,8 @@ interface Props {
  *  Stat tiles, not charts — deliberately. A single session has no series to
  *  plot: four numbers and a tally of outcomes is the whole of what is known,
  *  and a sparkline over two data points would be decoration pretending to be
- *  information. The run-over-run view in §1's table arrives with the eval
- *  harness, when there is actually a progression to show. */
+ *  information. The run-over-run view is §1's table at the bottom: the
+ *  latest eval run against the one before it, which is a progression. */
 export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
   const turns = replies.length;
   const latencies = events
@@ -163,11 +163,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           metric is zero by construction.
         </p>
 
-        <div className="section-title">§1 metrics</div>
-        <p className="empty">
-          Available after <code>make eval</code>: they are computed over the
-          trace of 30 conversations, not this one.
-        </p>
+        <EvalMetricsSection />
       </div>
     </section>
   );
@@ -264,4 +260,151 @@ function OfferBudgetSection() {
       </table>
     </>
   );
+}
+
+/** §1's table, from the last eval run the harness recorded (§14).
+ *
+ *  Not this session's numbers: the six metrics are computed over the test
+ *  set's conversations, and the harness hands them to the backend when a run
+ *  ends. Each row is the metric against its target, with the movement since
+ *  the previous run beside it — a number that went from 100% to 100% and one
+ *  that fell from 100% to 90% are different news, and the table must say so.
+ *  Polled, so a `make eval` finishing in a terminal shows up here without a
+ *  reload. */
+function EvalMetricsSection() {
+  const [runs, setRuns] = useState<EvalRun[] | null>(null);
+  const [unreachable, setUnreachable] = useState(false);
+
+  useEffect(() => {
+    const read = () =>
+      api
+        .evalRuns(10)
+        .then((items) => {
+          setRuns(items);
+          setUnreachable(false);
+        })
+        .catch(() => setUnreachable(true));
+    read();
+    const timer = window.setInterval(read, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const latest = runs?.[0];
+  const previous = runs?.[1];
+
+  if (!latest) {
+    return (
+      <>
+        <div className="section-title">§1 metrics</div>
+        <p className="empty">
+          {unreachable
+            ? "The backend did not answer; the recorded runs live there."
+            : "No eval run recorded yet."}
+        </p>
+        <p className="note">
+          <code>make eval</code> runs the test set and records its §1 table here;
+          <code> make eval-publish RUN=all</code> records the runs already saved
+          under <code>evals/runs/</code>.
+        </p>
+      </>
+    );
+  }
+
+  const before = new Map((previous?.metrics ?? []).map((m) => [m.name, m.value]));
+  const passed = latest.metrics.filter((m) => m.passed === true).length;
+  const measured = latest.metrics.filter((m) => m.passed !== null).length;
+
+  return (
+    <>
+      <div className="section-title">§1 metrics</div>
+      <div className="tiles">
+        <Tile label="Targets met" value={`${passed}/${measured}`} />
+        <Tile label="Conversations" value={latest.case_count == null ? "—" : String(latest.case_count)} />
+        <Tile label="Runs" value={String(runs?.length ?? 0)} />
+      </div>
+      <table className="metrics">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th className="num">Value</th>
+            <th className="num">Target</th>
+            <th className="num">vs previous</th>
+          </tr>
+        </thead>
+        <tbody>
+          {latest.metrics.map((metric) => {
+            const delta = deltaOf(metric, before.get(metric.name));
+            return (
+              <tr key={metric.name}>
+                <td>{metric.name}</td>
+                <td className="num">
+                  <MetricBadge metric={metric} />
+                </td>
+                <td className="num" style={{ color: "var(--text-secondary)" }}>{metric.target}</td>
+                <td className="num" style={{ color: delta.color, fontFamily: "var(--mono)", fontSize: 11 }}>
+                  {delta.text}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <table className="metrics" style={{ marginTop: 8 }}>
+        <tbody>
+          <Row label="Run" value={latest.run_id} />
+          <Row label="Agent" value={latest.agent_model} />
+          <Row label="Judge" value={latest.judge_model ?? "none (deterministic only)"} />
+          {previous && <Row label="Previous" value={previous.run_id} />}
+        </tbody>
+      </table>
+      <p className="note">
+        Computed by the eval harness over the test set, not over this
+        conversation. Escalation precision is a manual review of a sample (§1),
+        so it is never a number here.
+      </p>
+    </>
+  );
+}
+
+function MetricBadge({ metric }: { metric: EvalMetric }) {
+  const text = formatMetric(metric);
+  if (metric.passed === null) {
+    return <span className="badge neutral">{text}</span>;
+  }
+  const role = metric.passed ? "good" : "critical";
+  return (
+    <span className={`badge ${role}`}>
+      <span aria-hidden="true">{metric.passed ? "●" : "■"}</span>
+      {text}
+    </span>
+  );
+}
+
+/** Whether the metric is a ratio or a count. Read from the target, not the
+ *  value: JSON has no float 1.0, so a resolution rate of 100% arrives as the
+ *  integer 1, indistinguishable from one invented reply. */
+const isRatio = (metric: EvalMetric) => metric.target.includes("%");
+
+/** A ratio reads as a percentage, a count as itself: "0" vs "0%" is the
+ *  difference between "no invented data" and "0% of something". */
+export function formatMetric(metric: EvalMetric): string {
+  if (metric.value == null) return "—";
+  return isRatio(metric) ? `${Math.round(metric.value * 100)}%` : String(metric.value);
+}
+
+/** The movement since the previous run, in the metric's own unit. Green is
+ *  "improved", which for a count that must be zero means it went down. */
+export function deltaOf(
+  metric: EvalMetric,
+  previous: number | null | undefined,
+): { text: string; color: string } {
+  const muted = "var(--text-muted)";
+  if (metric.value == null || previous == null) return { text: "—", color: muted };
+  const diff = metric.value - previous;
+  if (diff === 0) return { text: "=", color: muted };
+  // A count with a "= 0" target improves by going down; a ratio by going up.
+  const improved = isRatio(metric) ? diff > 0 : diff < 0;
+  const sign = diff > 0 ? "+" : "−";
+  const magnitude = isRatio(metric) ? `${Math.round(Math.abs(diff) * 100)}pt` : String(Math.abs(diff));
+  return { text: `${sign}${magnitude}`, color: improved ? "var(--good)" : "var(--critical)" };
 }

@@ -37,7 +37,8 @@ Then:
 
 ```bash
 make test                # the invariants above
-make eval                # ~30 conversations against the §1 metrics
+make eval                # ~30 conversations against the §1 metrics; the dashboard shows the result
+make eval-publish RUN=all  # record already-saved runs for the dashboard
 make perimeter-proof     # the same query under both identities, side by side
 ```
 

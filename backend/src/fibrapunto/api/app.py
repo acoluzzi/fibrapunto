@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from fibrapunto import faults
-from fibrapunto.api import auth, customer_auth, operator
+from fibrapunto.api import auth, customer_auth, evals, operator
 from fibrapunto.api.auth import require_operator
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.conversation import AgentReply, Conversation
@@ -86,6 +86,7 @@ async def lifespan(app: FastAPI):
         get_settings().dsn("platform"), min_size=1, max_size=3
     )
     operator.set_pool(_operator_pool)
+    evals.set_pool(_operator_pool)
     global _sessions_store
     _sessions_store = SessionStore(_operator_pool)
 
@@ -123,6 +124,7 @@ app = FastAPI(
 
 app.include_router(auth.router)
 app.include_router(operator.router)
+app.include_router(evals.router)
 
 app.add_middleware(
     CORSMiddleware,

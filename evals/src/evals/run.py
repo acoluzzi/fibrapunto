@@ -17,6 +17,10 @@ and a rendered report — all committed.
     make eval-diff               # per-case regressions, previous → latest
     make eval-audit              # where the judge and the code disagreed
     make eval-judge RUN=latest   # grade a run's saved transcripts again, no agent calls
+    make eval-publish RUN=all    # record saved runs where the dashboard reads them
+
+Every run is also recorded in the backend (platform.eval_run) as it ends, so
+the dashboard's §1 table shows the latest run and the one before it.
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ from typing import Any
 import httpx
 import yaml
 
-from evals import spend
+from evals import publish, spend
 from evals.assertions import CaseVerdict, evaluate
 from evals.driver import Driver
 from evals.judge import Judge, JudgeMisconfigured
@@ -66,6 +70,16 @@ def load_cases(only: set[str] | None = None) -> list[dict[str, Any]]:
     return cases
 
 
+def _case_paths(cases: list[dict[str, Any]]) -> list[Path]:
+    """The files the selected cases were read from, for the dataset sha."""
+    wanted = {c["id"] for c in cases}
+    paths = []
+    for path in sorted(CASES_DIR.glob("*.yaml")):
+        if yaml.safe_load(path.read_text(encoding="utf-8")).get("id") in wanted:
+            paths.append(path)
+    return paths
+
+
 def git_sha() -> str:
     try:
         return subprocess.check_output(
@@ -79,11 +93,8 @@ async def fetch_completeness(base_url: str) -> dict[str, Any] | None:
     """§1's completeness metric, from the SQL view rather than from our own
     Python — so the number is not computed by the code path that wrote the
     rows."""
-    # The operator routes read as platform_admin, so they sit behind the
-    # operator password (backend api/auth.py).
-    auth = ("operator", os.environ.get("OPERATOR_PASSWORD", ""))
     try:
-        async with httpx.AsyncClient(timeout=15.0, auth=auth) as client:
+        async with httpx.AsyncClient(timeout=15.0, auth=publish.operator_auth()) as client:
             response = await client.get(f"{base_url}/api/operator/records")
             response.raise_for_status()
             records = response.json()
@@ -198,6 +209,7 @@ async def main_async(args: argparse.Namespace) -> int:
     _print_judge_summary(judged, audit)
 
     # --- write the run -------------------------------------------------------
+    prompt_sha, prompts = await publish.fetch_prompt_sha(args.base_url)
     stamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
     run_id = f"{stamp}-{git_sha()}"
     run_dir = RUNS_DIR / run_id
@@ -212,6 +224,11 @@ async def main_async(args: argparse.Namespace) -> int:
                 "judge_model": judge.model if judge else None,
                 "case_count": len(cases),
                 "started_at": stamp,
+                # What the run was run against, so two runs can be told apart
+                # by their inputs and not only by their date.
+                "dataset_sha": publish.dataset_sha(_case_paths(cases)),
+                "prompt_sha": prompt_sha,
+                "prompts": prompts,
                 # §16's cost argument, with a number under it at last.
                 "spend": spend_report,
             },
@@ -271,6 +288,7 @@ async def main_async(args: argparse.Namespace) -> int:
         )
 
     _append_history(metrics, run_id)
+    await _publish_or_warn(args.base_url, run_dir)
 
     print(f"\n{DIM}written to evals/runs/{run_id}/{RESET}")
     failed = sum(1 for v in verdicts if not v.passed)
@@ -306,7 +324,7 @@ def _print_judge_summary(judged: dict[str, dict], audit: list[dict]) -> None:
         )
 
 
-async def judge_command(run_name: str) -> int:
+async def judge_command(run_name: str, base_url: str = "http://localhost:8000") -> int:
     """Grade the transcripts of an existing run, without driving the agent.
 
     The agent's replies are already on disk; what the judge adds is the
@@ -385,8 +403,48 @@ async def judge_command(run_name: str) -> int:
 
     print(f"\n{DIM}{spend.format_report(spend_report, len(judged))}{RESET}")
     _print_judge_summary(judged, audit)
+    await _publish_or_warn(base_url, run_dir)
     print(f"\n{DIM}updated evals/runs/{run_dir.name}/{RESET}\n")
     return 1 if judge_failures(judged) else 0
+
+
+async def _publish_or_warn(base_url: str, run_dir: Path) -> bool:
+    """Hand the run to the backend for the dashboard. A failure is said, not
+    raised: the run directory is the record, the dashboard is a view of it."""
+    problem = await publish.publish(base_url, run_dir)
+    if problem:
+        print(
+            f"{YELLOW}⚠ not recorded for the dashboard — {problem}{RESET}\n"
+            f"  {DIM}make eval-publish RUN={run_dir.name} once the backend is up{RESET}"
+        )
+        return False
+    print(f"{DIM}recorded for the dashboard: {run_dir.name}{RESET}")
+    return True
+
+
+async def publish_command(run_name: str, base_url: str) -> int:
+    """Record saved runs in the backend: one, or `all` of them.
+
+    For a run made while the backend was down, and for every run made
+    before the harness recorded runs at all — the dashboard's history
+    should be the progression §14 asks for, not only what happened after
+    this command existed. Idempotent: the backend replaces by run id.
+    """
+    if run_name == "all":
+        runs = sorted(p for p in RUNS_DIR.iterdir() if p.is_dir()) if RUNS_DIR.exists() else []
+        if not runs:
+            print("No runs yet.", file=sys.stderr)
+            return 1
+    else:
+        runs = [_resolve_run(run_name)]
+    failed = 0
+    for run_dir in runs:
+        if not (run_dir / "metrics.json").exists():
+            print(f"{DIM}skip {run_dir.name}: no metrics.json{RESET}")
+            continue
+        if not await _publish_or_warn(base_url, run_dir):
+            failed += 1
+    return 1 if failed else 0
 
 
 def _append_history(metrics, run_id: str) -> None:
@@ -520,13 +578,20 @@ def audit_command() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "command", nargs="?", default="run", choices=["run", "audit", "diff", "judge"]
+        "command",
+        nargs="?",
+        default="run",
+        choices=["run", "audit", "diff", "judge", "publish"],
     )
     parser.add_argument("--base-url", default="http://localhost:8000")
     parser.add_argument("--cases", help="comma-separated case ids")
     parser.add_argument("--a", default="previous", help="diff: baseline run id or prefix")
     parser.add_argument("--b", default="latest", help="diff: run id, prefix, or latest")
-    parser.add_argument("--run", default="latest", help="judge: the run whose transcripts to grade")
+    parser.add_argument(
+        "--run",
+        default="latest",
+        help="judge: the run whose transcripts to grade; publish: a run id, latest, or all",
+    )
     parser.add_argument(
         "--no-judge",
         action="store_true",
@@ -540,7 +605,9 @@ def main() -> int:
     if args.command == "diff":
         return diff_command(args.a, args.b)
     if args.command == "judge":
-        return asyncio.run(judge_command(args.run))
+        return asyncio.run(judge_command(args.run, args.base_url))
+    if args.command == "publish":
+        return asyncio.run(publish_command(args.run, args.base_url))
     return asyncio.run(main_async(args))
 
 

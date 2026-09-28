@@ -2,6 +2,7 @@ import type {
   AgentReply,
   BillingState,
   Domain,
+  EvalRun,
   Faults,
   OfferBudget,
   SessionSummary,
@@ -72,6 +73,10 @@ export const api = {
   session: (id: string) => req<StoredSession>(`/api/sessions/${id}`),
 
   domains: () => req<Domain[]>("/api/domains"),
+
+  // §1's table, as the eval harness recorded it (newest first). Open like
+  // /api/domains: aggregate numbers, never a row.
+  evalRuns: (limit = 10) => req<EvalRun[]>(`/api/eval-runs?limit=${limit}`),
 
   // §8: the same check under both identities, so the panel can show the diff.
   perimeterProbe: (field = "email") =>
