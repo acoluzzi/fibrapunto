@@ -27,7 +27,7 @@ export function SystemTracePanel({ events }: { events: TraceEvent[] }) {
     <section className="panel">
       <div className="panel-head">
         <h2>What happened in the system</h2>
-        <span className="hint">§17.10</span>
+        <span className="hint">routing, capabilities, outcomes</span>
       </div>
       <div className="panel-body">
         {events.length === 0 && (
@@ -69,6 +69,11 @@ function Detail({ event }: { event: TraceEvent }) {
         <div className="detail">
           → <strong>{String(event.chosen)}</strong>{" "}
           <span className="chip">{String(event.decided_by)}</span>
+          {/* The router runs on its own pin (MODEL_ROUTER), not the agent's.
+              Absent when the confirmation lock skipped the call. */}
+          {event.model_served != null && (
+            <span className="chip">{String(event.model_served)}</span>
+          )}
           {confidence != null && <span className="chip">conf {confidence.toFixed(2)}</span>}
           {event.sentiment !== "neutral" && event.sentiment != null && (
             <span className="chip">{String(event.sentiment)}</span>

@@ -110,7 +110,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
 
         <OfferBudgetSection />
 
-        <div className="section-title">Perimeter (§8)</div>
+        <div className="section-title">Perimeter</div>
         {perimeter ? (
           <table className="metrics">
             <tbody>
@@ -143,7 +143,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
           policy as column grants — shown without the app in beat 5.
         </p>
 
-        <div className="section-title">Active domains (§17.1)</div>
+        <div className="section-title">Active domains</div>
         <table className="metrics">
           <tbody>
             {domains.map((domain) => (
@@ -159,7 +159,7 @@ export function MetricsPanel({ replies, events, domains, perimeter }: Props) {
         </table>
         <p className="note">
           The number is how many capabilities that domain may call.
-          Cancellation has none that can execute one — which is why the §1
+          Cancellation has none that can execute one — which is why the cancellation
           metric is zero by construction.
         </p>
 
@@ -295,14 +295,14 @@ function EvalMetricsSection() {
   if (!latest) {
     return (
       <>
-        <div className="section-title">§1 metrics</div>
+        <div className="section-title">Eval metrics</div>
         <p className="empty">
           {unreachable
             ? "The backend did not answer; the recorded runs live there."
             : "No eval run recorded yet."}
         </p>
         <p className="note">
-          <code>make eval</code> runs the test set and records its §1 table here;
+          <code>make eval</code> runs the test set and records its metrics table here;
           <code> make eval-publish RUN=all</code> records the runs already saved
           under <code>evals/runs/</code>.
         </p>
@@ -316,7 +316,7 @@ function EvalMetricsSection() {
 
   return (
     <>
-      <div className="section-title">§1 metrics</div>
+      <div className="section-title">Eval metrics</div>
       <div className="tiles">
         <Tile label="Targets met" value={`${passed}/${measured}`} />
         <Tile label="Conversations" value={latest.case_count == null ? "—" : String(latest.case_count)} />
@@ -359,7 +359,7 @@ function EvalMetricsSection() {
       </table>
       <p className="note">
         Computed by the eval harness over the test set, not over this
-        conversation. Escalation precision is a manual review of a sample (§1),
+        conversation. Escalation precision is a manual review of a sample,
         so it is never a number here.
       </p>
     </>

@@ -46,7 +46,7 @@ const ROWS: { key: keyof Faults; label: string; options: Option[]; hint: string 
     key: "credential_store",
     label: "Credential store",
     options: UP_DOWN,
-    hint: "The billing token (§17.7)",
+    hint: "The billing token",
   },
   {
     key: "trace_store",

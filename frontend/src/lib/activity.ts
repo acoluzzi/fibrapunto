@@ -30,6 +30,15 @@ const CAPABILITY_STARTED: Record<string, string> = {
   transfer_to_human: "Finding an available colleague…",
 };
 
+/** The agent's first model call of the turn, before any capability: it is
+ *  reading the message in the light of the domain the router chose. */
+const COMPOSING_IN_DOMAIN: Record<string, string> = {
+  billing: "Looking into your billing question…",
+  cancellation: "Going over your cancellation request…",
+  modem: "Looking into your connection…",
+  fallback: "Working out who can help with this…",
+};
+
 export function describeActivity(events: TraceEvent[]): string {
   const latest = events[events.length - 1];
   if (!latest || BETWEEN_TURNS.has(latest.name)) return WAITING;
@@ -40,11 +49,7 @@ export function describeActivity(events: TraceEvent[]): string {
       return "Reading your message…";
 
     case "llm.request":
-      return latest.role === "router"
-        ? "Working out how to help…"
-        : afterCapability(events)
-          ? "Going through what we found…"
-          : "Preparing a reply…";
+      return latest.role === "router" ? "Working out how to help…" : describeComposing(latest, events);
 
     case "llm.response":
       // The model has answered; what follows is either a capability call
@@ -95,15 +100,95 @@ export function describeActivity(events: TraceEvent[]): string {
   }
 }
 
-/** Once a capability has been called this turn, the next model call is not
- *  composing from scratch: it is reading the result. */
-function afterCapability(events: TraceEvent[]): boolean {
-  for (let i = events.length - 1; i >= 0; i--) {
-    const name = events[i].name;
-    if (BETWEEN_TURNS.has(name) || name === "turn.received") return false;
-    if (name === "capability.invoked") return true;
+/** What the turn in flight has done so far. The agent's model call is the
+ *  longest wait of the turn, so its phrase should say what the model is
+ *  working from, not just that it is working. */
+interface TurnSoFar {
+  domain: string | null;
+  /** The last capability that returned, and how. */
+  capability: { name: string; outcome: string } | null;
+  /** A guard rejected the first draft: this call is the rewrite. */
+  repairing: boolean;
+  handoverConfirmed: boolean;
+  verification: string | null;
+  escalated: boolean;
+}
+
+function turnSoFar(events: TraceEvent[]): TurnSoFar {
+  const turn: TurnSoFar = {
+    domain: null,
+    capability: null,
+    repairing: false,
+    handoverConfirmed: false,
+    verification: null,
+    escalated: false,
+  };
+  // Walk back to the start of the turn; the latest event is the request
+  // itself, so it is skipped.
+  for (let i = events.length - 2; i >= 0; i--) {
+    const event = events[i];
+    if (BETWEEN_TURNS.has(event.name) || event.name === "turn.received") break;
+    switch (event.name) {
+      case "domain.entered":
+        turn.domain ??= String(event.domain);
+        break;
+      case "capability.result":
+        turn.capability ??= { name: String(event.capability), outcome: String(event.outcome) };
+        break;
+      case "guardrail.triggered":
+        turn.repairing = true;
+        break;
+      case "handover.confirmation_received":
+        turn.handoverConfirmed = true;
+        break;
+      case "identity.verification":
+        turn.verification ??= String(event.result);
+        break;
+      case "escalation.triggered":
+        turn.escalated = true;
+        break;
+    }
   }
-  return false;
+  return turn;
+}
+
+function describeComposing(request: TraceEvent, events: TraceEvent[]): string {
+  const turn = turnSoFar(events);
+
+  if (turn.repairing) return "Rewording the reply…";
+
+  // A capability has returned: the model is reading its result, and what the
+  // result was is what the customer is waiting to hear.
+  if (turn.capability) {
+    const { name, outcome } = turn.capability;
+    if (outcome === "serviceUnavailable") return "Working around a slow billing system…";
+    switch (name) {
+      case "billing_lookup":
+        return outcome === "found"
+          ? "Going through your billing details…"
+          : "Checking the contract number with you…";
+      case "create_handover_record":
+        return outcome.startsWith("created")
+          ? "Confirming your case details…"
+          : "Explaining what happened with your case…";
+      case "transfer_to_human":
+        return outcome === "transferred"
+          ? "Arranging the transfer…"
+          : "Explaining who can help next…";
+      default:
+        return "Going through what we found…";
+    }
+  }
+
+  if (turn.handoverConfirmed) return "Opening a case for a colleague…";
+  if (turn.verification === "asked") return "Preparing a security question…";
+  if (turn.verification === "verified") return "Identity confirmed, carrying on…";
+  if (turn.escalated) return "Working out the next step with a colleague…";
+
+  // The closing call: no capability can follow it, so this is the reply.
+  if (request.tools_available === false) return "Writing your reply…";
+
+  return (turn.domain && COMPOSING_IN_DOMAIN[turn.domain]) ?? "Preparing a reply…";
 }
 
 function describeResult(capability: string, outcome: string): string {

@@ -324,6 +324,9 @@ class Conversation:
             # What the classification cost (§16). None on a turn the
             # confirmation lock short-circuited: no call, no cost.
             cost_usd=ledger.cost(ModelRole.router),
+            # Which model classified. The router is pinned separately from the
+            # agent (MODEL_ROUTER), and the panel should show that it is.
+            model_served=ledger.served(ModelRole.router),
         )
         if outcome.switched:
             self.trace.emit(

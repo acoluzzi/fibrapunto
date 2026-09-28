@@ -262,7 +262,7 @@ function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
       </dl>
 
       <p className="note">
-        This row is §8 seen from the other side. The assistant holds no GRANT
+        This row is the database perimeter seen from the other side. The assistant holds no GRANT
         on <code>customer.email</code> or <code>customer.phone</code>: that data
         never entered its context, so it could not repeat it or send it to a
         model. The same query, run here as <code>platform_admin</code>, returns
@@ -277,7 +277,7 @@ function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
           "long enough". Collapsed, because an operator picking up the phone
           should never need to open it. */}
       <details className="raw" style={{ marginTop: 16 }}>
-        <summary>collected_context — the raw column (§13)</summary>
+        <summary>collected_context — the raw column</summary>
         <pre>{JSON.stringify(record.context, null, 2)}</pre>
       </details>
     </div>

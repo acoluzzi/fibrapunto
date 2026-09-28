@@ -109,6 +109,10 @@ class ModelCall:
     cost_usd: float | None
     input_tokens: int | None
     output_tokens: int | None
+    model_served: str | None = None
+    """Which model answered, as the provider reported it. Recorded per call so
+    the trace can name the router's model as well as the agent's: with only the
+    agent's pin on the panel, the router looked as if it ran on the same model."""
 
 
 _ledger: ContextVar[list[ModelCall] | None] = ContextVar("fibrapunto_model_calls", default=None)
@@ -160,6 +164,14 @@ class CostLedger:
     def count(self, role: ModelRole | None = None) -> int:
         return sum(1 for c in self.calls if role is None or c.role is role)
 
+    def served(self, role: ModelRole) -> str | None:
+        """The model that answered the most recent call in `role`, or None if
+        no call in that role was made this turn."""
+        for call in reversed(self.calls):
+            if call.role is role:
+                return call.model_served
+        return None
+
 
 def usage_of(role: ModelRole, response: Any) -> ModelCall:
     """What one response cost, as the provider reported it.
@@ -177,6 +189,7 @@ def usage_of(role: ModelRole, response: Any) -> ModelCall:
         cost_usd=float(cost) if isinstance(cost, int | float) else None,
         input_tokens=standard.get("input_tokens") or raw.get("prompt_tokens"),
         output_tokens=standard.get("output_tokens") or raw.get("completion_tokens"),
+        model_served=served_model(response),
     )
 
 
