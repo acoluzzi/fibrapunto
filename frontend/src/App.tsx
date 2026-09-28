@@ -1,6 +1,6 @@
-import { ControlStrip } from "./components/ControlStrip";
+import { AppHeader } from "./components/AppHeader";
+import { Toasts } from "./components/Toast";
 import { useSession } from "./hooks/useSession";
-import { useTheme } from "./hooks/useTheme";
 import { ChatPanel } from "./panels/ChatPanel";
 import { Analyst } from "./routes/Analyst";
 import { Console } from "./routes/Console";
@@ -16,49 +16,64 @@ import { Operator } from "./routes/Operator";
  *  the offers budget. */
 export function App() {
   const path = window.location.pathname;
-  if (path.startsWith("/operator")) return <Operator />;
-  if (path.startsWith("/console")) return <Console />;
-  if (path.startsWith("/analyst")) return <Analyst />;
-  return <Customer />;
+  const view = path.startsWith("/operator") ? (
+    <Operator />
+  ) : path.startsWith("/console") ? (
+    <Console />
+  ) : path.startsWith("/analyst") ? (
+    <Analyst />
+  ) : (
+    <Customer />
+  );
+  return (
+    <>
+      {view}
+      <Toasts />
+    </>
+  );
 }
 
 /** The customer's page. Deliberately plain: messages, and the ability to
  *  move between this browser's conversations. */
 function Customer() {
   const session = useSession("customer");
-  const [theme, toggleTheme] = useTheme();
+  const last = session.replies.at(-1);
 
   return (
     <div className="app">
-      <ControlStrip
-        conversations={session.conversations}
-        activeId={session.sessionId}
-        onSelect={session.select}
-        onNewConversation={session.start}
-        theme={theme}
-        onTheme={toggleTheme}
-      />
+      <AppHeader view="customer">
+        {/* Only worth showing once there is something to choose between. */}
+        {session.conversations.length > 1 && (
+          <div className="field">
+            <label htmlFor="conversation">Conversation</label>
+            <select
+              id="conversation"
+              value={session.sessionId ?? ""}
+              onChange={(event) => session.select(event.target.value)}
+            >
+              {session.conversations.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        <button className="small" onClick={() => void session.start()}>
+          New conversation
+        </button>
+      </AppHeader>
 
-      {session.error && (
-        <div className="banner error">
-          {session.error}
-          {/* Same client_turn_id: if the first attempt did reach the backend,
-              the stored reply comes back instead of a second model call. */}
-          {session.retryable && (
-            <button style={{ marginLeft: 10 }} onClick={() => void session.retry()}>
-              Retry
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="panels single">
+      <div className="chat-shell">
         <ChatPanel
           messages={session.messages}
           busy={session.busy}
           activity={session.activity}
           disabled={session.sessionId === null}
           onSend={session.send}
+          caseReference={last?.handover_reference ?? null}
+          error={session.error}
+          onRetry={session.retryable ? () => void session.retry() : null}
         />
       </div>
     </div>

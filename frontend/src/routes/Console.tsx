@@ -1,9 +1,8 @@
 import { useState } from "react";
+import { AppHeader } from "../components/AppHeader";
 import { Gate } from "../components/Gate";
 import { Switchboard } from "../components/Switchboard";
-import { ThemeButton } from "../components/ThemeButton";
 import { useSession } from "../hooks/useSession";
-import { useTheme } from "../hooks/useTheme";
 import { ChatPanel } from "../panels/ChatPanel";
 import { MetricsPanel } from "../panels/MetricsPanel";
 import { SystemTracePanel } from "../panels/SystemTracePanel";
@@ -30,18 +29,13 @@ export function Console() {
 
 function ConsoleView({ onLogout }: { onLogout: () => void }) {
   const session = useSession("observer");
-  const [theme, toggleTheme] = useTheme();
   /* A switch that fails silently looks exactly like one that worked until the
    * agent answers normally, on stage. Say so in the strip instead. */
   const [switchError, setSwitchError] = useState<string | null>(null);
 
   return (
     <div className="app">
-      <header className="strip">
-        <span className="brand">
-          Fibrapunto <span className="role">developer console</span>
-        </span>
-
+      <AppHeader view="console" role="developer console" onLogout={onLogout}>
         {session.conversations.length > 0 ? (
           <div className="field">
             <label htmlFor="console-conversation">Conversation</label>
@@ -62,16 +56,7 @@ function ConsoleView({ onLogout }: { onLogout: () => void }) {
             No conversation in this browser yet — start one from the chat.
           </span>
         )}
-
-        <span className="spacer" />
-        <nav className="views" aria-label="Other views">
-          <a href="/">Conversation</a>
-          <a href="/operator">Operator</a>
-          <a href="/analyst">Analyst</a>
-        </nav>
-        <button onClick={onLogout}>Sign out</button>
-        <ThemeButton theme={theme} onToggle={toggleTheme} />
-      </header>
+      </AppHeader>
 
       <Switchboard onError={setSwitchError} />
 
@@ -85,7 +70,9 @@ function ConsoleView({ onLogout }: { onLogout: () => void }) {
           activity={session.activity}
           disabled
           readOnly
+          embedded
           onSend={() => undefined}
+          caseReference={session.replies.at(-1)?.handover_reference ?? null}
         />
         <SystemTracePanel events={session.events} />
         <MetricsPanel

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../lib/api";
+import { toast } from "./Toast";
 import type { BillingState, Faults } from "../lib/types";
 
 /** Every module the agent depends on, with a live switch (§7, §15).
@@ -89,6 +90,28 @@ export function Switchboard({ onError }: { onError: (message: string | null) => 
       .then(() => {
         setBilling(mode);
         onError(null);
+        toast(`Billing system: ${BILLING.find((o) => o.value === mode)?.label ?? mode}`);
+      })
+      .catch(report);
+  }
+
+  /** Every switch back to healthy, in one click: the state to start a beat from. */
+  function resetAll() {
+    const healthy: Partial<Faults> = {
+      crm: "up",
+      colleagues: "schedule",
+      model: "up",
+      credential_store: "up",
+      trace_store: "up",
+    };
+    Promise.all([
+      api.setBillingState("normal").then(() => setBilling("normal")),
+      recommendations ? api.setRecommendationsState("up").then(() => setRecommendations("up")) : Promise.resolve(),
+      faults ? api.setFault(healthy).then(setFaults) : Promise.resolve(),
+    ])
+      .then(() => {
+        onError(null);
+        toast("Every module back up.");
       })
       .catch(report);
   }
@@ -99,6 +122,7 @@ export function Switchboard({ onError }: { onError: (message: string | null) => 
       .then(() => {
         setRecommendations(mode);
         onError(null);
+        toast(`Recommendations: ${mode}`);
       })
       .catch(report);
   }
@@ -109,9 +133,15 @@ export function Switchboard({ onError }: { onError: (message: string | null) => 
       .then((next) => {
         setFaults(next);
         onError(null);
+        toast(`${ROWS.find((r) => r.key === key)?.label ?? key}: ${value}`);
       })
       .catch(report);
   }
+
+  const anyFailing =
+    !HEALTHY.has(billing) ||
+    (recommendations != null && !HEALTHY.has(recommendations)) ||
+    (faults != null && Object.values(faults).some((v) => !HEALTHY.has(v)));
 
   return (
     <div className="switchboard" aria-label="Failure switches">
@@ -146,6 +176,10 @@ export function Switchboard({ onError }: { onError: (message: string | null) => 
             onChange={(v) => flip(row.key, v)}
           />
         ))}
+      <span className="spacer" />
+      <button className="small" disabled={!anyFailing} onClick={resetAll} title="Every module back to healthy">
+        Reset all
+      </button>
     </div>
   );
 }

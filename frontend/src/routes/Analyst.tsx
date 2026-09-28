@@ -1,10 +1,10 @@
 import { type FormEvent, useEffect, useState } from "react";
+import { AppHeader } from "../components/AppHeader";
 import { BudgetBar, euro, segmentsOf } from "../components/BudgetBar";
 import { Gate } from "../components/Gate";
-import { ThemeButton } from "../components/ThemeButton";
+import { toast } from "../components/Toast";
 import { BarChart } from "../components/charts/BarChart";
 import { LineChart, type Series } from "../components/charts/LineChart";
-import { useTheme } from "../hooks/useTheme";
 import { ApiError, api } from "../lib/api";
 import { statusOf } from "../lib/outcome";
 import type { AnalystOverview, Campaign, EvalMetric, EvalRun, OfferBudget } from "../lib/types";
@@ -32,7 +32,6 @@ export function Analyst() {
 }
 
 function AnalystView({ onLogout, onExpired }: { onLogout: () => void; onExpired: () => void }) {
-  const [theme, toggleTheme] = useTheme();
   const [budget, setBudget] = useState<OfferBudget | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[] | null>(null);
   const [overview, setOverview] = useState<AnalystOverview | null>(null);
@@ -78,18 +77,7 @@ function AnalystView({ onLogout, onExpired }: { onLogout: () => void; onExpired:
 
   return (
     <div className="app">
-      <header className="strip">
-        <span className="brand">
-          Fibrapunto <span className="role">analyst</span>
-        </span>
-        <span className="spacer" />
-        <nav className="views" aria-label="Other views">
-          <a href="/">Conversation</a>
-          <a href="/operator">Operator</a>
-        </nav>
-        <button onClick={onLogout}>Sign out</button>
-        <ThemeButton theme={theme} onToggle={toggleTheme} />
-      </header>
+      <AppHeader view="analyst" role="analyst" onLogout={onLogout} />
 
       <main className="analyst">
         {unreachable && <div className="banner error">{unreachable}</div>}
@@ -126,6 +114,7 @@ function BudgetSection({
       .then((next) => {
         onChanged(next);
         setEditing(false);
+        toast(`Offers budget set to ${euro(next.total_eur)}.`);
       })
       .catch((e: ApiError) => setError(e.message))
       .finally(() => setBusy(false));
@@ -138,7 +127,7 @@ function BudgetSection({
         <span className="hint">what the assistant may give away in discounts, across every conversation</span>
       </div>
       {!budget ? (
-        <p className="empty">Recommendation system not reachable.</p>
+        <Skeleton lines={3} />
       ) : (
         <>
           <div className="hero-row">
@@ -219,7 +208,7 @@ function CampaignsSection({ campaigns }: { campaigns: Campaign[] | null }) {
         <span className="hint">the offers the assistant may make, and what each has done</span>
       </div>
       {!campaigns ? (
-        <p className="empty">Recommendation system not reachable.</p>
+        <Skeleton lines={3} />
       ) : (
         <div className="two-col">
           <table className="metrics">
@@ -278,7 +267,9 @@ function CampaignsSection({ campaigns }: { campaigns: Campaign[] | null }) {
  *  no float 1.0, so a 100% rate arrives as the integer 1. */
 const isRatio = (metric: EvalMetric) => metric.target.includes("%");
 
-function EvalSection({ runs }: { runs: EvalRun[] }) {
+function EvalSection({ runs: all }: { runs: EvalRun[] }) {
+  const [range, setRange] = useState<5 | 10 | 30>(10);
+  const runs = all.slice(0, range);
   const latest = runs[0];
   const previous = runs[1];
   if (!latest) {
@@ -326,8 +317,16 @@ function EvalSection({ runs }: { runs: EvalRun[] }) {
       <div className="card-head">
         <h2>Eval metrics</h2>
         <span className="hint">
-          §1's table over {runs.length} recorded {runs.length === 1 ? "run" : "runs"} — computed over the test set, never over live conversations
+          §1's table over the last {runs.length} recorded {runs.length === 1 ? "run" : "runs"} — computed over the test set, never over live conversations
         </span>
+        <span className="spacer" />
+        <div className="seg" role="group" aria-label="How many runs">
+          {([5, 10, 30] as const).map((n) => (
+            <button key={n} className={range === n ? "on" : ""} onClick={() => setRange(n)} disabled={all.length <= (n === 5 ? 0 : n === 10 ? 5 : 10) && n !== 5}>
+              last {n}
+            </button>
+          ))}
+        </div>
       </div>
       <div className="tiles four">
         <Tile label="Targets met, latest" value={`${passed}/${measured}`} />
@@ -411,7 +410,7 @@ function OperationSection({ overview }: { overview: AnalystOverview | null }) {
         <div className="card-head">
           <h2>Operation</h2>
         </div>
-        <p className="empty">Loading…</p>
+        <Skeleton lines={4} />
       </section>
     );
   }
@@ -432,15 +431,13 @@ function OperationSection({ overview }: { overview: AnalystOverview | null }) {
         <h2>Operation</h2>
         <span className="hint">every conversation and every case still within the retention period (§9)</span>
       </div>
-      <div className="tiles four">
+      <div className="tiles six">
         <Tile label="Conversations" value={String(conversations.total)} hint={conversations.from_eval_runs > 0 ? `${conversations.from_eval_runs} from eval runs` : undefined} />
         <Tile label="Replies" value={String(turns.agent)} />
-        <Tile label="Latency p50" value={seconds(turns.latency_p50_ms)} unit="s" />
-        <Tile label="Latency p95" value={seconds(turns.latency_p95_ms)} unit="s" />
+        <Tile label="Latency p50" value={seconds(turns.latency_p50_ms)} unit="s" hint={`p95 ${seconds(turns.latency_p95_ms)} s`} />
         <Tile label="Cost" value={turns.cost_usd == null ? "—" : Number(turns.cost_usd).toFixed(2)} unit={turns.cost_usd == null ? undefined : "$"} hint={turns.cost_usd == null ? "provider did not report" : `${turns.costed_turns} costed replies`} />
         <Tile label="Guardrail hits" value={String(events["guardrail.triggered"] ?? 0)} />
-        <Tile label="Escalations" value={String(events["escalation.triggered"] ?? 0)} />
-        <Tile label="Domain switches" value={String(events["domain.switched"] ?? 0)} />
+        <Tile label="Escalations" value={String(events["escalation.triggered"] ?? 0)} hint={`${events["domain.switched"] ?? 0} domain switches`} />
       </div>
 
       <div className="two-col">
@@ -551,6 +548,17 @@ function Tile({
         {unit && <small> {unit}</small>}
       </div>
       {hint && <div className="tile-hint">{hint}</div>}
+    </div>
+  );
+}
+
+
+function Skeleton({ lines }: { lines: number }) {
+  return (
+    <div style={{ display: "grid", gap: 10, padding: "4px 0" }} aria-busy="true" aria-label="Loading">
+      {Array.from({ length: lines }, (_, i) => (
+        <div key={i} className="skeleton" style={{ width: `${[60, 90, 75, 40][i % 4]}%` }} />
+      ))}
     </div>
   );
 }

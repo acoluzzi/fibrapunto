@@ -1,6 +1,7 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "../lib/api";
 import type { Role } from "../lib/types";
+import { Mark } from "./Brand";
 
 interface Props {
   role: Role;
@@ -80,11 +81,13 @@ function Login({
   }
 
   return (
-    <div className="operator login">
-      <p>
-        <a href="/">← back to the conversation</a>
-      </p>
+    <div className="login">
+      <a className="back" href="/">← back to the conversation</a>
       <form onSubmit={submit}>
+        <div className="brand">
+          <Mark />
+          <span className="name">Fibrapunto</span>
+        </div>
         <h1>{title}</h1>
         <p className="muted">{blurb}</p>
         {unavailable ? (
