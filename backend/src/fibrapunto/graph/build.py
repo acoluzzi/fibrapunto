@@ -20,6 +20,9 @@ not satisfy §5.1 in either of its branches.
 
 from __future__ import annotations
 
+import time
+from typing import Any
+
 import structlog
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.tools import StructuredTool
@@ -269,27 +272,80 @@ async def run_domain_turn(
         # recent thing the model reads, and outside the cached block.
         messages.append(SystemMessage(extra_instruction))
     tool_messages: list = []
+    calls_made = 0
 
-    def announce(round_index: int, *, tools: bool) -> None:
+    async def call(model_to_use: Any, prompt: list[BaseMessage], *, tools: bool) -> AIMessage:
+        """One model call, announced before and reported after (§17.10)."""
+        nonlocal calls_made
+        calls_made += 1
         if trace is not None:
             trace.emit(
                 EventType.llm_request,
                 turn_seq=state.turn_count,
                 role=ModelRole.agent.value,
                 # 1-based: "round 2" reads as the second call, not the third.
-                round=round_index + 1,
+                round=calls_made,
                 # False on the closing call: no capability can follow it, so
                 # what comes next is the reply.
                 tools_available=tools,
             )
+        started = time.perf_counter()
+        response: AIMessage = await ainvoke(model_to_use, prompt, role=ModelRole.agent)
+        state.agent_model_served = served_model(response)
+        if trace is not None:
+            trace.emit(
+                EventType.llm_response,
+                turn_seq=state.turn_count,
+                duration_ms=int((time.perf_counter() - started) * 1000),
+                role=ModelRole.agent.value,
+                round=calls_made,
+                finish_reason=_finish_reason(response),
+                tool_calls=[c["name"] for c in response.tool_calls],
+                # The shape of what came back, never the text: enough to see
+                # "cut off mid tool call" or "nothing at all" on the panel.
+                text_chars=len(_text_of(response)),
+                cut_off=_cut_off(response),
+            )
+        return response
+
+    closing_instruction = "Answer the customer now, without any further checks."
 
     for round_index in range(MAX_TOOL_ROUNDS):
-        announce(round_index, tools=True)
-        response: AIMessage = await ainvoke(model, messages, role=ModelRole.agent)
-        state.agent_model_served = served_model(response)
+        response = await call(model, messages, tools=True)
+
+        if _cut_off(response):
+            # The output ceiling, mid tool call: the call never happened and
+            # there may be no text either. Seen once as a blank reply. The
+            # broken message is not appended — a half-written tool call sent
+            # back to the provider is refused — and the closing call below
+            # answers with what the turn already has.
+            log.warning(
+                "graph.round_cut_off",
+                domain=domain.key.value,
+                round=round_index + 1,
+                finish_reason=_finish_reason(response),
+                invalid_tool_calls=len(response.invalid_tool_calls),
+            )
+            closing_instruction = (
+                "Your previous message was cut off before it was complete, so "
+                "the customer did not receive it. Answer them now, in a few "
+                "sentences, without any further checks."
+            )
+            break
 
         if not response.tool_calls:
-            return _text_of(response), tool_messages
+            text = _text_of(response)
+            if text:
+                return text, tool_messages
+            # Nothing to send and nothing to run. One more ask before the
+            # guards decide (guardrails/pipeline.py, GuardName.empty).
+            log.warning("graph.round_empty", domain=domain.key.value, round=round_index + 1)
+            closing_instruction = (
+                "Your previous message was empty, so the customer received "
+                "nothing. Answer them now, in a few sentences, without any "
+                "further checks."
+            )
+            break
 
         results = await dispatcher.run(response, domain, state)
         tool_messages.extend(results)
@@ -303,16 +359,34 @@ async def run_domain_turn(
             calls=[c["name"] for c in response.tool_calls],
         )
 
-    # Out of rounds. Ask once for an answer with no tools available, rather than
-    # returning whatever the last tool-calling message happened to contain.
-    announce(MAX_TOOL_ROUNDS, tools=False)
-    final: AIMessage = await ainvoke(
+    # Out of rounds, or a round that produced nothing usable. Ask once for an
+    # answer with no tools available, rather than returning whatever the last
+    # tool-calling message happened to contain. If this comes back empty too,
+    # it is returned as such: the guards substitute, and the trace says so.
+    final = await call(
         build_chat_model(ModelRole.agent),
-        [*messages, SystemMessage("Answer the customer now, without any further checks.")],
-        role=ModelRole.agent,
+        [*messages, SystemMessage(closing_instruction)],
+        tools=False,
     )
-    state.agent_model_served = served_model(final)
     return _text_of(final), tool_messages
+
+
+def _finish_reason(message: AIMessage) -> str | None:
+    """Why the provider stopped, as it reported it (`stop`, `tool_calls`,
+    `length`). None from a fake or a provider that does not say."""
+    metadata = message.response_metadata or {}
+    return metadata.get("finish_reason") or metadata.get("stop_reason")
+
+
+def _cut_off(message: AIMessage) -> bool:
+    """The output ceiling was reached before the message was complete.
+
+    Two signs, either one enough: the provider says `length`, or LangChain
+    could not parse a tool call (it lands in `invalid_tool_calls`, with the
+    content empty — exactly the shape that once reached a customer as a
+    blank reply).
+    """
+    return bool(message.invalid_tool_calls) or _finish_reason(message) == "length"
 
 
 def _text_of(message: AIMessage) -> str:

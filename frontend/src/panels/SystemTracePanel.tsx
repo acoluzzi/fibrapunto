@@ -134,6 +134,35 @@ function Detail({ event }: { event: TraceEvent }) {
         </div>
       );
 
+    case "llm.response": {
+      // The shape of what came back, never the text. `cut_off` is the case
+      // that once reached a customer as a blank bubble: the output ceiling
+      // hit mid tool call.
+      const calls = (event.tool_calls as string[] | undefined) ?? [];
+      return (
+        <div className="detail">
+          <span className="chip">{String(event.role)}</span>
+          {typeof event.round === "number" && (
+            <span className="chip">round {event.round}</span>
+          )}
+          {calls.map((name) => (
+            <span className="chip" key={name}>→ {name}</span>
+          ))}
+          {calls.length === 0 && typeof event.text_chars === "number" && (
+            <span className="chip">
+              {event.text_chars === 0 ? "no text" : `${event.text_chars} chars`}
+            </span>
+          )}
+          {event.cut_off === true && (
+            <span className="badge critical">
+              <span aria-hidden="true">■</span>
+              cut off ({String(event.finish_reason ?? "invalid tool call")})
+            </span>
+          )}
+        </div>
+      );
+    }
+
     case "offer.lookup":
       return (
         <div className="detail">

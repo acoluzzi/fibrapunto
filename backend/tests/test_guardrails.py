@@ -335,6 +335,33 @@ def test_a_failed_repair_substitutes_rather_than_sending():
     assert "colleague" in result.text, "the fallback must still offer a human (§11)"
 
 
+@pytest.mark.parametrize("reply", ["", "   ", "\n\t"])
+def test_an_empty_reply_is_blocked(reply):
+    """Seen once: a tool call ran past the output ceiling, the round came back
+    with no text, every guard passed it unread and the customer got a blank
+    bubble. Nothing about a reply that is not there can be judged, so it is
+    the first guard and it blocks."""
+    violations = pipeline.inspect(reply, grounded_state())
+
+    assert [v.guard for v in violations] == [GuardName.empty]
+    assert violations[0].blocking
+
+
+def test_an_empty_repair_gets_the_empty_fallback():
+    """The fallback must say what happened — the customer was not answered —
+    not that a check failed, because none did."""
+    result = pipeline.resolve("", grounded_state(), repaired_reply="")
+
+    assert result.substituted
+    assert result.text == pipeline.EMPTY_FALLBACK
+    assert "colleague" in result.text
+
+
+def test_the_empty_repair_instruction_asks_for_an_answer():
+    violations = pipeline.inspect("", grounded_state())
+    assert "empty" in pipeline.repair_instruction(violations)
+
+
 def test_a_style_only_violation_is_sent_rather_than_substituted():
     """Leaked internal vocabulary is worse writing than a clean reply and far
     better than a canned refusal. Substituting for it would make the guard more

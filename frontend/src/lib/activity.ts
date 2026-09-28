@@ -46,6 +46,13 @@ export function describeActivity(events: TraceEvent[]): string {
           ? "Going through what we found…"
           : "Preparing a reply…";
 
+    case "llm.response":
+      // The model has answered; what follows is either a capability call
+      // (announced on its own event) or the reply leaving through the guards.
+      return (latest.tool_calls as string[] | undefined)?.length
+        ? "Checking what is needed…"
+        : "Double-checking the reply…";
+
     case "router.decision":
     case "domain.switched":
     case "domain.entered":

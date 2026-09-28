@@ -43,6 +43,7 @@ log = structlog.get_logger(__name__)
 
 
 class GuardName(StrEnum):
+    empty = "empty"
     grounding = "grounding"
     visibility = "visibility"
     promises = "promises"
@@ -50,10 +51,12 @@ class GuardName(StrEnum):
     language = "language"
 
 
-# English first: grounding and promises can only read English, so a reply in
+# Empty first: nothing else can be judged about a reply that is not there.
+# Then English: grounding and promises can only read English, so a reply in
 # another language would pass them unread — it must be caught before they run,
 # not after. Then the two whose §1 target is zero, then the stylistic ones.
 ORDER = (
+    GuardName.empty,
     GuardName.english,
     GuardName.grounding,
     GuardName.promises,
@@ -64,8 +67,11 @@ ORDER = (
 # A guard whose violation cannot be repaired by rewording. An invented figure
 # can be removed; an invented figure the model believes is real comes back.
 # A reply in another language is here because every other check is blind to
-# it: sending one would send an unchecked reply.
-BLOCKING = frozenset({GuardName.english, GuardName.grounding, GuardName.promises})
+# it: sending one would send an unchecked reply. An empty reply is here
+# because the customer would otherwise receive a blank bubble — seen once,
+# when a tool call ran past the output ceiling and the round came back with
+# no text (§12.4: a reply the reasoning layer never produced is not sent).
+BLOCKING = frozenset({GuardName.empty, GuardName.english, GuardName.grounding, GuardName.promises})
 
 
 @dataclass(slots=True)
@@ -103,6 +109,15 @@ SAFE_FALLBACK = (
     "a colleague who can look into it."
 )
 
+# When the model produced nothing, twice. No check failed and nothing was
+# invented, so SAFE_FALLBACK would describe a failure that did not happen; the
+# customer needs to know they were not answered, and a way forward.
+EMPTY_FALLBACK = (
+    "I'm sorry — I wasn't able to put together an answer just now. Could you "
+    "tell me again what you need? If you'd prefer, I can put you through to a "
+    "colleague."
+)
+
 # When the only thing wrong is a contract number the customer never gave —
 # typically the model illustrating the format with made-up digits — and no
 # number is known yet. No check was made, so SAFE_FALLBACK's "I can't complete
@@ -124,6 +139,7 @@ def _only_a_contract_number(violations: list[Violation]) -> bool:
 def inspect(reply: str, state: ConversationState) -> list[Violation]:
     """Run every guard. Returns what fired, in ORDER."""
     checks = {
+        GuardName.empty: lambda: [] if reply.strip() else ["the reply is empty"],
         GuardName.english: lambda: output_english.check(reply),
         GuardName.grounding: lambda: [str(p) for p in output_grounding.check(reply, state)],
         GuardName.promises: lambda: output_promises.check(reply, state),
@@ -150,6 +166,12 @@ def repair_instruction(violations: list[Violation]) -> str:
 
     for violation in violations:
         match violation.guard:
+            case GuardName.empty:
+                lines.append(
+                    "- It was empty: the customer received nothing. Write your "
+                    "answer to them now, in a few sentences, without any "
+                    "further checks."
+                )
             case GuardName.english:
                 lines.append(
                     "- It is not in English. Always reply in English, whatever "
@@ -235,8 +257,10 @@ def resolve(
             guards=[v.guard.value for v in violations],
             conversation_id=str(state.id),
         )
-        only_language = all(v.guard is GuardName.english for v in violations if v.blocking)
-        if only_language:
+        blocking = [v.guard for v in violations if v.blocking]
+        if all(g is GuardName.empty for g in blocking):
+            text = EMPTY_FALLBACK
+        elif all(g is GuardName.english for g in blocking):
             text = ENGLISH_FALLBACK
         elif _only_a_contract_number(violations) and state.collected.contract_number is None:
             text = CONTRACT_FALLBACK

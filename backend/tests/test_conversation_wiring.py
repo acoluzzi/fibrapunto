@@ -268,6 +268,82 @@ async def test_a_refused_call_is_not_announced(monkeypatch):
     assert convo.trace.by_name(EventType.capability_invoked) == []
 
 
+# --- a reply is never empty -------------------------------------------------
+
+
+def cut_off_tool_call(name: str) -> AIMessage:
+    """What LangChain builds when the provider stopped mid tool call: the
+    arguments would not parse, so the call is *invalid*, and the content is
+    empty. This shape reached a customer once as a blank bubble."""
+    return AIMessage(
+        content="",
+        invalid_tool_calls=[
+            {
+                "name": name,
+                "args": '{"summary": "The customer would like to',
+                "id": "call_1",
+                "error": "Unterminated string",
+                "type": "invalid_tool_call",
+            }
+        ],
+        # The pin is checked on every response (§10), so the fake must report
+        # the served model like the provider does.
+        response_metadata={
+            "finish_reason": "length",
+            "model_name": get_registry()[ModelRole.agent].id,
+        },
+    )
+
+
+async def test_a_round_cut_off_mid_tool_call_is_answered_not_sent_blank(monkeypatch):
+    """The output ceiling, reached inside a tool call. The call never
+    happened, so the turn must not pretend it did — and the customer must
+    not receive nothing. One closing ask, tools withheld, answers."""
+    from fibrapunto.observability.events import EventType
+
+    routed_to(monkeypatch, "cancellation")
+    model = scripted(
+        monkeypatch,
+        [
+            cut_off_tool_call("create_handover_record"),
+            AIMessage("I've noted your request and a colleague will follow up."),
+        ],
+    )
+
+    convo = conversation()
+    reply = await convo.send(f"contract {CONTRACT}, I want to cancel")
+
+    assert reply.text.startswith("I've noted your request")
+    assert reply.capability_calls == [], "a cut-off call must not be recorded as made"
+    closing = model.calls[-1][-1]
+    assert "cut off" in closing.content, "the closing ask says what went wrong"
+
+    responses = convo.trace.by_name(EventType.llm_response)
+    assert [r.attributes["cut_off"] for r in responses] == [True, False]
+    assert responses[0].attributes["finish_reason"] == "length"
+    assert convo.trace.by_name(EventType.guardrail_triggered) == []
+
+
+async def test_a_model_that_says_nothing_twice_gets_the_fallback(monkeypatch):
+    """Absolute floor: the graph asks once more, the guards ask once more,
+    and if the model still produces nothing the hand-written fallback goes
+    out — and the trace shows the substitution, not a silent success."""
+    from fibrapunto.guardrails.pipeline import EMPTY_FALLBACK
+    from fibrapunto.observability.events import EventType
+
+    routed_to(monkeypatch, "billing")
+    scripted(monkeypatch, [AIMessage(""), AIMessage(""), AIMessage(""), AIMessage("")])
+
+    convo = conversation()
+    reply = await convo.send("my bill does not add up")
+
+    assert reply.text == EMPTY_FALLBACK
+    fired = convo.trace.by_name(EventType.guardrail_triggered)
+    assert [e.attributes["guard"] for e in fired] == ["empty"]
+    assert fired[0].attributes["substituted"] is True
+    assert convo.state.turns[-1].text == EMPTY_FALLBACK, "what was sent is what is stored"
+
+
 # --- §15: the mid-conversation switch ----------------------------------------
 
 

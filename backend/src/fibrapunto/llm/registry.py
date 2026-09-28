@@ -85,7 +85,12 @@ class ModelSpec:
 # The numbers come from the spec's own worked examples: §4.1's replies are
 # roughly eighty words each. These are generous against that, not tight.
 MAX_TOKENS = {
-    ModelRole.agent: 1024,  # a customer reply, possibly with a tool call
+    # A customer reply, possibly with a tool call. 1024 was cut short once: a
+    # handover call late in a long conversation, summary and stated reason
+    # included, ran past it and the round came back with no text at all. The
+    # guards now refuse an empty reply (guardrails/pipeline.py), but the
+    # ceiling should not be what produces one.
+    ModelRole.agent: 2048,
     ModelRole.router: 256,  # a small JSON object: domain, confidence, sentiment
     ModelRole.judge: 1024,  # the §14.2 schema, including a rationale
     ModelRole.persona: 512,  # one customer turn
