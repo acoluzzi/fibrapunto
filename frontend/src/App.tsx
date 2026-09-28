@@ -68,6 +68,7 @@ export function App() {
         <ChatPanel
           messages={session.messages}
           busy={session.busy}
+          activity={session.activity}
           disabled={session.sessionId === null}
           onSend={session.send}
         />

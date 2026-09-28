@@ -201,6 +201,9 @@ class Conversation:
         self.state = state or ConversationState(test_mode=test_mode)
         if not resumed:
             self.state.agent_model = get_registry()[ModelRole.agent].id
+        # The trace before the dispatcher: the dispatcher announces its calls
+        # on it, so the customer's screen can say what is being looked up.
+        self.trace = trace or TraceRecorder(self.state.id)
         # svc_agent(), always. The conversation never runs under any other
         # identity, and the gateway refuses to be called without one (§8).
         self._dispatcher = ToolDispatcher(
@@ -208,8 +211,8 @@ class Conversation:
             gateway=gateway,
             principal=svc_agent(),
             offers=recommendations,
+            trace=self.trace,
         )
-        self.trace = trace or TraceRecorder(self.state.id)
         if not resumed:
             self.trace.emit(
                 EventType.session_started,
@@ -294,6 +297,11 @@ class Conversation:
             # The confirmation lock short-circuits before the call — a "Yes"
             # needs no classification, and skipping it saves a round trip on
             # the turn where latency is most visible.
+            self.trace.emit(
+                EventType.llm_request,
+                turn_seq=state.turn_count,
+                role=ModelRole.router.value,
+            )
             decision = await classify(text, [t.text for t in state.turns], state.current_domain)
 
         outcome = policy.apply(state, text, decision)
@@ -585,7 +593,11 @@ class Conversation:
         """The domain's model turn, through the output guards (§11)."""
         state = self.state
         reply_text, _ = await run_domain_turn(
-            domain, state, self._dispatcher, extra_instruction=extra_instruction
+            domain,
+            state,
+            self._dispatcher,
+            extra_instruction=extra_instruction,
+            trace=self.trace,
         )
 
         # §11: the output-boundary guards. One repair attempt, then substitute.
@@ -596,6 +608,7 @@ class Conversation:
                 state,
                 self._dispatcher,
                 extra_instruction=pipeline.repair_instruction(guarded.violations),
+                trace=self.trace,
             )
             guarded = pipeline.resolve(reply_text, state, repaired_reply=repaired)
 

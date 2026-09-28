@@ -30,6 +30,8 @@ from fibrapunto.domains.registry import CapabilityName, Domain, DomainKey
 from fibrapunto.escalation import engine
 from fibrapunto.llm.chat import ainvoke, build_chat_model, served_model
 from fibrapunto.llm.registry import ModelRole
+from fibrapunto.observability.events import EventType
+from fibrapunto.observability.trace import TraceRecorder
 from fibrapunto.state.models import ConversationState
 
 log = structlog.get_logger(__name__)
@@ -249,11 +251,16 @@ async def run_domain_turn(
     state: ConversationState,
     dispatcher,
     extra_instruction: str | None = None,
+    trace: TraceRecorder | None = None,
 ) -> tuple[str, list]:
     """One customer turn: call the model, run any tools, call again, answer.
 
     Returns the reply text and the tool messages produced, so the caller can
     trace them. Bounded by MAX_TOOL_ROUNDS.
+
+    Each model call is announced on `trace` before it is made (`llm.request`),
+    so the live stream distinguishes "the model is composing" from "a
+    capability is being called" — the two things a customer waits on.
     """
     model = build_chat_model(ModelRole.agent).bind_tools(_tool_stubs(domain))
     messages = build_messages(domain, state)
@@ -263,7 +270,21 @@ async def run_domain_turn(
         messages.append(SystemMessage(extra_instruction))
     tool_messages: list = []
 
+    def announce(round_index: int, *, tools: bool) -> None:
+        if trace is not None:
+            trace.emit(
+                EventType.llm_request,
+                turn_seq=state.turn_count,
+                role=ModelRole.agent.value,
+                # 1-based: "round 2" reads as the second call, not the third.
+                round=round_index + 1,
+                # False on the closing call: no capability can follow it, so
+                # what comes next is the reply.
+                tools_available=tools,
+            )
+
     for round_index in range(MAX_TOOL_ROUNDS):
+        announce(round_index, tools=True)
         response: AIMessage = await ainvoke(model, messages, role=ModelRole.agent)
         state.agent_model_served = served_model(response)
 
@@ -284,6 +305,7 @@ async def run_domain_turn(
 
     # Out of rounds. Ask once for an answer with no tools available, rather than
     # returning whatever the last tool-calling message happened to contain.
+    announce(MAX_TOOL_ROUNDS, tools=False)
     final: AIMessage = await ainvoke(
         build_chat_model(ModelRole.agent),
         [*messages, SystemMessage("Answer the customer now, without any further checks.")],

@@ -53,6 +53,8 @@ from fibrapunto.escalation import engine, triggers
 from fibrapunto.handover import routing
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.integrations.recommendation_client import RecommendationClient
+from fibrapunto.observability.events import EventType
+from fibrapunto.observability.trace import TraceRecorder
 from fibrapunto.perimeter.gateway import CrmGateway
 from fibrapunto.perimeter.policy import Principal, svc_agent
 from fibrapunto.state.models import (
@@ -78,9 +80,15 @@ class ToolDispatcher:
         gateway: CrmGateway | None = None,
         principal: Principal | None = None,
         offers: RecommendationClient | None = None,
+        trace: TraceRecorder | None = None,
     ) -> None:
         self._billing = billing_client
         self.offers = offers or RecommendationClient()
+        # Optional: a dispatcher under test has no stream to feed. When
+        # present, every external call is announced on it *before* it is made
+        # (see `_announce`), so the customer's screen can say what is
+        # happening rather than that something is.
+        self._trace = trace
         # The agent's own service identity (§8). Passed explicitly rather than
         # defaulted at the call site, so that every CRM access names who is
         # acting — there is no ambient identity anywhere in this codebase.
@@ -144,6 +152,7 @@ class ToolDispatcher:
                     # §4.1 as amended: nothing about a customer's account is
                     # looked up before they are verified.
                     return VerificationRequired().model_dump(mode="json")
+                self._announce("billing_lookup", state)
                 result = await billing_lookup(
                     args.get("contract_number", ""),
                     client=self._billing,
@@ -218,6 +227,7 @@ class ToolDispatcher:
         """
         if state.collected.transferred:
             return TransferAccepted(wait_estimate="a few minutes")
+        self._announce("transfer_to_human", state)
         result = await transfer_to_human(recorder=_StateRecorder(state))
         # §12.4: outside service hours the transfer does not happen. Recorded
         # so the closing message states the real window, not "shortly".
@@ -247,6 +257,8 @@ class ToolDispatcher:
             or "cancellation_request" in collected.handovers
         ):
             return None
+        if self._trace is not None:
+            self._trace.emit(EventType.offer_lookup, turn_seq=state.turn_count, context=context)
         found = await self.offers.best_offer(collected.contract_number)
         if found is None:
             return None
@@ -265,8 +277,11 @@ class ToolDispatcher:
         """The retention team's case, opened by code: for an accepted offer
         (to apply it) or a cancellation after a declined one."""
         self.last_trigger = trigger
-        result = (
-            await create_handover_record(
+        if self._gateway is None:
+            result: Any = HandoverFailed(incident_id="no-gateway")
+        else:
+            self._announce("create_handover_record", state)
+            result = await create_handover_record(
                 state=state,
                 gateway=self._gateway,
                 principal=self._principal,
@@ -276,9 +291,6 @@ class ToolDispatcher:
                 record_type="cancellation_request",
                 recorder=_StateRecorder(state),
             )
-            if self._gateway is not None
-            else HandoverFailed(incident_id="no-gateway")
-        )
         self.last_handover = result
         return result
 
@@ -407,6 +419,7 @@ class ToolDispatcher:
             log.error("handover.no_gateway")
             result: Any = HandoverFailed(incident_id="no-gateway")
         else:
+            self._announce("create_handover_record", state)
             result = await create_handover_record(
                 state=state,
                 gateway=self._gateway,
@@ -521,6 +534,23 @@ class ToolDispatcher:
                 # §4.1 instruction 2: ask once more, then offer a human. The
                 # counter is what makes "once more" enforceable.
                 state.format_reasks += 1
+
+    def _announce(self, capability: str, state: ConversationState) -> None:
+        """Say that a capability is about to be called (§17.10).
+
+        Emitted here, at the moment the external system is reached, rather
+        than in `run()`: a call the code makes (a "yes" to an escalation
+        offer, an honoured request for a person) is as much a call as one the
+        model makes, and a refusal before the call — an unverified customer,
+        a held offer — is not one. The outcome follows on `capability.result`
+        when the turn ends; this event carries none, on purpose.
+        """
+        if self._trace is not None:
+            self._trace.emit(
+                EventType.capability_invoked,
+                turn_seq=state.turn_count,
+                capability=capability,
+            )
 
     @staticmethod
     def _message(call: dict[str, Any], payload: dict[str, Any]) -> ToolMessage:

@@ -205,6 +205,69 @@ async def test_the_reply_reports_the_outcome_as_a_fact(monkeypatch):
     assert reply.prompt_sha
 
 
+# --- the trace says what is happening, before it has happened -----------------
+
+
+async def test_a_capability_is_announced_before_its_result(monkeypatch):
+    """§17.10 as the customer's screen reads it: the chat replaces "the
+    assistant is working" with "looking up your contract" from the live
+    stream, which only works if the call is announced *before* it is made
+    and the model call that reads its result is announced too.
+
+    The order is the claim: turn received, router asked, agent asked, the
+    lookup announced, the agent asked again, the lookup's outcome, the reply.
+    """
+    from fibrapunto.observability.events import EventType
+
+    routed_to(monkeypatch, "billing")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("The September charge was refused."),
+        ],
+    )
+
+    convo = conversation()
+    await convo.send(f"my contract is {CONTRACT}, what happened?")
+
+    names = [e.name for e in convo.trace.events if e.turn_seq == 1]
+    assert names.index(EventType.turn_received) < names.index(EventType.llm_request)
+    assert names.index(EventType.capability_invoked) < names.index(EventType.capability_result)
+    assert names.index(EventType.capability_result) < names.index(EventType.agent_reply)
+
+    requests = [e for e in convo.trace.events if e.name is EventType.llm_request]
+    assert [r.attributes["role"] for r in requests] == ["router", "agent", "agent"]
+    assert [r.attributes.get("round") for r in requests] == [None, 1, 2]
+
+    invoked = convo.trace.by_name(EventType.capability_invoked)
+    assert [e.attributes for e in invoked] == [{"capability": "billing_lookup"}], (
+        "the announcement carries the name and nothing else — the outcome "
+        "belongs to capability.result"
+    )
+
+
+async def test_a_refused_call_is_not_announced(monkeypatch):
+    """A capability the domain was never given is refused by the dispatcher
+    (§17.1). Refused means not called — so the screen must not say it is
+    being called."""
+    from fibrapunto.observability.events import EventType
+
+    routed_to(monkeypatch, "fallback")
+    scripted(
+        monkeypatch,
+        [
+            tool_call("billing_lookup", {"contract_number": CONTRACT}),
+            AIMessage("I cannot help with that."),
+        ],
+    )
+
+    convo = conversation()
+    await convo.send("tell me my invoice status")
+
+    assert convo.trace.by_name(EventType.capability_invoked) == []
+
+
 # --- §15: the mid-conversation switch ----------------------------------------
 
 

@@ -8,19 +8,27 @@ export interface Message {
 interface Props {
   messages: Message[]
   busy: boolean
+  /** What the agent is doing right now, in the customer's words (lib/activity.ts).
+   *  null when it is not busy. */
+  activity: string | null
   disabled: boolean
   onSend: (text: string) => void
 }
 
 /** The customer's view. Deliberately plain: this panel is what the agent
  *  looks like, and the panel next to it is what the agent *is*. */
-export function ChatPanel({ messages, busy, disabled, onSend }: Props) {
+export function ChatPanel({ messages, busy, activity, disabled, onSend }: Props) {
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages.length, busy])
+
+  /* The phrase changes as the trace comes in; the line is one live region so
+   * a screen reader announces the change without the customer being re-read
+   * the whole conversation. */
+  const status = busy ? (activity ?? 'Working on it…') : null
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -52,7 +60,12 @@ export function ChatPanel({ messages, busy, disabled, onSend }: Props) {
             <div className="bubble">{message.text}</div>
           </div>
         ))}
-        {busy && <p className="typing">The assistant is working…</p>}
+        {status && (
+          <p className="typing" role="status" aria-live="polite">
+            <span className="typing-dot" aria-hidden="true" />
+            {status}
+          </p>
+        )}
         <div ref={endRef} />
       </div>
 

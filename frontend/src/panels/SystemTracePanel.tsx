@@ -111,6 +111,37 @@ function Detail({ event }: { event: TraceEvent }) {
         </div>
       );
 
+    case "capability.invoked":
+      // Announced before the call, so the customer's screen can say what is
+      // being looked up. The outcome is on the capability.result that follows.
+      return (
+        <div className="detail">
+          <span className="chip">{String(event.capability)}</span>
+          <span className="muted">called</span>
+        </div>
+      );
+
+    case "llm.request":
+      return (
+        <div className="detail">
+          <span className="chip">{String(event.role)}</span>
+          {typeof event.round === "number" && (
+            <span className="chip">round {event.round}</span>
+          )}
+          {event.tools_available === false && (
+            <span className="muted">answer only</span>
+          )}
+        </div>
+      );
+
+    case "offer.lookup":
+      return (
+        <div className="detail">
+          <span className="chip">{String(event.context)}</span>
+          <span className="muted">recommendation system asked</span>
+        </div>
+      );
+
     case "capability.result": {
       const { role, glyph } = statusOf(String(event.outcome));
       return (
@@ -209,7 +240,9 @@ function Detail({ event }: { event: TraceEvent }) {
 
 function glyphFor(name: string): string {
   if (name.startsWith("router")) return "⑃";
+  if (name.startsWith("llm")) return "◌";
   if (name.startsWith("capability")) return "⚙";
+  if (name.startsWith("offer")) return "⚙";
   if (name.startsWith("escalation")) return "↑";
   if (name.startsWith("guardrail")) return "⊘";
   if (name.startsWith("privacy")) return "✱";

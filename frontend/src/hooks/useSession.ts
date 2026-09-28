@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { describeActivity } from "../lib/activity";
 import { ApiError, api } from "../lib/api";
 import type { AgentReply, Domain, SessionSummary, TraceEvent } from "../lib/types";
 import type { Message } from "../panels/ChatPanel";
@@ -175,6 +176,8 @@ export function useSession() {
     label: s.label,
   }));
 
+  const busy = busyId !== null && busyId === activeId;
+
   return {
     sessionId: activeId,
     messages,
@@ -182,7 +185,12 @@ export function useSession() {
     events,
     domains,
     perimeter,
-    busy: busyId !== null && busyId === activeId,
+    busy,
+    // What the agent is doing right now, phrased for the customer. Derived
+    // from the live trace, so it is only as current as the event stream: if
+    // the stream dropped, this stays on its first phrase until the reply
+    // lands — a stale phrase, never a wrong one.
+    activity: busy ? describeActivity(events) : null,
     error,
     retryable: failed !== null && failed.conversationId === activeId,
     retry,

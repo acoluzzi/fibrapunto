@@ -10,6 +10,12 @@ trace panel is convincing rather than decorative:
   * `capability_result` — which capability, which **typed outcome** (§5.1)
   * `perimeter_denied` — the authorization boundary, rendered (§8)
 
+Two more are emitted *before* the thing they name happens, not after:
+`capability.invoked` and `llm.request`. They carry no outcome — the result
+event does — and exist so that the live stream says what the agent is doing
+while it does it. The chat panel reads them to replace "the assistant is
+working" with "looking up your contract" (frontend/src/lib/activity.ts).
+
 Field names are deliberately OpenTelemetry-span-shaped (`name`, `attributes`,
 `start`, `duration_ms`). Not because we use OTel — we chose not to, and
 docs/DECISIONS.md #20 says why — but so that the migration is mechanical rather
@@ -41,6 +47,11 @@ class EventType(StrEnum):
 
     capability_invoked = "capability.invoked"
     capability_result = "capability.result"
+    # Not a §5 capability: the recommendation system is consulted, never
+    # depended on (offers are held or dropped, and the turn goes on either
+    # way). Traced under its own name so a reader does not look for the
+    # `capability.result` that will never follow it.
+    offer_lookup = "offer.lookup"
 
     perimeter_check = "perimeter.check"
     perimeter_denied = "perimeter.denied"
