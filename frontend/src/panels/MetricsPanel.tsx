@@ -192,12 +192,16 @@ function Row({ label, value }: { label: string; value: string }) {
 
 const sum = (map: Map<string, number>) => [...map.values()].reduce((a, b) => a + b, 0);
 
-/** Cents while a conversation costs less than a dollar — which is the whole
- *  point of the tile — and dollars once it does not. */
+/** The provider reports cost in USD; the dashboard reads in euros. A fixed
+ *  rate, kept here on purpose: the figure is indicative, and a live rate
+ *  would make the same conversation cost a different amount every day. */
+export const USD_TO_EUR = 0.92;
+
+/** Euros with four decimals: a single turn costs a fraction of a cent, and
+ *  two decimals would read "0.00" for most of a conversation. */
 export function formatCost(usd: number | null): { value: string; unit?: string } {
   if (usd == null) return { value: "—" };
-  if (usd < 1) return { value: (usd * 100).toFixed(2), unit: "¢" };
-  return { value: usd.toFixed(2), unit: "$" };
+  return { value: (usd * USD_TO_EUR).toFixed(4), unit: "€" };
 }
 
 function median(values: number[]): number | null {

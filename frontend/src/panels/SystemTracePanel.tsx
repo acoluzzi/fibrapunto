@@ -6,7 +6,7 @@ import { formatCost } from "./MetricsPanel";
 function CostChip({ usd }: { usd: unknown }) {
   if (typeof usd !== "number") return null;
   const { value, unit } = formatCost(usd);
-  return <span className="chip">{value}{unit}</span>;
+  return <span className="chip">{unit}{value}</span>;
 }
 
 /** §17.10 made visible: which domain fired, which capabilities were called,
