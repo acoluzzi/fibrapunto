@@ -108,6 +108,19 @@ export const api = {
 
   operatorRecord: (reference: string) =>
     req<any>(`/api/operator/records/${reference}`),
+  operatorChangeStatus: (
+    reference: string,
+    status: "open" | "in_progress" | "closed",
+    note?: string,
+  ) =>
+    req<{ reference: string; status: string; changed: boolean; customer_notified_in_chat: boolean }>(
+      `/api/operator/records/${reference}/status`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status, note: note || null }),
+      },
+    ),
 
   // §7: the live switches. Billing's lives in the stub (the external system),
   // reached same-origin through the proxy because the stub sends no CORS

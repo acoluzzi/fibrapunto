@@ -36,6 +36,7 @@ from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.conversation import AgentReply, Conversation
 from fibrapunto.domains.registry import DOMAINS
 from fibrapunto.escalation import engine
+from fibrapunto.handover import lifecycle
 from fibrapunto.integrations.recommendation_client import RecommendationClient
 from fibrapunto.llm.chat import ReasoningLayerUnavailable
 from fibrapunto.observability.events import EventType, TraceEvent
@@ -86,6 +87,7 @@ async def lifespan(app: FastAPI):
         get_settings().dsn("platform"), min_size=1, max_size=3
     )
     operator.set_pool(_operator_pool)
+    operator.set_notifier(_notify_conversation)
     evals.set_pool(_operator_pool)
     global _sessions_store
     _sessions_store = SessionStore(_operator_pool)
@@ -446,7 +448,10 @@ async def decide_offer(reference: str, request: OfferDecision) -> dict[str, Any]
             """,
             row["id"],
             json.dumps(context, default=str, ensure_ascii=False),
-            "closed" if confirmed else "in_progress",
+            # The case's status is owned by handover/lifecycle.py: the
+            # operator's own take/close action and this decision must agree
+            # on what a confirmed offer does to the case.
+            lifecycle.after_offer_decision(confirmed),
         )
         if row["email"]:
             await conn.execute(
@@ -470,7 +475,7 @@ async def decide_offer(reference: str, request: OfferDecision) -> dict[str, Any]
     }
 
 
-async def _notify_conversation(cid: UUID, text: str, offer_status: str) -> bool:
+async def _notify_conversation(cid: UUID, text: str, offer_status: str | None = None) -> bool:
     """Append a message to the customer's conversation, as the platform.
 
     Same lease as a customer turn, so it cannot interleave with one; retried
@@ -496,7 +501,8 @@ async def _notify_conversation(cid: UUID, text: str, offer_status: str) -> bool:
         )
         state.record_turn(TurnRole.agent, text)
         state.collected.told_to_customer.append(text)
-        state.collected.offer_status = offer_status
+        if offer_status is not None:
+            state.collected.offer_status = offer_status
         await store.commit(lease, state, None, None)
         committed = True
     except UnsupportedCheckpoint:

@@ -23,12 +23,17 @@ agent and leak through this module to anyone who knows the chat's URL.
 from __future__ import annotations
 
 import json
-from typing import Any
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
+from typing import Any, Literal
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from fibrapunto.api.auth import require_operator
-from fibrapunto.handover import completeness
+from fibrapunto.escalation import engine
+from fibrapunto.handover import completeness, lifecycle
 from fibrapunto.handover.routing import for_type
 
 router = APIRouter(
@@ -38,12 +43,22 @@ router = APIRouter(
 )
 
 _pool = None
+_notifier: Callable[[UUID, str], Awaitable[bool]] | None = None
 
 
 def set_pool(pool: Any) -> None:
     """Injected at startup, under the platform identity."""
     global _pool
     _pool = pool
+
+
+def set_notifier(notify: Callable[[UUID, str], Awaitable[bool]]) -> None:
+    """How a message reaches the customer's conversation: the same path the
+    retention-offer decision uses, owned by app.py because it needs the
+    session store and the trace. Injected so this module stays testable
+    without either."""
+    global _notifier
+    _notifier = notify
 
 
 def _require_pool():
@@ -66,6 +81,7 @@ async def queues() -> list[dict[str, Any]]:
                r.priority::text     AS priority,
                count(*)             AS total,
                count(*) FILTER (WHERE r.status = 'open')     AS open,
+               count(*) FILTER (WHERE r.status = 'in_progress') AS in_progress,
                count(*) FILTER (WHERE v.is_complete)         AS complete,
                count(*) FILTER (WHERE r.contract_link_missing) AS unlinked
           FROM crm.handover_record r
@@ -79,7 +95,8 @@ async def queues() -> list[dict[str, Any]]:
 
 @router.get("/records")
 async def records(queue: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
-    """The work list. Newest first, high priority first."""
+    """The work list. What still needs a person first: open and in-progress
+    cases before closed ones, then high priority, then newest."""
     query = """
         SELECT r.id, r.reference, r.record_type::text AS record_type,
                r.priority::text AS priority, r.queue::text AS queue,
@@ -92,7 +109,7 @@ async def records(queue: str | None = None, limit: int = 50) -> list[dict[str, A
           JOIN crm.v_handover_completeness v ON v.id = r.id
           LEFT JOIN crm.customer c ON c.id = r.customer_id
          WHERE ($1::text IS NULL OR r.queue::text = $1)
-         ORDER BY r.priority DESC, r.created_at DESC
+         ORDER BY (r.status = 'closed'), r.priority DESC, r.created_at DESC
          LIMIT $2
     """
     rows = await _require_pool().fetch(query, queue, limit)
@@ -145,6 +162,8 @@ async def record_detail(reference: str) -> dict[str, Any]:
             "promised": routing.response_window,
             "handled_by_agent": record["handled_by_agent"],
             "opened": record["created_at"],
+            # Whether a person has dealt with it. Not the same as complete.
+            "status": record["status"],
         },
         # §12.2: the customer's own words, never paraphrased.
         "stated_reason": record["stated_reason"],
@@ -188,3 +207,104 @@ async def record_detail(reference: str) -> dict[str, Any]:
         "customer_contact": {"email": record["email"], "phone": record["phone"]},
         "completeness": {"is_complete": record["is_complete"], "missing": missing},
     }
+
+
+# --- the operator acts on the case -------------------------------------------
+
+
+class StatusChange(BaseModel):
+    status: Literal["open", "in_progress", "closed"]
+    note: str | None = Field(
+        default=None,
+        max_length=2000,
+        description="Optional. Kept in internal_comments, which the assistant cannot read.",
+    )
+
+
+@router.patch("/records/{reference}/status")
+async def change_status(reference: str, request: StatusChange) -> dict[str, Any]:
+    """Take, release, close or reopen a case.
+
+    This is the step that makes a case *done*. A record is created complete
+    (§13) but it is created because a person is needed (§12.1), and until that
+    person has acted it stays open. The rules live in handover/lifecycle.py;
+    the retention-offer decision writes the same column through the same
+    module, so the two cannot disagree about what closed means.
+
+    The customer is told, in their own conversation, when the move is one
+    they can see: taken, closed, reopened. A release back to the queue is the
+    team's business and says nothing. The message is a template written at
+    the operator's action, never the model's; the note stays internal.
+    """
+    pool = _require_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT id, status::text AS status, collected_context, internal_comments,
+               origin_session_id
+          FROM crm.handover_record
+         WHERE reference = $1
+        """,
+        reference,
+    )
+    if row is None:
+        raise HTTPException(404, f"no record with reference {reference}")
+
+    context = row["collected_context"]
+    if isinstance(context, str):
+        context = json.loads(context)
+    try:
+        changed = lifecycle.check(row["status"], request.status, context or {})
+    except lifecycle.TransitionRefused as refused:
+        raise HTTPException(409, str(refused)) from refused
+
+    note = (request.note or "").strip()
+    if not changed and not note:
+        return {
+            "reference": reference,
+            "status": row["status"],
+            "changed": False,
+            "customer_notified_in_chat": False,
+        }
+
+    # Tell the customer first: refused (409) if they are mid-turn, before the
+    # case changes, so the colleague can simply retry. False when the
+    # conversation no longer exists — the case still moves.
+    notified = False
+    text = _customer_message(row["status"], request.status, reference) if changed else None
+    if text and _notifier is not None:
+        notified = await _notifier(row["origin_session_id"], text)
+
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
+    line = f"[{stamp}] {row['status']} → {request.status}" if changed else f"[{stamp}]"
+    if note:
+        line = f"{line}: {note}"
+    comments = f"{row['internal_comments']}\n{line}" if row["internal_comments"] else line
+
+    await pool.execute(
+        """
+        UPDATE crm.handover_record
+           SET status = $2::crm.record_status, internal_comments = $3
+         WHERE id = $1
+        """,
+        row["id"],
+        request.status,
+        comments,
+    )
+    return {
+        "reference": reference,
+        "status": request.status,
+        "changed": changed,
+        "customer_notified_in_chat": notified,
+    }
+
+
+def _customer_message(current: str, target: str, reference: str) -> str | None:
+    """What the customer is told about the move, or None for a move that is
+    the team's business only (a release back to the queue)."""
+    if target == "closed":
+        return engine.case_closed(reference)
+    if target == "in_progress":
+        return (
+            engine.case_reopened(reference) if current == "closed" else engine.case_taken(reference)
+        )
+    return None

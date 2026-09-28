@@ -607,3 +607,66 @@ def test_a_confirmed_offer_closes_the_case_and_the_agent_knows(monkeypatch):
         assert turn(client, cid, "great, thanks").status_code == 200
         prompt = "\n".join(str(m.content) for m in model.calls[0])
         assert "has confirmed your offer" in prompt, "the model sees what it was told"
+
+
+def test_the_operator_acting_on_a_case_is_seen_by_the_customer(monkeypatch):
+    """A case is done when a colleague closes it, not when it is well formed —
+    and the customer hears about each move in their own conversation."""
+    with backend() as client:
+        cid, reference, _ = _accepted_offer(monkeypatch, client)
+        _operator(monkeypatch, client)
+        patch = f"/api/operator/records/{reference}/status"
+
+        taken = client.patch(
+            patch, json={"status": "in_progress", "note": "checked against the March invoice"}
+        )
+        assert taken.status_code == 200, taken.text
+        assert taken.json() == {
+            "reference": reference,
+            "status": "in_progress",
+            "changed": True,
+            "customer_notified_in_chat": True,
+        }
+        last = client.get(f"/api/sessions/{cid}").json()["messages"][-1]
+        assert last["role"] == "agent"
+        assert f"case no. {reference}: a colleague has picked it up" in last["text"]
+        assert "March invoice" not in last["text"], "the note is internal"
+
+        # An offer the customer accepted is still waiting for a decision:
+        # closing around it is refused, and nothing reaches the customer.
+        before = len(client.get(f"/api/sessions/{cid}").json()["messages"])
+        refused = client.patch(patch, json={"status": "closed"})
+        assert refused.status_code == 409
+        assert "confirm or decline" in refused.json()["detail"]
+        assert len(client.get(f"/api/sessions/{cid}").json()["messages"]) == before
+
+        # A same-state request is a no-op that says so.
+        again = client.patch(patch, json={"status": "in_progress"})
+        assert again.json()["changed"] is False
+        assert again.json()["customer_notified_in_chat"] is False
+
+        # Confirming the offer closes the case through the same lifecycle...
+        assert (
+            client.post(
+                f"/api/operator/records/{reference}/offer", json={"decision": "confirm"}
+            ).status_code
+            == 200
+        )
+        record = client.get(f"/api/operator/records/{reference}").json()
+        assert record["summary"]["status"] == "closed"
+        assert (
+            "open → in_progress: checked against the March invoice" in record["internal_comments"]
+        )
+
+        # ...and a reopen tells the customer that too.
+        reopened = client.patch(patch, json={"status": "in_progress"})
+        assert reopened.status_code == 200, reopened.text
+        last = client.get(f"/api/sessions/{cid}").json()["messages"][-1]
+        assert "has reopened it" in last["text"]
+
+        # The customer replies: the rebuilt conversation carries what it was told.
+        model = scripted(monkeypatch, [AIMessage("Glad to help.")])
+        routed_to(monkeypatch, "cancellation")
+        assert turn(client, cid, "ok thanks").status_code == 200
+        prompt = "\n".join(str(m.content) for m in model.calls[0])
+        assert "has reopened it" in prompt

@@ -104,18 +104,27 @@ function Cases({
   const [records, setRecords] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     api
       .operatorRecords()
       .then(setRecords)
       .catch((e: ApiError) => (e.status === 401 ? onExpired() : setRecords([])));
   }, [onExpired]);
 
+  useEffect(reload, [reload]);
+
   function open(reference: string) {
     api
       .operatorRecord(reference)
       .then(setSelected)
       .catch((e: ApiError) => e.status === 401 && onExpired());
+  }
+
+  /* A status change alters the row's badge and its place in the list, so
+   * both the detail and the table are refreshed. */
+  function changed(reference: string) {
+    reload();
+    open(reference);
   }
 
   return (
@@ -135,7 +144,14 @@ function Cases({
         <table className="metrics">
           <thead>
             <tr>
-              <th>Case</th><th>Subject</th><th>Queue</th><th>Priority</th><th>Complete</th>
+              <th>Case</th><th>Subject</th><th>Queue</th><th>Priority</th>
+              {/* Whether a person has dealt with it — every case here exists
+                  because one is needed (§12.1). Not to be confused with §13's
+                  "record complete", which is a data-quality metric the
+                  dashboard reports, not a lifecycle: a refund request is
+                  complete the moment the assistant opens it, and not done
+                  until a colleague closes it. */}
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -149,12 +165,7 @@ function Cases({
                 <td>{record.subject}</td>
                 <td>{record.queue}</td>
                 <td>{record.priority}</td>
-                <td>
-                  <span className={`badge ${record.is_complete ? "good" : "critical"}`}>
-                    <span aria-hidden="true">{record.is_complete ? "●" : "■"}</span>
-                    {record.is_complete ? "yes" : "no"}
-                  </span>
-                </td>
+                <td><StatusBadge status={record.status} /></td>
               </tr>
             ))}
           </tbody>
@@ -162,7 +173,7 @@ function Cases({
       )}
 
       {selected && (
-        <Detail record={selected} onChanged={() => open(selected.summary.reference)} />
+        <Detail record={selected} onChanged={() => changed(selected.summary.reference)} />
       )}
     </div>
   );
@@ -186,6 +197,16 @@ function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
       <dl className="fields">
         <dt>Picked up by</dt>
         <dd>{s.queue_label}, {s.promised}</dd>
+
+        <dt>Status</dt>
+        <dd>
+          <StatusActions
+            reference={s.reference}
+            status={s.status}
+            offerAwaitingDecision={record.retention_offer?.status === "accepted"}
+            onChanged={onChanged}
+          />
+        </dd>
 
         <dt>Reason (customer's words)</dt>
         <dd>{record.stated_reason ?? "—"}</dd>
@@ -237,6 +258,16 @@ function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
                   <div className="muted" style={{ fontSize: 12 }}>{mail.body}</div>
                 </div>
               ))}
+            </dd>
+          </>
+        )}
+
+        {record.internal_comments && (
+          <>
+            <dt>Internal notes</dt>
+            <dd>
+              <pre className="notes">{record.internal_comments}</pre>
+              <span className="chip">never readable by the assistant</span>
             </dd>
           </>
         )}
@@ -356,6 +387,117 @@ function OfferDecision({
           Decline
         </button>
       </div>
+      {error && <p className="login-error">{error}</p>}
+    </>
+  );
+}
+
+/** Whether a person has dealt with the case. The glyph and the word carry
+ *  it; open is the one that asks for attention, so it is the one with colour. */
+function StatusBadge({ status }: { status: string }) {
+  const look =
+    status === "open"
+      ? { role: "warning", glyph: "◆", label: "open" }
+      : status === "in_progress"
+        ? { role: "neutral", glyph: "◐", label: "in progress" }
+        : { role: "good", glyph: "●", label: "closed" };
+  return (
+    <span className={`badge ${look.role}`}>
+      <span aria-hidden="true">{look.glyph}</span>
+      {look.label}
+    </span>
+  );
+}
+
+/** Take, release, close, reopen — with an optional note kept in
+ *  internal_comments. The rules (handover/lifecycle.py) are the server's; the
+ *  buttons only show the moves it will accept, and a 409 is shown as text so
+ *  the reason reaches the operator rather than a console. */
+function StatusActions({
+  reference,
+  status,
+  offerAwaitingDecision,
+  onChanged,
+}: {
+  reference: string;
+  status: string;
+  offerAwaitingDecision: boolean;
+  onChanged: () => void;
+}) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [told, setTold] = useState<string | null>(null);
+
+  function move(target: "open" | "in_progress" | "closed") {
+    setBusy(true);
+    setError(null);
+    setTold(null);
+    api
+      .operatorChangeStatus(reference, target, note.trim())
+      .then((result) => {
+        setNote("");
+        if (result.changed) {
+          setTold(
+            result.customer_notified_in_chat
+              ? "The customer was told in their conversation."
+              : target === "open"
+                ? "Back in the queue; the customer was not told."
+                : "The conversation no longer exists; the customer was not told.",
+          );
+        }
+        onChanged();
+      })
+      .catch((e: ApiError) => setError(e.message))
+      .finally(() => setBusy(false));
+  }
+
+  const moves: { label: string; target: "open" | "in_progress" | "closed"; primary?: boolean }[] =
+    status === "open"
+      ? [{ label: "Take", target: "in_progress", primary: true }, { label: "Close", target: "closed" }]
+      : status === "in_progress"
+        ? [{ label: "Close", target: "closed", primary: true }, { label: "Release", target: "open" }]
+        : [{ label: "Reopen", target: "in_progress" }];
+
+  return (
+    <>
+      <StatusBadge status={status} />
+      {status !== "closed" && (
+        <span className="muted" style={{ marginLeft: 8, fontSize: 12 }}>
+          {status === "open"
+            ? "nobody has acted on this case yet"
+            : "a colleague is on it"}
+        </span>
+      )}
+      <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+        {moves.map((m) => (
+          <button
+            key={m.target}
+            className={m.primary ? "primary" : undefined}
+            disabled={busy || (m.target === "closed" && offerAwaitingDecision)}
+            title={
+              m.target === "closed" && offerAwaitingDecision
+                ? "Decide the accepted offer first"
+                : undefined
+            }
+            onClick={() => move(m.target)}
+          >
+            {m.label}
+          </button>
+        ))}
+        <input
+          placeholder="Note for colleagues (optional)"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          style={{ minWidth: 260 }}
+        />
+      </div>
+      {offerAwaitingDecision && status !== "closed" && (
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          The customer accepted an offer: confirm or decline it below before closing.
+        </div>
+      )}
+      {told && <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{told}</div>}
       {error && <p className="login-error">{error}</p>}
     </>
   );

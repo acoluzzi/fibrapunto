@@ -483,6 +483,33 @@ def offer_declined(title: str, reference: str, reason: str) -> str:
     )
 
 
+def case_taken(reference: str) -> str:
+    """Posted when a colleague takes the case (operator view). Templated at the
+    operator's action, never by the model, so it promises nothing the team has
+    not done."""
+    return (
+        f"An update on case no. {reference}: a colleague has picked it up and is working on it. "
+        f"You will hear from them here, in this conversation, or by email."
+    )
+
+
+def case_closed(reference: str) -> str:
+    """Posted when a colleague closes the case. The customer is told it is
+    done and how to come back if it is not."""
+    return (
+        f"An update on case no. {reference}: our team has dealt with it and closed the case. "
+        f"If anything is still open on your side, reply here and we will take another look."
+    )
+
+
+def case_reopened(reference: str) -> str:
+    """Posted when a closed case is reopened by a colleague."""
+    return (
+        f"An update on case no. {reference}: our team has reopened it and a colleague "
+        f"is looking at it again."
+    )
+
+
 def note_trigger(state: ConversationState, trigger: Trigger) -> None:
     """Record why this conversation escalated (§12.2, §12.5).
 
