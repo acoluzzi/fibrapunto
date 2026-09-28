@@ -33,6 +33,16 @@ make reset               # load the known data state (§17.12) — idempotent
 make demo                # open the browser
 ```
 
+The browser has four views, on one origin. The customer's chat is `/`; the other three each
+open on a sign-in form with their own password from `.env`:
+
+| View                              | Who     | What it shows                                                                  |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------ |
+| `/`                               | customer | The conversation, and the ability to move between this browser's conversations |
+| `/console` (`DEVELOPER_PASSWORD`) | developer | The system trace, the live failure switches (§7) and the session metrics       |
+| `/operator` (`OPERATOR_PASSWORD`) | operator | The cases queue, contact details the agent cannot read (§8), the offers budget |
+| `/analyst` (`ANALYST_PASSWORD`)   | analyst | The §1 metrics run over run, the campaigns, and the offers budget — editable    |
+
 Then:
 
 ```bash
@@ -58,7 +68,7 @@ make perimeter-proof     # the same query under both identities, side by side
 | `backend/`                    | The agent and the platform                                                                |
 | `mock-billing/`               | The legacy billing system, which is slow and can be made to fail on command (§7)          |
 | `evals/`                      | The test set, the harness, and every run that has ever been made                          |
-| `frontend/`                   | Chat, the system trace, and the metrics                                                   |
+| `frontend/`                   | Four views: the customer's chat, the developer console, the operator's cases, the analyst |
 
 ## Data protection note
 

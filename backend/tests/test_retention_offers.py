@@ -108,6 +108,7 @@ async def test_taking_the_offer_opens_a_retention_case_carrying_it(monkeypatch):
         "offer_id": "loyalty-5-off",
         "title": "€5 off every month for 12 months",
         "status": "accepted",
+        "cost_eur": "60.00",  # what it holds against the budget, for the colleague
     }
     assert "A colleague will confirm it and apply it" in reply.text
     # The SQL completeness view requires the customer's own words on a

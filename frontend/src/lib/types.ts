@@ -64,13 +64,63 @@ export interface Faults {
   trace_store: "up" | "down";
 }
 
-/** The recommendation system's discount budget, for the dashboard. */
+/** The three gated views (api/auth.py). Each has its own password and its
+ *  own cookie; a session in one opens nothing else. */
+export type Role = "operator" | "developer" | "analyst";
+
+/** The recommendation system's discount budget.
+ *
+ *  spent is everything committed: held (accepted by a customer, awaiting a
+ *  colleague) plus confirmed (given away for good). remaining is the
+ *  complement of spent, and is what the next offer is measured against. */
 export interface OfferBudget {
   total_eur: string;
   spent_eur: string;
+  held_eur: string;
+  confirmed_eur: string;
   remaining_eur: string;
   accepted: number;
+  confirmed: number;
   discounts_available: boolean;
+}
+
+/** One catalogue entry with what it has done, as the analyst sees it. */
+export interface Campaign {
+  offer_id: string;
+  title: string;
+  description: string;
+  monthly_discount_eur: string;
+  duration_months: number;
+  cost_eur: string;
+  plans: string[] | null;
+  accepted: number;
+  confirmed: number;
+  declined: number;
+  held_eur: string;
+  spent_eur: string;
+}
+
+/** Everything counted, never a row (api/analyst.py). */
+export interface AnalystOverview {
+  conversations: {
+    total: number;
+    from_eval_runs: number;
+    by_domain: { domain: string; n: number }[];
+    by_status: { status: string; n: number }[];
+  };
+  turns: {
+    customer: number;
+    agent: number;
+    latency_p50_ms: number | null;
+    latency_p95_ms: number | null;
+    cost_usd: string | null;
+    costed_turns: number;
+  };
+  events: Record<string, number>;
+  capability_outcomes: { outcome: string | null; n: number }[];
+  escalations: { kind: string | null; n: number }[];
+  cases: { queue: string; status: string; n: number; complete: number }[];
+  offers_on_cases: { status: string; n: number }[];
 }
 
 /** One of this browser's conversations, as GET /api/sessions lists it. */

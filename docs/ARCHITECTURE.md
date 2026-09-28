@@ -219,7 +219,7 @@ grounding and promises guards are re-tested with the prompt removed entirely.
 | `backend/src/fibrapunto/` | The agent (`domains`, `router`, `graph`, `capabilities`, `guardrails`, `escalation`, `state`) and the platform (`perimeter`, `privacy`, `credentials`, `integrations`, `observability`, `handover`, `api`) |
 | `mock-billing/` | The legacy billing system (§7): slow, contract-versioned, fails on command |
 | `evals/` | The harness (§14), external by construction — it does not depend on the backend package |
-| `frontend/` | Chat, the system trace, the metrics, and the operator view |
+| `frontend/` | Four views on one origin: the customer's chat (`/`), the developer console (`/console`: trace, switches, session metrics), the operator view (`/operator`), the analyst view (`/analyst`: aggregate metrics, campaigns, the offers budget). The last three are gated, one password each (`api/auth.py`) |
 
 ---
 

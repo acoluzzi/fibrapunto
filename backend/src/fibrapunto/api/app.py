@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from fibrapunto import faults
-from fibrapunto.api import auth, customer_auth, evals, operator
+from fibrapunto.api import analyst, auth, customer_auth, evals, operator
 from fibrapunto.api.auth import require_operator
 from fibrapunto.capabilities.runtime import CapabilityCall
 from fibrapunto.conversation import AgentReply, Conversation
@@ -88,6 +88,7 @@ async def lifespan(app: FastAPI):
     )
     operator.set_pool(_operator_pool)
     operator.set_notifier(_notify_conversation)
+    analyst.set_pool(_operator_pool)
     evals.set_pool(_operator_pool)
     global _sessions_store
     _sessions_store = SessionStore(_operator_pool)
@@ -124,8 +125,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.include_router(auth.router)
+for _role_router in auth.routers.values():
+    app.include_router(_role_router)
 app.include_router(operator.router)
+app.include_router(analyst.router)
 app.include_router(evals.router)
 
 app.add_middleware(
@@ -426,9 +429,14 @@ async def decide_offer(reference: str, request: OfferDecision) -> dict[str, Any]
         cid, text, "confirmed" if confirmed else "declined_by_team"
     )
 
-    # 2. A declined offer gives its cost back to the budget.
+    # 2. The budget follows the decision: a confirmed offer's hold becomes
+    #    spend, a declined offer's hold goes back. Either may fail to reach the
+    #    system; the decision stands and the operator is told.
     released = None
-    if not confirmed:
+    settled = None
+    if confirmed:
+        settled = await RecommendationClient().confirm(offer["offer_id"], cid)
+    else:
         released = await RecommendationClient().release(offer["offer_id"], cid)
 
     # 3. The case and the outbox, together.
@@ -472,6 +480,7 @@ async def decide_offer(reference: str, request: OfferDecision) -> dict[str, Any]
         "customer_notified_in_chat": notified,
         "email_queued": bool(row["email"]),
         "budget_released": released,
+        "budget_settled": settled,
     }
 
 

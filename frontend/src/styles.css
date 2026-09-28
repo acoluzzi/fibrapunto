@@ -381,13 +381,196 @@ dl.fields dd { margin: 0; font-size: 13px; }
 
 a { color: var(--accent); }
 
-/* The offers budget: how much of it accepted offers have spent. */
-.budget-bar {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--border-strong);
-  overflow: hidden;
-  margin: 6px 0 8px;
+/* --- the four views ---------------------------------------------------------- */
+
+.panels.single { grid-template-columns: minmax(320px, 860px); justify-content: center; }
+
+.strip .brand .role {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-left: 6px;
 }
-.budget-used { height: 100%; background: var(--accent); }
-.budget-used.exhausted { background: var(--critical); }
+.strip .views { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+.strip .views a.button {
+  display: inline-block;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.strip .views a.button:hover { border-color: var(--accent); }
+
+.banner { padding: 8px 14px; font-size: 12px; flex: none; }
+.banner.error { color: var(--critical); }
+
+/* --- the offers budget: used / held / remaining --------------------------- */
+
+/* Three lengths of one bar. The hold is a mid gray in both themes: a colour
+   that carries no verdict, between what is gone and what is left. Each
+   segment is separated by a gap in the surface colour, not a stroke. */
+:root { --held: #8f8e85; }
+
+.budget-stack { margin: 6px 0 10px; }
+.budget-track {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-1);
+}
+.budget-stack.compact .budget-track { height: 8px; }
+.budget-seg { height: 100%; min-width: 2px; }
+.budget-seg.used { background: var(--critical); }
+.budget-seg.held { background: var(--held); }
+.budget-seg.remaining { background: var(--good); }
+.budget-seg.empty { background: var(--border); }
+.budget-legend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.budget-stack.compact .budget-legend { font-size: 11px; gap: 12px; }
+.budget-legend strong { color: var(--text-primary); font-weight: 600; margin-left: 3px; font-variant-numeric: tabular-nums; }
+.budget-legend .swatch { font-size: 10px; margin-right: 4px; }
+.budget-legend .swatch.used { color: var(--critical); }
+.budget-legend .swatch.held { color: var(--held); }
+.budget-legend .swatch.remaining { color: var(--good); }
+
+.budget-summary {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px 6px;
+  margin-bottom: 20px;
+}
+.offer-budget {
+  margin-top: 8px;
+  padding: 8px 12px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--plane);
+  max-width: 560px;
+}
+
+/* --- the analyst view --------------------------------------------------- */
+
+.analyst {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 16px 40px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px 16px;
+}
+.card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.card-head h2 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.card-head .hint { font-size: 11px; color: var(--text-muted); }
+
+.hero-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.hero .label { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+.hero .value { font-size: 48px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+.hero .sub { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.budget-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.budget-form label { font-size: 12px; color: var(--text-secondary); }
+
+.tiles.four { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+.tile-hint { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+  .tiles.four { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* --- charts ------------------------------------------------------------- */
+
+/* Categorical slots in the reference palette's order; the order is what keeps
+   adjacent series apart under colour-vision deficiency. Dark steps are the
+   same hues re-stepped for the dark surface, not a flip. */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+}
+:root[data-theme="dark"] {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+}
+
+.hbar { display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.hbar-row { display: grid; grid-template-columns: minmax(90px, 200px) 1fr; gap: 10px; align-items: center; }
+.hbar-label { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The value has its own column, so a full-length bar never pushes it off
+   the edge: the lane is what the bar fills, never the whole row. */
+.hbar-track { display: grid; grid-template-columns: 1fr max-content; align-items: center; gap: 8px; min-width: 0; }
+.hbar-lane { display: block; min-width: 0; }
+.hbar-fill { display: block; height: 18px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.hbar-value { font-variant-numeric: tabular-nums; color: var(--text-primary); white-space: nowrap; }
+
+.linechart { position: relative; width: 100%; }
+.linechart svg { display: block; overflow: visible; }
+.linechart .gridline { stroke: var(--gridline); stroke-width: 1; }
+.linechart .baseline { stroke: var(--baseline); stroke-width: 1; }
+.linechart .crosshair { stroke: var(--baseline); stroke-width: 1; }
+.linechart .tick { font-size: 10px; fill: var(--text-muted); font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.linechart .marker { stroke: var(--surface-1); stroke-width: 2; }
+.chart-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+.chart-legend .key, .chart-tooltip .key {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--surface-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  min-width: 160px;
+}
+.chart-tooltip .when { color: var(--text-muted); margin-bottom: 3px; font-family: var(--mono); }
+.chart-tooltip div { display: flex; align-items: center; gap: 4px; }
+.chart-tooltip strong { margin-left: auto; color: var(--text-primary); font-variant-numeric: tabular-nums; }

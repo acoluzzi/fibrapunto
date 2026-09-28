@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { BudgetBar, segmentsOf } from "../components/BudgetBar";
+import { useOfferBudget } from "../hooks/useOfferBudget";
 import { api } from "../lib/api";
 import { statusOf } from "../lib/outcome";
-import type { AgentReply, Domain, EvalMetric, EvalRun, OfferBudget, TraceEvent } from "../lib/types";
+import type { AgentReply, Domain, EvalMetric, EvalRun, TraceEvent } from "../lib/types";
 
 interface Props {
   replies: AgentReply[];
@@ -208,19 +210,13 @@ function median(values: number[]): number | null {
 
 /** The recommendation system's discount budget (recommendation-system/).
  *
- *  Accepted offers spend it; once what remains cannot cover a discount, the
- *  system stops offering discounted deals and only no-cost offers remain. Read
- *  from the system itself every few seconds, across every conversation — it
- *  is the operator's budget, not this session's. */
+ *  An accepted offer holds its cost; a colleague's confirmation spends it,
+ *  a decline releases it. Once what remains cannot cover a discount, the
+ *  system stops offering discounted deals and only no-cost offers remain.
+ *  Read from the system itself every few seconds, across every conversation
+ *  — it is the operator's budget, not this session's. */
 function OfferBudgetSection() {
-  const [budget, setBudget] = useState<OfferBudget | null>(null);
-
-  useEffect(() => {
-    const read = () => api.offerBudget().then(setBudget).catch(() => setBudget(null));
-    read();
-    const timer = window.setInterval(read, 5000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const { budget } = useOfferBudget();
 
   if (!budget) {
     return (
@@ -230,23 +226,15 @@ function OfferBudgetSection() {
       </>
     );
   }
-  const total = Number(budget.total_eur);
-  const spent = Number(budget.spent_eur);
-  const used = total > 0 ? Math.min(100, (spent / total) * 100) : 100;
   return (
     <>
       <div className="section-title">Offers budget</div>
-      <div className="budget-bar" aria-hidden="true">
-        <div
-          className={`budget-used ${budget.discounts_available ? "" : "exhausted"}`}
-          style={{ width: `${used}%` }}
-        />
-      </div>
+      <BudgetBar segments={segmentsOf(budget)} heldLabel="held" compact />
       <table className="metrics">
         <tbody>
-          <Row label="Spent" value={`€${budget.spent_eur} of €${budget.total_eur}`} />
-          <Row label="Remaining" value={`€${budget.remaining_eur}`} />
-          <Row label="Offers accepted" value={String(budget.accepted)} />
+          <Row label="Total" value={`€${budget.total_eur}`} />
+          <Row label="Awaiting a decision" value={String(budget.accepted)} />
+          <Row label="Confirmed" value={String(budget.confirmed)} />
           <tr>
             <td>Discounted offers</td>
             <td className="num">

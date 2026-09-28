@@ -1,5 +1,9 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { BudgetBar, euro, segmentsAround, segmentsOf } from "../components/BudgetBar";
+import { Gate } from "../components/Gate";
+import { useOfferBudget } from "../hooks/useOfferBudget";
 import { ApiError, api } from "../lib/api";
+import type { Campaign, OfferBudget } from "../lib/types";
 
 /** §12.3 — what the receiving operator sees.
  *
@@ -8,89 +12,14 @@ import { ApiError, api } from "../lib/api";
  *  is below it, and the three fields §12.2 says are most often omitted get
  *  their own rows rather than being buried in a context blob. */
 export function Operator() {
-  /* Nothing of the cases view renders until the server says this browser is
-   * signed in. The data was always behind the check; the page now is too, so
-   * nobody is shown an empty queue and left to wonder whether it is empty. */
-  const [auth, setAuth] = useState<"checking" | "out" | "in">("checking");
-  const [unavailable, setUnavailable] = useState<string | null>(null);
-
-  useEffect(() => {
-    api
-      .operatorSession()
-      .then(() => setAuth("in"))
-      .catch((e: ApiError) => {
-        if (e.status !== 401) setUnavailable(e.message);
-        setAuth("out");
-      });
-  }, []);
-
-  const expired = useCallback(() => setAuth("out"), []);
-
-  function logout() {
-    api.operatorLogout().finally(() => setAuth("out"));
-  }
-
-  if (auth === "checking") return null;
-  if (auth === "out") {
-    return <Login unavailable={unavailable} onSignedIn={() => setAuth("in")} />;
-  }
-  return <Cases onLogout={logout} onExpired={expired} />;
-}
-
-function Login({
-  unavailable,
-  onSignedIn,
-}: {
-  unavailable: string | null;
-  onSignedIn: () => void;
-}) {
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setError(null);
-    api
-      .operatorLogin(password)
-      .then(onSignedIn)
-      .catch((e: ApiError) =>
-        setError(e.status === 401 ? "Wrong password." : e.message),
-      )
-      .finally(() => setBusy(false));
-  }
-
   return (
-    <div className="operator login">
-      <p><a href="/">← back to the conversation</a></p>
-      <form onSubmit={submit}>
-        <h1>Operator sign-in</h1>
-        <p className="muted">
-          The operator view shows customer contact details the assistant is not
-          allowed to read.
-        </p>
-        {unavailable ? (
-          <p className="login-error">{unavailable}</p>
-        ) : (
-          <>
-            <label htmlFor="operator-password">Password</label>
-            <input
-              id="operator-password"
-              type="password"
-              autoComplete="current-password"
-              autoFocus
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            {error && <p className="login-error">{error}</p>}
-            <button className="primary" type="submit" disabled={busy || !password}>
-              Sign in
-            </button>
-          </>
-        )}
-      </form>
-    </div>
+    <Gate
+      role="operator"
+      title="Operator sign-in"
+      blurb="The operator view shows customer contact details the assistant is not allowed to read."
+    >
+      {({ logout, expired }) => <Cases onLogout={logout} onExpired={expired} />}
+    </Gate>
   );
 }
 
@@ -103,6 +32,9 @@ function Cases({
 }) {
   const [records, setRecords] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
+  /* The offers budget is the team's, across every case: shown here so a
+   * colleague deciding an offer knows what confirming it leaves. */
+  const offers = useOfferBudget();
 
   const reload = useCallback(() => {
     api
@@ -125,6 +57,7 @@ function Cases({
   function changed(reference: string) {
     reload();
     open(reference);
+    offers.refresh();
   }
 
   return (
@@ -135,6 +68,8 @@ function Cases({
       </p>
 
       <h1 style={{ fontSize: 18, marginTop: 0 }}>Cases</h1>
+
+      <BudgetSummary budget={offers.budget} />
 
       {records.length === 0 && (
         <p className="empty">No cases yet. Open one from the conversation.</p>
@@ -173,13 +108,50 @@ function Cases({
       )}
 
       {selected && (
-        <Detail record={selected} onChanged={() => changed(selected.summary.reference)} />
+        <Detail
+          record={selected}
+          budget={offers.budget}
+          campaigns={offers.campaigns}
+          onChanged={() => changed(selected.summary.reference)}
+        />
       )}
     </div>
   );
 }
 
-function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
+/** The team's offers budget, as it stands: what confirmed offers have used,
+ *  what accepted offers awaiting a decision hold, what remains. */
+function BudgetSummary({ budget }: { budget: OfferBudget | null }) {
+  return (
+    <section className="budget-summary">
+      <div className="section-title">
+        Offers budget
+        {budget && (
+          <span className="muted" style={{ marginLeft: 8, textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>
+            {euro(budget.total_eur)} in total · {budget.accepted} awaiting a decision
+          </span>
+        )}
+      </div>
+      {budget ? (
+        <BudgetBar segments={segmentsOf(budget)} heldLabel="held, awaiting decisions" />
+      ) : (
+        <p className="empty">Recommendation system not reachable.</p>
+      )}
+    </section>
+  );
+}
+
+function Detail({
+  record,
+  budget,
+  campaigns,
+  onChanged,
+}: {
+  record: any;
+  budget: OfferBudget | null;
+  campaigns: Campaign[] | null;
+  onChanged: () => void;
+}) {
   const s = record.summary;
   return (
     <div style={{ marginTop: 28 }}>
@@ -241,6 +213,8 @@ function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
               <OfferDecision
                 reference={s.reference}
                 offer={record.retention_offer}
+                budget={budget}
+                campaigns={campaigns}
                 onDecided={onChanged}
               />
             </dd>
@@ -319,14 +293,20 @@ function Detail({ record, onChanged }: { record: any; onChanged: () => void }) {
  *
  *  Either way the customer is told — in their conversation (a templated
  *  message, not the model) and by email. A decline needs a reason, because the
- *  customer is shown it; its cost goes back to the offers budget. */
+ *  customer is shown it; its hold goes back to the offers budget. Confirming
+ *  spends the hold for good — the bar above the buttons shows exactly that:
+ *  what is already used, what this offer holds, what would remain either way. */
 function OfferDecision({
   reference,
   offer,
+  budget,
+  campaigns,
   onDecided,
 }: {
   reference: string;
   offer: any;
+  budget: OfferBudget | null;
+  campaigns: Campaign[] | null;
   onDecided: () => void;
 }) {
   const [reason, setReason] = useState("");
@@ -370,9 +350,30 @@ function OfferDecision({
     );
   }
 
+  // The record carries the cost since it started travelling with the case;
+  // an older record is priced from the catalogue by offer id.
+  const cost =
+    offer.cost_eur != null
+      ? Number(offer.cost_eur)
+      : Number(campaigns?.find((c) => c.offer_id === offer.offer_id)?.cost_eur ?? NaN);
+
   return (
     <>
       {offer.title} <span className="chip">accepted by the customer — awaiting your decision</span>
+      {budget && !Number.isNaN(cost) ? (
+        <div className="offer-budget">
+          <BudgetBar segments={segmentsAround(budget, cost)} heldLabel="held by this offer" compact />
+          <div className="muted" style={{ fontSize: 12 }}>
+            {cost > 0
+              ? `Confirming spends ${euro(cost)} for good; declining returns it to the budget.`
+              : "This offer costs nothing: the budget is unaffected either way."}
+          </div>
+        </div>
+      ) : (
+        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+          The offers budget cannot be read right now; the decision still stands.
+        </div>
+      )}
       <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
         <button className="primary" disabled={busy} onClick={() => decide("confirm")}>
           Confirm and apply

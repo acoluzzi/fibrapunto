@@ -70,9 +70,12 @@ class Settings(BaseSettings):
     # --- credentials (§17.7) -------------------------------------------------
     fibrapunto_master_key: SecretStr = SecretStr("")
 
-    # --- operator access (api/auth.py) ---------------------------------------
-    # Gates the operator view and the admin routes. Empty means refused, not open.
+    # --- role access (api/auth.py) -------------------------------------------
+    # Gates the operator view (and the admin routes), the developer console and
+    # the analyst view. Empty means that view refuses every request, not open.
     operator_password: SecretStr = SecretStr("")
+    developer_password: SecretStr = SecretStr("")
+    analyst_password: SecretStr = SecretStr("")
 
     # --- demo failure switches (faults.py) ------------------------------------
     # Lets the control strip switch the CRM, the colleagues, the model provider,

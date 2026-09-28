@@ -1,38 +1,32 @@
-import { useState } from "react";
 import { ControlStrip } from "./components/ControlStrip";
-import { Switchboard } from "./components/Switchboard";
 import { useSession } from "./hooks/useSession";
+import { useTheme } from "./hooks/useTheme";
 import { ChatPanel } from "./panels/ChatPanel";
-import { MetricsPanel } from "./panels/MetricsPanel";
-import { SystemTracePanel } from "./panels/SystemTracePanel";
+import { Analyst } from "./routes/Analyst";
+import { Console } from "./routes/Console";
 import { Operator } from "./routes/Operator";
 
+/** Four views, one app shell, routed on the path.
+ *
+ *  `/` is the customer's: the conversation and nothing else — what the
+ *  assistant looks like. The other three are gated (api/auth.py) and show
+ *  what it *is*: the developer console (`/console`) the trace, the live
+ *  switches and the session metrics; the operator view (`/operator`) the
+ *  cases; the analyst view (`/analyst`) the aggregates, the campaigns and
+ *  the offers budget. */
 export function App() {
-  const session = useSession();
-  /* This must agree with the stylesheet's default, or the first press appears
-   * to do nothing: it would compute the theme that is already on screen.
-   *
-   * styles.css declares light on :root and applies dark only under
-   * [data-theme="dark"] — the OS setting is deliberately not consulted, so a
-   * demo looks the same on any laptop. Hence "light" when the attribute is
-   * absent. Changing one of these two without the other reintroduces the
-   * two-press bug. */
-  const [theme, setTheme] = useState<"light" | "dark">(() =>
-    document.documentElement.dataset.theme === "dark" ? "dark" : "light",
-  );
-  /* A switch that fails silently looks exactly like one that worked until the
-   * agent answers normally, on stage. Say so in the strip instead. */
-  const [switchError, setSwitchError] = useState<string | null>(null);
+  const path = window.location.pathname;
+  if (path.startsWith("/operator")) return <Operator />;
+  if (path.startsWith("/console")) return <Console />;
+  if (path.startsWith("/analyst")) return <Analyst />;
+  return <Customer />;
+}
 
-  if (window.location.pathname.startsWith("/operator")) {
-    return <Operator />;
-  }
-
-  function toggleTheme() {
-    const next = theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
-  }
+/** The customer's page. Deliberately plain: messages, and the ability to
+ *  move between this browser's conversations. */
+function Customer() {
+  const session = useSession("customer");
+  const [theme, toggleTheme] = useTheme();
 
   return (
     <div className="app">
@@ -44,10 +38,9 @@ export function App() {
         theme={theme}
         onTheme={toggleTheme}
       />
-      <Switchboard onError={setSwitchError} />
 
       {session.error && (
-        <div style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}>
+        <div className="banner error">
           {session.error}
           {/* Same client_turn_id: if the first attempt did reach the backend,
               the stored reply comes back instead of a second model call. */}
@@ -58,26 +51,14 @@ export function App() {
           )}
         </div>
       )}
-      {switchError && (
-        <div style={{ padding: "8px 14px", color: "var(--critical)", fontSize: 12 }}>
-          {switchError}
-        </div>
-      )}
 
-      <div className="panels">
+      <div className="panels single">
         <ChatPanel
           messages={session.messages}
           busy={session.busy}
           activity={session.activity}
           disabled={session.sessionId === null}
           onSend={session.send}
-        />
-        <SystemTracePanel events={session.events} />
-        <MetricsPanel
-          replies={session.replies}
-          events={session.events}
-          domains={session.domains}
-          perimeter={session.perimeter}
         />
       </div>
     </div>

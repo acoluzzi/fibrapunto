@@ -13,11 +13,13 @@ interface Props {
   activity: string | null
   disabled: boolean
   onSend: (text: string) => void
+  /** The developer console reads along and never writes: no composer. */
+  readOnly?: boolean
 }
 
 /** The customer's view. Deliberately plain: this panel is what the agent
  *  looks like, and the panel next to it is what the agent *is*. */
-export function ChatPanel({ messages, busy, activity, disabled, onSend }: Props) {
+export function ChatPanel({ messages, busy, activity, disabled, onSend, readOnly = false }: Props) {
   const [draft, setDraft] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
 
@@ -42,7 +44,7 @@ export function ChatPanel({ messages, busy, activity, disabled, onSend }: Props)
     <section className="panel">
       <div className="panel-head">
         <h2>Conversation</h2>
-        <span className="hint">what the customer sees</span>
+        <span className="hint">{readOnly ? 'what the customer sees — read only' : 'what the customer sees'}</span>
       </div>
 
       <div className="panel-body">
@@ -69,6 +71,7 @@ export function ChatPanel({ messages, busy, activity, disabled, onSend }: Props)
         <div ref={endRef} />
       </div>
 
+      {!readOnly && (
       <form className="composer" onSubmit={submit}>
         <input
           value={draft}
@@ -85,6 +88,7 @@ export function ChatPanel({ messages, busy, activity, disabled, onSend }: Props)
           Send
         </button>
       </form>
+      )}
     </section>
   )
 }

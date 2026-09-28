@@ -33,14 +33,21 @@ are the ones to keep when time is short.
 make demo          # up + reset, prints the URLs
 ```
 
-- chat + trace + metrics → <http://localhost:5173>
+- the customer's chat → <http://localhost:5173>
+- the developer console (trace, live switches, session metrics) → <http://localhost:5173/console>
 - the operator's queue → <http://localhost:5173/operator>
+- the analyst's view (metrics run over run, campaigns, the offers budget) → <http://localhost:5173/analyst>
 - the billing system → <http://localhost:8081/docs>
+
+The chat page shows the customer nothing but the conversation. Everything that
+explains it — the trace panel, the metrics panel, the live switches — is in the
+developer console, which the chat's **Developer console** button opens in a
+second tab. Put the chat on one side of the screen and the console on the other.
 
 Every port is bound to `127.0.0.1`: nothing is reachable from the venue
 network, only from this laptop.
 
-**The live switches** (the row under the top bar) decide, at any moment, whether
+**The live switches** (the row under the console's top bar) decide, at any moment, whether
 each module the agent depends on is there: the billing system (up, slow, not
 responding, rejects our credential, returns invalid data), the CRM, the
 colleagues who take transfers, the model provider, the credential store and the
@@ -48,9 +55,10 @@ trace store. A switch applies at once, to every conversation, and stays until
 moved back. The customer just keeps typing. Check they are all healthy (none
 red) before starting.
 
-**Sign in to /operator before going on stage.** It opens on a sign-in form;
-the password is `OPERATOR_PASSWORD` from `.env`, and the session lasts eight
-hours. Without a password set, the form says operator access is disabled and
+**Sign in to /console, /operator and /analyst before going on stage.** Each
+opens on a sign-in form; the passwords are `DEVELOPER_PASSWORD`,
+`OPERATOR_PASSWORD` and `ANALYST_PASSWORD` from `.env`, and each session lasts
+eight hours. Without a password set, the form says that access is disabled and
 the view refuses every request, by design.
 
 Have a second terminal open at the repo root. Two beats run there.

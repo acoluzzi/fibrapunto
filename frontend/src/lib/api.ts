@@ -1,10 +1,13 @@
 import type {
   AgentReply,
+  AnalystOverview,
   BillingState,
+  Campaign,
   Domain,
   EvalRun,
   Faults,
   OfferBudget,
+  Role,
   SessionSummary,
   StoredSession,
 } from "./types";
@@ -84,16 +87,16 @@ export const api = {
       method: "POST",
     }),
 
-  // The session cookie is HttpOnly: the page never sees it, it only asks the
-  // server whether it is signed in.
-  operatorSession: () => req<{ operator: boolean }>("/api/operator/session"),
-  operatorLogin: (password: string) =>
-    req<void>("/api/operator/login", {
+  // One gate per role (api/auth.py). The session cookie is HttpOnly: the page
+  // never sees it, it only asks the server whether it is signed in.
+  roleSession: (role: Role) => req<Record<string, boolean>>(`/api/${role}/session`),
+  roleLogin: (role: Role, password: string) =>
+    req<void>(`/api/${role}/login`, {
       method: "POST",
       headers: json,
       body: JSON.stringify({ password }),
     }),
-  operatorLogout: () => req<void>("/api/operator/logout", { method: "POST" }),
+  roleLogout: (role: Role) => req<void>(`/api/${role}/logout`, { method: "POST" }),
 
   operatorQueues: () => req<any[]>("/api/operator/queues"),
   operatorRecords: () => req<any[]>("/api/operator/records"),
@@ -135,6 +138,20 @@ export const api = {
     }),
 
   offerBudget: () => req<OfferBudget>("/recommendations/budget"),
+  // The catalogue with its tally: the operator prices an accepted offer from
+  // it when the record predates cost_eur travelling with the case.
+  campaigns: () => req<Campaign[]>("/recommendations/campaigns"),
+
+  // The analyst's surface: aggregates, and the one write — the budget.
+  analystOverview: () => req<AnalystOverview>("/api/analyst/overview"),
+  analystBudget: () => req<OfferBudget>("/api/analyst/budget"),
+  analystCampaigns: () => req<Campaign[]>("/api/analyst/campaigns"),
+  setOfferBudget: (totalEur: string) =>
+    req<OfferBudget>("/api/analyst/budget", {
+      method: "PUT",
+      headers: json,
+      body: JSON.stringify({ total_eur: totalEur }),
+    }),
   recommendationsState: () => req<{ mode: "up" | "down" }>("/recommendations/_control/mode"),
   setRecommendationsState: (mode: "up" | "down") =>
     req<{ mode: string }>("/recommendations/_control/mode", {

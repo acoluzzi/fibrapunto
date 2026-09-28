@@ -83,6 +83,9 @@ def build_context(state: ConversationState, trigger: str) -> dict[str, Any]:
             "offer_id": collected.offer.offer_id,
             "title": collected.offer.title,
             "status": collected.offer_status,
+            # What it holds against the offers budget, so the colleague
+            # deciding it sees the amount without asking the system.
+            "cost_eur": str(collected.offer.cost_eur),
         }
 
     if collected.sensitive_data_seen:

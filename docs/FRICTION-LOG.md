@@ -126,7 +126,7 @@ each:
 
 | Role | Budget | Why |
 | --- | --- | --- |
-| agent | 1024 | a customer reply, possibly with a tool call |
+| agent | 2048 | a customer reply, possibly with a tool call; 1024 was once cut short mid-handover and the round came back blank |
 | router | 256 | a small JSON object: domain, confidence, sentiment |
 | judge | 1024 | the §14.2 schema, including a rationale |
 | persona | 512 | one customer turn |

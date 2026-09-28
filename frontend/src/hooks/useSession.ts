@@ -33,7 +33,13 @@ interface FailedTurn {
   text: string;
 }
 
-export function useSession() {
+/** Who is looking. The customer's page opens their latest conversation or
+ *  starts one; the developer console only watches — it lists the same
+ *  browser's conversations (same cookie) and never starts one, and it keeps
+ *  the list fresh so a conversation begun in the chat tab appears here. */
+export type SessionMode = "customer" | "observer";
+
+export function useSession(mode: SessionMode = "customer") {
   const [summaries, setSummaries] = useState<SessionSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -111,23 +117,32 @@ export function useSession() {
   }, [refreshList, show]);
 
   /* On load: identify this browser, reopen its latest conversation, or start
-   * one. The ref stops React's development double-mount doing it twice, and
-   * the operator view — same app shell — is not a conversation. */
+   * one (an observer never starts one). The ref stops React's development
+   * double-mount doing it twice. */
   const opened = useRef(false);
   useEffect(() => {
-    if (opened.current || window.location.pathname.startsWith("/operator")) return;
+    if (opened.current) return;
     opened.current = true;
     (async () => {
       try {
         await api.customerAccess();
         const items = await refreshList();
         if (items.length > 0) await show(items[0].conversation_id);
-        else await start();
+        else if (mode === "customer") await start();
       } catch (cause) {
         setError(String(cause));
       }
     })();
-  }, [refreshList, show, start]);
+  }, [mode, refreshList, show, start]);
+
+  /* An observer's list follows the chat tab: a conversation started there
+   * shows up here without a reload. Not for the customer, whose own actions
+   * are the only thing that changes their list. */
+  useEffect(() => {
+    if (mode !== "observer") return;
+    const timer = window.setInterval(() => void refreshList().catch(() => undefined), 5000);
+    return () => window.clearInterval(timer);
+  }, [mode, refreshList]);
 
   const submit = useCallback(
     async (turn: FailedTurn, echo: boolean) => {

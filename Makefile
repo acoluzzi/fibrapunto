@@ -32,7 +32,10 @@ up: ## Start every service
 .PHONY: demo
 demo: up reset ## Start everything and print where to look
 	@echo
-	@echo "  chat + trace + metrics   http://localhost:5173"
+	@echo "  customer chat            http://localhost:5173"
+	@echo "  developer console        http://localhost:5173/console   (DEVELOPER_PASSWORD)"
+	@echo "  operator's queue         http://localhost:5173/operator  (OPERATOR_PASSWORD)"
+	@echo "  analyst view             http://localhost:5173/analyst   (ANALYST_PASSWORD)"
 	@echo "  agent API                http://localhost:8000/docs"
 	@echo "  billing system (legacy)  http://localhost:8081/docs"
 	@echo "  recommendation system    http://localhost:8082/docs"
