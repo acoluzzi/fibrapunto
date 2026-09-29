@@ -80,7 +80,7 @@ contracts:
     status: active
 
   # The worked example of §4.1: September direct debit rejected for insufficient
-  # funds, retry on the 19th, service still active.
+  # funds, retry on the 19th of the next cycle, service still active.
   - contract_number: FP-2023-048812
     customer: bianchi
     modem_serial: FP-MDM-0048812
@@ -98,8 +98,8 @@ contracts:
     modem_serial: FP-MDM-0092003
     plan_name: Fibra Start
     monthly_fee_eur: 19.90
-    activation_date: 2024-05-10
-    lock_in_until: 2026-05-10           # still running
+    activation_date: 2025-05-10
+    lock_in_until: 2027-05-10           # still running (24 months)
     service_address: Via Roma 3, Chieri
     status: active
 

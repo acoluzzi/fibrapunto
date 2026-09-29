@@ -100,7 +100,8 @@ def evidence_block(replies: list[dict], as_of: date) -> str:
     )
     lines = [
         f"The conversation takes place on {as_of.day} {as_of.strftime('%B %Y')} "
-        f"({as_of.isoformat()}). Dates in {as_of.year} are current, not future or invented."
+        f"({as_of.isoformat()}). Dates in {as_of.year} are current, not future or invented; "
+        f"a lock-in end or retry date in {as_of.year + 1} is a lookup result, not fiction."
     ]
     if facts:
         lines.append(

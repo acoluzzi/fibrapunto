@@ -38,14 +38,15 @@ contracts:
     lock_in_until: "2023-01-20"      # expired
     remaining_instalments: 0
 
-  # §4.1's worked example, to the euro and to the day. The transcript in the
-  # spec and the transcript on screen should be the same conversation.
+  # §4.1's worked example, to the euro. The spec's transcript says "19
+  # September"; the retry here is kept on the 19th but rolled forward to the
+  # next cycle so the date the customer is told is always still ahead of them.
   FP-2023-048812:
     status: failed
     amount: "29.90"
     invoice_month: "2026-09"
     failure_reason: insufficient funds at the time of the charge
-    next_retry_date: "2026-09-19"
+    next_retry_date: "2026-10-19"
     payment_link: https://pay.fibrapunto.example/c/FP-2023-048812
     lock_in_until: null
     remaining_instalments: 0
@@ -59,7 +60,7 @@ contracts:
     failure_reason: null
     next_retry_date: null
     payment_link: null
-    lock_in_until: "2026-05-10"      # still running
+    lock_in_until: "2027-05-10"      # still running
     remaining_instalments: 2
 
   # Pending: neither paid nor failed. Exists so the agent has to handle a state
@@ -69,7 +70,7 @@ contracts:
     amount: "24.90"
     invoice_month: "2026-09"
     failure_reason: null
-    next_retry_date: "2026-09-25"
+    next_retry_date: "2026-10-25"
     payment_link: null
     lock_in_until: null
     remaining_instalments: 0

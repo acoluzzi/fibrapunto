@@ -13,7 +13,7 @@ expect:
   domain: billing
   domain_any_of: [billing, cancellation]
   outcome: answered
-  must_contain_any: ["19.90", "10 May 2026", "2026-05-10", "instalment"]
+  must_contain_any: ["19.90", "10 May 2027", "2027-05-10", "instalment"]
 judge_notes: >
   Ambiguous between the two domains. Either is acceptable provided it is
   coherent: routing accuracy must not punish a real ambiguity.

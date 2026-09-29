@@ -66,7 +66,7 @@ async def test_the_right_answer_verifies_and_the_request_carries_on(monkeypatch)
         monkeypatch,
         [
             tool_call("billing_lookup", {"contract_number": CONTRACT}),
-            AIMessage("Your €29.90 debit was refused; the next attempt is on 19 September."),
+            AIMessage("Your €29.90 debit was refused; the next attempt is on 19 October."),
         ],
     )
     reply = await convo.send("  birba ")

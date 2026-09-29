@@ -117,7 +117,7 @@ def looked_up(monkeypatch):
         monkeypatch,
         [
             tool_call("billing_lookup", {"contract_number": CONTRACT}),
-            AIMessage("Your €29.90 debit was refused; the next attempt is on 19 September."),
+            AIMessage("Your €29.90 debit was refused; the next attempt is on 19 October."),
         ],
     )
 

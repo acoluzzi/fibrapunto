@@ -56,7 +56,7 @@ def state_for(domain: DomainKey, contract: str | None = LINKED) -> ConversationS
     state = ConversationState(current_domain=domain)
     state.collected.contract_number = contract
     state.collected.stated_reason = "I have moved house"
-    state.collected.told_to_customer = ["The lock-in ends on 10 May 2026 and 2 instalments remain."]
+    state.collected.told_to_customer = ["The lock-in ends on 10 May 2027 and 2 instalments remain."]
     state.collected.billing = BillingFacts(status="paid", amount=None, remaining_instalments=2)
     return state
 
@@ -148,7 +148,7 @@ async def test_what_the_customer_was_told_is_carried(gateway, clean_db):
         await clean_db.fetchval("SELECT collected_context FROM crm.handover_record")
     )
     assert context["what_customer_was_told"]
-    assert "10 May 2026" in context["what_customer_was_told"][0]
+    assert "10 May 2027" in context["what_customer_was_told"][0]
 
 
 # --- §13: the contract that cannot be linked ---------------------------------
