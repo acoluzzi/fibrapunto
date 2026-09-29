@@ -1,6 +1,6 @@
 # The CRM side of the test data (§6.2).
 #
-# Seven contracts across three customers, one customer holding three, three plans,
+# Eight contracts across four customers, one customer holding three, three plans,
 # and a mix of expired, active and absent lock-in periods. The set is small on
 # purpose: every record is here to exercise a specific behaviour, and there is
 # nothing here that does not earn its place.
@@ -19,27 +19,44 @@ customers:
   # and tests.
   - key: rossi
     full_name: Giulia Rossi
-    email: giulia.rossi@example.it      # the agent has no grant on this column
-    phone: "+39 340 1122334"            # nor this one (§8, §9)
+    email: giulia.rossi@example.it # the agent has no grant on this column
+    phone: '+39 340 1122334' # nor this one (§8, §9)
     security:
-      first_pet: { question: "What was the name of your first pet?", answer: "Birba" }
-      partner_name: { question: "What is your partner's name?", answer: "Luca" }
+      first_pet:
+        { question: 'What was the name of your first pet?', answer: 'Birba' }
+      partner_name: { question: "What is your partner's name?", answer: 'Luca' }
 
   - key: bianchi
     full_name: Marco Bianchi
     email: m.bianchi@example.it
-    phone: "+39 333 9988776"
+    phone: '+39 333 9988776'
     security:
-      birth_city: { question: "In which city were you born?", answer: "Torino" }
-      first_pet: { question: "What was the name of your first pet?", answer: "Fido" }
+      birth_city: { question: 'In which city were you born?', answer: 'Torino' }
+      first_pet:
+        { question: 'What was the name of your first pet?', answer: 'Fido' }
 
   - key: esposito
     full_name: Anna Esposito
     email: anna.esposito@example.it
-    phone: "+39 348 4455667"
+    phone: '+39 348 4455667'
     security:
-      first_pet: { question: "What was the name of your first pet?", answer: "Micio" }
-      partner_name: { question: "What is your partner's name?", answer: "Gennaro" }
+      first_pet:
+        { question: 'What was the name of your first pet?', answer: 'Micio' }
+      partner_name:
+        { question: "What is your partner's name?", answer: 'Gennaro' }
+
+  # The demo's third card runs on this customer alone: billing down, an IBAN
+  # pasted, the email asked for, a person requested. Nothing here is shared
+  # with §4.1's worked example, so the cases it opens never reuse one of
+  # Bianchi's, and the security answer differs from every other customer's.
+  - key: greco
+    full_name: Paolo Greco
+    email: paolo.greco@example.it
+    phone: '+39 320 5566778'
+    security:
+      birth_city: { question: 'In which city were you born?', answer: 'Bari' }
+      first_pet:
+        { question: 'What was the name of your first pet?', answer: 'Nerone' }
 
 contracts:
   # Two contracts, one customer, same surname — this is where the
@@ -51,7 +68,7 @@ contracts:
     plan_name: Fibra 1000
     monthly_fee_eur: 29.90
     activation_date: 2021-03-14
-    lock_in_until: 2023-03-14           # expired
+    lock_in_until: 2023-03-14 # expired
     service_address: Via Garibaldi 12, Bologna
     status: active
 
@@ -61,8 +78,8 @@ contracts:
     plan_name: Fibra 300
     monthly_fee_eur: 24.90
     activation_date: 2021-01-20
-    lock_in_until: 2023-01-20           # expired
-    service_address: Via del Mare 8, Rimini      # the second home
+    lock_in_until: 2023-01-20 # expired
+    service_address: Via del Mare 8, Rimini # the second home
     status: active
 
   # Billing holds this number TWICE — a record duplicated when the customer
@@ -87,7 +104,7 @@ contracts:
     plan_name: Fibra 1000
     monthly_fee_eur: 29.90
     activation_date: 2023-02-01
-    lock_in_until: null                 # no lock-in
+    lock_in_until: null # no lock-in
     service_address: Corso Vittorio Emanuele 44, Torino
     status: active
 
@@ -99,7 +116,7 @@ contracts:
     plan_name: Fibra Start
     monthly_fee_eur: 19.90
     activation_date: 2025-05-10
-    lock_in_until: 2027-05-10           # still running (24 months)
+    lock_in_until: 2027-05-10 # still running (24 months)
     service_address: Via Roma 3, Chieri
     status: active
 
@@ -124,4 +141,17 @@ contracts:
     activation_date: 2020-11-30
     lock_in_until: null
     service_address: Via Partenope 5, Napoli
+    status: active
+
+  # Paid, no lock-in, nothing owed: the demo's third card needs a contract
+  # whose only interesting thing is what happens *around* it (an outage, an
+  # IBAN, a boundary), not the bill itself. Present in billing.
+  - contract_number: FP-2022-027601
+    customer: greco
+    modem_serial: FP-MDM-0027601
+    plan_name: Fibra 1000
+    monthly_fee_eur: 29.90
+    activation_date: 2022-04-11
+    lock_in_until: null
+    service_address: Via Sparano 88, Bari
     status: active

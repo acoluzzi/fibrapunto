@@ -10,3 +10,4 @@ customers:
   FP-2024-092003: { plan: "Fibra Start", monthly_fee_eur: "19.90" }
   FP-2022-031455: { plan: "Fibra 300",  monthly_fee_eur: "24.90" }
   FP-2020-004199: { plan: "Fibra Start", monthly_fee_eur: "19.90" }
+  FP-2022-027601: { plan: "Fibra 1000", monthly_fee_eur: "29.90" }

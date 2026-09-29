@@ -449,3 +449,33 @@ def test_would_you_like_that_is_a_dangling_offer_question_too():
     text = engine.offer(reply, TriggerKind.format_invalid_after_reask)
     assert "Would you like that?" not in text
     assert text.count("Would you like me to open a case?") == 1
+
+
+def test_the_closing_drops_the_models_offer_of_the_case_just_opened():
+    """Seen on stage: the customer pasted an IBAN and asked to move the direct
+    debit to it. The categorical trigger opened the case this turn; the model,
+    not knowing, still offered one. The customer read "Would that help? I've
+    opened case no. 00001044" — a question and its answer in one breath."""
+    from fibrapunto.capabilities.outcomes import HandoverCreated
+
+    result = HandoverCreated(
+        reference="00001044", queue_label="billing operations", response_window="two working days"
+    )
+    reply = (
+        "Please don't share account numbers like that in chat. I also can't change "
+        "payment methods myself. To update your direct debit details safely, please "
+        "use our secure payment page. If you'd like, I can also open a case so a "
+        "colleague follows up on changing your payment method on file. Would that help?"
+    )
+    text = engine.close(reply, result, state())
+    assert "Would that help?" not in text
+    assert "I can also open a case" not in text
+    assert "Please don't share account numbers" in text
+    assert text.count("00001044") == 1
+
+
+def test_would_that_help_is_a_dangling_offer_question():
+    reply = "I can pass this to a colleague. Would that help?"
+    text = engine.offer(reply, TriggerKind.no_progress)
+    assert "Would that help?" not in text
+    assert text.count("Would you like me to open a case?") == 1

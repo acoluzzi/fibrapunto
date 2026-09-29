@@ -184,6 +184,16 @@ def close(
     """
     closing = closing_message(result, state)
     body = without_commitments(reply, result)
+    # The model may still be *offering* the case the code has just opened —
+    # "I can open a case so a colleague follows up. Would that help?" — because
+    # it does not know the categorical trigger acted this turn. An offer of
+    # what has already happened, and its question, read as the agent not
+    # waiting for an answer. Dropped, as read_back() and offer() drop them.
+    body = " ".join(
+        s
+        for s in _SENTENCE.split(body)
+        if s and not _OFFER_SENTENCE.search(s) and not _OFFER_QUESTION.search(s)
+    )
     return f"{body} {closing}" if body else closing
 
 
@@ -257,7 +267,10 @@ _OFFER_SENTENCE = re.compile(
 # is redundant by construction.
 _OFFER_QUESTION = re.compile(
     r"^\W*(?:would|do|shall|should|can|could)\s+"
-    r"(?:you\s+(?:like|want)\s+(?:(?:me|us)\s+to|that|this|one)|I)\b.*\?\s*$",
+    r"(?:you\s+(?:like|want)\s+(?:(?:me|us)\s+to|that|this|one)|I"
+    # "Would that help?", "Would this work for you?" — the same dangling
+    # question with the offer as its subject rather than the customer.
+    r"|(?:that|this)\s+(?:help|work|suit|be\s+(?:ok|okay|useful|helpful)))\b.*\?\s*$",
     re.IGNORECASE,
 )
 
