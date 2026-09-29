@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+import yaml
 
 
 def dataset_sha(paths: list[Path]) -> str:
@@ -103,7 +104,7 @@ def payload_for(run_dir: Path) -> dict[str, Any]:
         started_at = datetime.strptime(started, "%Y-%m-%dT%H-%M-%SZ").replace(tzinfo=UTC)
     except ValueError:
         started_at = None
-    return {
+    payload = {
         "run_id": meta.get("run_id") or run_dir.name,
         "git_sha": meta.get("git_sha"),
         "agent_model": meta.get("agent_model") or "unknown",
@@ -124,6 +125,30 @@ def payload_for(run_dir: Path) -> dict[str, Any]:
             for m in metrics
         ],
     }
+    _apply_review(run_dir, payload["metrics"])
+    return payload
+
+
+def _apply_review(run_dir: Path, metrics: list[dict[str, Any]]) -> None:
+    """Fill the one row §1 assigns to a person, once the person has done it.
+
+    metrics.py leaves escalation precision empty on purpose: it is "manual
+    review of a sample". The reviewer's verdicts live in the run's
+    reviewed.yaml (see report.py's render_review_sample). When that file
+    exists, its precision is the row's value; until then the dashboard
+    shows the row as not measured, which is the truth.
+    """
+    try:
+        review = yaml.safe_load((run_dir / "reviewed.yaml").read_text(encoding="utf-8"))
+    except OSError:
+        return
+    if not isinstance(review, dict) or review.get("precision") is None:
+        return
+    precision = float(review["precision"])
+    for row in metrics:
+        if row["name"] == "Escalation precision":
+            row["value"] = precision
+            row["passed"] = precision >= 0.90
 
 
 async def publish(base_url: str, run_dir: Path) -> str | None:

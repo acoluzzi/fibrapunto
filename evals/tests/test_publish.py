@@ -92,3 +92,33 @@ def test_dataset_sha_depends_on_content_and_names_not_on_order(tmp_path):
 
     b.write_text("id: '002'\ntitle: edited\n", encoding="utf-8")
     assert publish.dataset_sha([a, b]) != sha
+
+
+def test_a_reviewed_run_publishes_its_escalation_precision(tmp_path):
+    """§1's escalation precision is a person's verdict, not the harness's.
+    metrics.json leaves it empty; reviewed.yaml, once written, fills it."""
+    run_dir = _write_run(
+        tmp_path,
+        "2026-09-25T15-57-02Z-f1794c5",
+        {"run_id": "2026-09-25T15-57-02Z-f1794c5", "agent_model": "anthropic/claude-sonnet-5"},
+        METRICS,
+    )
+    (run_dir / "reviewed.yaml").write_text(
+        "sample_size: 10\nwarranted: 10\nprecision: 1.0\ncases: []\n", encoding="utf-8"
+    )
+    rows = {m["name"]: m for m in publish.payload_for(run_dir)["metrics"]}
+    assert rows["Escalation precision"]["value"] == 1.0
+    assert rows["Escalation precision"]["passed"] is True
+    # The other rows are untouched.
+    assert rows["Autonomous resolution"] == METRICS[0]
+
+
+def test_an_unreviewed_run_leaves_escalation_precision_empty(tmp_path):
+    run_dir = _write_run(
+        tmp_path,
+        "2026-09-25T16-19-30Z-a6a8e3a",
+        {"run_id": "2026-09-25T16-19-30Z-a6a8e3a", "agent_model": "anthropic/claude-sonnet-5"},
+        METRICS,
+    )
+    rows = {m["name"]: m for m in publish.payload_for(run_dir)["metrics"]}
+    assert rows["Escalation precision"] == METRICS[2]
