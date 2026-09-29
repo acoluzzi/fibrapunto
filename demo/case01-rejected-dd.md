@@ -1,0 +1,5 @@
+- Good morning, I got a text saying my payment was refused. What’s going on?
+- FP-2023-048812
+- Torino
+- €29.90 is not right, my plan is €24.90. I want the difference refunded.
+- Yes, that's correct

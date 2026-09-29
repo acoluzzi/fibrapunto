@@ -1,0 +1,5 @@
+- I would like to cancel my contract.
+- FP-2022-031455
+- Micio
+- I found a more convenient offer somewhere else.
+- Yes, I would like to accept the offer.
