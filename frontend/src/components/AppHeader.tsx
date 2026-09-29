@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
 import { Mark } from "./Brand";
+import { PersonasButton } from "./PersonaCard";
 import { ThemeButton } from "./ThemeButton";
 import { useTheme } from "../hooks/useTheme";
+import { PERSONAS, type View } from "../lib/personas";
 
-export type View = "customer" | "console" | "operator" | "analyst";
+export type { View };
 
 const VIEWS: { key: View; href: string; label: string; external?: boolean }[] = [
   { key: "customer", href: "/", label: "Conversation" },
@@ -12,10 +14,15 @@ const VIEWS: { key: View; href: string; label: string; external?: boolean }[] = 
   { key: "analyst", href: "/analyst", label: "Analyst" },
 ];
 
-/** One header for the four views: the brand, the role, what sits in the
- *  middle (a conversation selector, filters), the view switcher and the
- *  theme. The console opens in its own tab, so on stage the conversation and
- *  its trace can sit side by side; each gated view asks for its own password. */
+/** One header for the four views: the brand, who the view is for, what sits
+ *  in the middle (a conversation selector, filters), the view switcher and
+ *  the theme. The console opens in its own tab, so on stage the conversation
+ *  and its trace can sit side by side; each gated view asks for its own
+ *  password.
+ *
+ *  On the gated views the badge names the persona rather than the permission
+ *  ("Marta · retention & billing operations", not "operator"), and "Who it's
+ *  for" opens all four. The customer's page stays plain: no badge, no panel. */
 export function AppHeader({
   view,
   role,
@@ -28,12 +35,18 @@ export function AppHeader({
   onLogout?: () => void;
 }) {
   const [theme, toggleTheme] = useTheme();
+  const persona = PERSONAS[view];
+  const gated = view !== "customer";
   return (
     <header className="topbar">
       <a className="brand" href="/">
         <Mark />
         <span className="name">Fibrapunto</span>
-        {role && <span className="role">{role}</span>}
+        {gated && (
+          <span className="role" title={role ?? persona.role}>
+            {persona.name} · {persona.role}
+          </span>
+        )}
       </a>
       <div className="center">{children}</div>
       <div className="right">
@@ -44,6 +57,7 @@ export function AppHeader({
               href={v.href}
               className={v.key === view ? "current" : undefined}
               aria-current={v.key === view ? "page" : undefined}
+              title={`${PERSONAS[v.key].name}, ${PERSONAS[v.key].role}`}
               target={v.external && v.key !== view ? "_blank" : undefined}
               rel={v.external ? "noopener" : undefined}
             >
@@ -52,6 +66,7 @@ export function AppHeader({
             </a>
           ))}
         </nav>
+        {gated && <PersonasButton view={view} />}
         {onLogout && (
           <button className="ghost small" onClick={onLogout}>
             Sign out

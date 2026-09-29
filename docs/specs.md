@@ -76,6 +76,26 @@ take months to move and this has ten days.
 The last row is not decoration. A deployed agent that nobody at the customer can safely modify
 is a liability, and the hand-back to the administrator is part of the deliverable.
 
+### 2.1 Personas
+
+The table above says who is responsible for what. It does not say who is on the other side of
+each screen, in what situation, or what they must manage in the first thirty seconds. That is
+what decides how a page is laid out, so it is written down here, and each persona ends with the
+design decision it explains. The same four descriptions are shown in the product, on each
+view's sign-in and behind "Who it's for" in the header, so the pages and this document cannot
+drift apart.
+
+| | Marco, residential customer | Marta, retention & billing operations | Davide, service analyst | Sara, runs the platform |
+| --- | --- | --- | --- | --- |
+| **Situation** | Nine in the evening, on his phone, pasting the SMS that says his September direct debit was refused. He may be twenty or seventy and he types with typos. | Twenty to seven. A case just landed in her queue: a customer with an active lock-in wants to cancel, and expects a call back. | Monday morning, after an evaluation run and a week of campaigns. Someone will ask him whether the numbers moved, and why. | Eleven in the morning, something failed and nobody knows whether it was billing, the credential or the model. She owns the service identity, its grants and the queues. |
+| **First job** | Know what happened and what to do next, or know that someone will call him. One conversation, one outcome. | Pick up the phone without reconstructing the conversation: what the customer said in their own words, what the agent already told them, what an offer would leave in the budget. | Read the success metrics run over run, see what each campaign did, and set the one number he owns: the budget that decides what the agent may give away. | See which step failed and with what typed outcome, break each module on command and watch the real failure path, before anyone touches a permission. |
+| **Never shown** | A billing figure the system did not read. An answer about somebody else's contract. A promise the company will not keep. | A transcript to dig through before she can act. She does see the contact details, which the agent is not allowed to read. | A single conversation. The numbers, never a transcript. | An opaque error. A switch that failed silently and looks like one that worked. |
+| **So** | The agent asks for the contract number before discussing anything, and when billing is down it says what it cannot see instead of guessing. §1, §4.1, §15 | Queue on the left, one case on the right, summary and actions pinned at the top. The three fields most often omitted from a handover get their own cards. §8, §12.2, §12.3 | One editable value, one line chart for the one series that is a real progression, everything else polled so a run finishing in a terminal shows up without a reload. §1, §14 | Every dependency has a live switch and the trace names the step. An authorization error is never resolved by widening a grant until the missing one is identified. §7, §8.1, §15, §17.10 |
+
+Two actors from the table have no persona: the billing system, because it is a system, and the
+engineer, because that persona is the author of this document. Billing operations and retention
+share one persona because they share one screen: two queues, one way of working a case.
+
 ---
 
 ## 3. Scope

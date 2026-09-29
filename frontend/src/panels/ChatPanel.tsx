@@ -35,10 +35,11 @@ const SUGGESTIONS = [
   "I want to cancel my contract",
 ];
 
-/** Colleague decisions and status changes are posted into the conversation
- *  from templates (escalation/engine.py), never by the model. They all open
- *  with the same words, which is how the chat tells a notice from a reply. */
-const NOTICE = /^An update on case no\. /;
+/** Colleague decisions, status changes and a colleague's own message are
+ *  posted into the conversation from templates (escalation/engine.py), never
+ *  by the model. They open with the same words, which is how the chat tells a
+ *  notice from a reply. */
+const NOTICE = /^(An update on case no\. |A colleague on case no\. )/;
 
 export function ChatPanel({
   messages,

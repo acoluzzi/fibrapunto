@@ -219,6 +219,26 @@ class SessionStore:
         )
         return [json.loads(r["response_json"]) for r in rows]
 
+    async def peek(self, conversation_id: UUID) -> tuple[int, dict[str, Any]] | None:
+        """The stored checkpoint, read without the lease: (schema version,
+        state payload), or None when the conversation no longer exists.
+
+        For a reader that only wants to know where the conversation stands
+        — the operator view, saying whether the customer is still there. A
+        lease would refuse it while the customer is mid-turn, which is
+        exactly when the operator is looking."""
+        row = await self._pool.fetchrow(
+            """
+            SELECT state_schema_version, state_json
+              FROM platform.conversation_checkpoint
+             WHERE conversation_id = $1
+            """,
+            conversation_id,
+        )
+        if row is None:
+            return None
+        return row["state_schema_version"], json.loads(row["state_json"])
+
     # --- the turn lifecycle ---------------------------------------------------
 
     async def acquire(self, conversation_id: UUID) -> Lease:

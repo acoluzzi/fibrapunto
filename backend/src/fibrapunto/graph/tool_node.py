@@ -189,6 +189,34 @@ class ToolDispatcher:
                     )
 
             case "transfer_to_human":
+                # The case first, so the colleague has everything (§12.2) and
+                # the operator view shows the customer at all. The turn loop
+                # already does this for a request the router flagged; the
+                # model calling the tool on its own judgement went straight
+                # to the transfer, and a customer put through with no case
+                # is invisible to the people meant to take them.
+                if state.collected.handover_reference is None:
+                    opened = await self.open_escalation_case(
+                        state, triggers.TriggerKind.human_requested.value
+                    )
+                    if isinstance(opened, HandoverFailed):
+                        # No case, no transfer. What is missing goes back to
+                        # the model to collect; a real failure is stated
+                        # (§12.4), not papered over with "someone is coming".
+                        if opened.missing_fields:
+                            self.last_handover = None
+                            opened = opened.model_copy(
+                                update={
+                                    "guidance": (
+                                        "The customer was NOT transferred: a colleague "
+                                        "needs a case first, and it could not be opened "
+                                        "because these details are missing: "
+                                        f"{', '.join(opened.missing_fields)}. Ask for "
+                                        "them, then transfer again."
+                                    )
+                                }
+                            )
+                        return opened.model_dump(mode="json")
                 result = await self.transfer(state)
 
             case _:

@@ -44,6 +44,7 @@ router = APIRouter(
 
 _pool = None
 _notifier: Callable[[UUID, str], Awaitable[bool]] | None = None
+_conversation_reader: Callable[[UUID], Awaitable[dict[str, Any] | None]] | None = None
 
 
 def set_pool(pool: Any) -> None:
@@ -59,6 +60,14 @@ def set_notifier(notify: Callable[[UUID, str], Awaitable[bool]]) -> None:
     without either."""
     global _notifier
     _notifier = notify
+
+
+def set_conversation_reader(reader: Callable[[UUID], Awaitable[dict[str, Any] | None]]) -> None:
+    """Where the customer's conversation stands — still there, transferred,
+    waiting. Owned by app.py because it needs the session store; injected
+    for the same reason as the notifier."""
+    global _conversation_reader
+    _conversation_reader = reader
 
 
 def _require_pool():
@@ -205,11 +214,80 @@ async def record_detail(reference: str) -> dict[str, Any]:
         ],
         "internal_comments": record["internal_comments"],
         "customer_contact": {"email": record["email"], "phone": record["phone"]},
+        # The other way to reach them: the conversation the case came from.
+        # A customer who asked for a person and gave no contract number has
+        # no email or phone on the record — but they are sitting in that
+        # chat, waiting for the colleague they were promised. Without this
+        # the page said "not available" about a customer who was right there.
+        "conversation": await _conversation_state(record["origin_session_id"]),
         "completeness": {"is_complete": record["is_complete"], "missing": missing},
     }
 
 
+async def _conversation_state(cid: UUID | None) -> dict[str, Any]:
+    """Whether the customer can still be reached in their conversation.
+
+    `waiting`: they were put through to a colleague (§5's transfer) and
+    nobody has taken the case yet — the customer was told the wait is a few
+    minutes, and that promise is now the operator's to keep.
+    """
+    absent = {"exists": False, "status": None, "transferred": False, "waiting": False}
+    if cid is None or _conversation_reader is None:
+        return absent
+    found = await _conversation_reader(cid)
+    return found or absent
+
+
 # --- the operator acts on the case -------------------------------------------
+
+
+class ChatMessage(BaseModel):
+    text: str = Field(min_length=1, max_length=2000, description="The colleague's own words.")
+
+
+@router.post("/records/{reference}/message")
+async def message_customer(reference: str, request: ChatMessage) -> dict[str, Any]:
+    """Write to the customer in their conversation, as the colleague on the case.
+
+    The one channel that always exists for a case opened from a chat: the
+    chat. The text is the operator's own — posted under the case number so
+    the customer knows who is speaking — and is kept in the internal notes
+    so the next colleague can see what was said. Not a status change: taking
+    the case is a separate act, with its own template.
+    """
+    pool = _require_pool()
+    row = await pool.fetchrow(
+        """
+        SELECT id, internal_comments, origin_session_id
+          FROM crm.handover_record
+         WHERE reference = $1
+        """,
+        reference,
+    )
+    if row is None:
+        raise HTTPException(404, f"no record with reference {reference}")
+    if _notifier is None:
+        raise HTTPException(503, "the conversation cannot be reached: no session store")
+
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(422, "an empty message says nothing")
+
+    delivered = await _notifier(row["origin_session_id"], engine.colleague_message(reference, text))
+    if not delivered:
+        raise HTTPException(
+            410, "the conversation no longer exists: reach the customer by email or phone"
+        )
+
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
+    line = f"[{stamp}] to the customer, in the chat: {text}"
+    comments = f"{row['internal_comments']}\n{line}" if row["internal_comments"] else line
+    await pool.execute(
+        "UPDATE crm.handover_record SET internal_comments = $2 WHERE id = $1",
+        row["id"],
+        comments,
+    )
+    return {"reference": reference, "delivered": True}
 
 
 class StatusChange(BaseModel):

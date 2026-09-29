@@ -9,6 +9,7 @@ closes it. These tests pin the rules both writers of `status` share.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
@@ -103,3 +104,100 @@ def test_a_status_outside_the_enum_never_reaches_the_database(monkeypatch):
     client.post("/api/operator/login", json={"password": PASSWORD})
     response = client.patch("/api/operator/records/00001042/status", json={"status": "done"})
     assert response.status_code == 422
+
+
+# --- reaching the customer in their conversation -----------------------------
+
+
+class _FakePool:
+    """One record, with the columns the message endpoint reads and writes."""
+
+    def __init__(self, comments: str | None = None) -> None:
+        self.comments = comments
+        self.session = uuid4()
+        self.updates: list[tuple] = []
+
+    async def fetchrow(self, query, reference):
+        if reference != "00001044":
+            return None
+        return {"id": 7, "internal_comments": self.comments, "origin_session_id": self.session}
+
+    async def execute(self, query, *args):
+        self.updates.append(args)
+
+
+def _reaching(monkeypatch, pool: _FakePool, delivered: bool = True) -> tuple[TestClient, list]:
+    client = _client(monkeypatch)
+    client.post("/api/operator/login", json={"password": PASSWORD})
+    operator.set_pool(pool)
+    posted: list[tuple] = []
+
+    async def notifier(cid, text):
+        posted.append((cid, text))
+        return delivered
+
+    operator.set_notifier(notifier)
+    return client, posted
+
+
+GREETING = "Hi, this is Giulia from retention. What's your contract number?"
+
+
+def test_writing_to_the_customer_needs_operator_credentials(monkeypatch):
+    client = _client(monkeypatch)
+    response = client.post("/api/operator/records/00001044/message", json={"text": "hello"})
+    assert response.status_code == 401
+
+
+def test_a_colleague_message_reaches_the_conversation_under_the_case_number(monkeypatch):
+    """The customer asked for a person and gave no contract number: no email,
+    no phone on the record. The chat they are waiting in is the channel."""
+    pool = _FakePool()
+    client, posted = _reaching(monkeypatch, pool)
+
+    response = client.post(
+        "/api/operator/records/00001044/message",
+        json={"text": GREETING},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"reference": "00001044", "delivered": True}
+    assert posted == [
+        (
+            pool.session,
+            "A colleague on case no. 00001044 writes: Hi, this is Giulia from retention. "
+            "What's your contract number?",
+        )
+    ]
+    # Kept for the next colleague, in the notes the assistant cannot read.
+    (update,) = pool.updates
+    assert update[0] == 7
+    assert update[1].endswith(f"to the customer, in the chat: {GREETING}")
+
+
+def test_a_blank_message_is_refused_before_it_reaches_anyone(monkeypatch):
+    client, posted = _reaching(monkeypatch, _FakePool())
+    assert (
+        client.post("/api/operator/records/00001044/message", json={"text": "   "}).status_code
+        == 422
+    )
+    assert (
+        client.post("/api/operator/records/00001044/message", json={"text": ""}).status_code == 422
+    )
+    assert posted == []
+
+
+def test_a_purged_conversation_is_said_to_be_gone_not_silently_dropped(monkeypatch):
+    pool = _FakePool()
+    client, _ = _reaching(monkeypatch, pool, delivered=False)
+    response = client.post("/api/operator/records/00001044/message", json={"text": "hello?"})
+    assert response.status_code == 410
+    assert pool.updates == [], "nothing was said, so nothing is noted"
+
+
+def test_an_unknown_case_is_a_404(monkeypatch):
+    client, _ = _reaching(monkeypatch, _FakePool())
+    assert (
+        client.post("/api/operator/records/00009999/message", json={"text": "hi"}).status_code
+        == 404
+    )

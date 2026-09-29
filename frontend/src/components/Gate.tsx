@@ -1,17 +1,23 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "../lib/api";
+import { PERSONAS, VIEW_OF_ROLE } from "../lib/personas";
 import type { Role } from "../lib/types";
 import { Mark } from "./Brand";
+import { PersonaCard } from "./PersonaCard";
 
 interface Props {
   role: Role;
   title: string;
-  /** Why this view is gated, in one sentence: shown on the sign-in form. */
+  /** Why this view is gated, in one sentence: shown under the persona card. */
   blurb: string;
   children: (session: { logout: () => void; expired: () => void }) => ReactNode;
 }
 
 /** A role's sign-in, in front of its view.
+ *
+ *  The form shows who is about to sign in (lib/personas.ts) before it asks
+ *  for the password: the page was built for a person in a situation, and the
+ *  sign-in is where that is said first.
  *
  *  Nothing of the view renders until the server says this browser is signed
  *  in as this role. The data was always behind the check; the page is too, so
@@ -89,6 +95,7 @@ function Login({
           <span className="name">Fibrapunto</span>
         </div>
         <h1>{title}</h1>
+        <PersonaCard persona={PERSONAS[VIEW_OF_ROLE[role]]} compact />
         <p className="muted">{blurb}</p>
         {unavailable ? (
           <p className="login-error">{unavailable}</p>

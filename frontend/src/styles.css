@@ -332,6 +332,7 @@ button.small { font-size: 12px; padding: 3px 8px; }
   .msg .bubble { max-width: 86%; }
   .topbar { gap: 8px; padding: 0 10px; }
   .topbar .brand .role { display: none; }
+  .personas-panel { position: fixed; left: 16px; right: 16px; top: calc(var(--header-h) + 8px); width: auto; }
 }
 
 /* --- panels (console) --------------------------------------------------------- */
@@ -469,7 +470,7 @@ table.metrics tr.selectable:hover td { background: var(--surface-2); }
 .login { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
 .login .back { align-self: flex-start; position: absolute; top: 16px; left: 16px; font-size: 13px; }
 .login form {
-  width: 100%; max-width: 360px;
+  width: 100%; max-width: 420px;
   background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-1);
   padding: 28px 28px 24px; display: flex; flex-direction: column; gap: 8px;
 }
@@ -482,6 +483,36 @@ table.metrics tr.selectable:hover td { background: var(--surface-2); }
 .login button { font-size: 13px; padding: 8px 10px; margin-top: 6px; }
 .login .muted { font-size: 12px; margin: 0; }
 .login-error { color: var(--critical); font-size: 12px; margin: 4px 0 0; }
+.login .persona { margin: 4px 0 6px; }
+
+/* --- personas: who each view is for ------------------------------------------- */
+
+.persona {
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2);
+  padding: 10px 12px; font-size: 12px; line-height: 1.45;
+}
+.persona.current { border-color: var(--accent); }
+.persona header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.persona-name { font-family: var(--display); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+.persona-role { color: var(--text-secondary); }
+.persona-here {
+  margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 1px 7px; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent);
+}
+.persona-situation { margin: 0 0 8px; color: var(--text-primary); }
+.persona dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 0; }
+.persona dt { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); padding-top: 2px; }
+.persona dd { margin: 0; color: var(--text-secondary); }
+.persona-refs { color: var(--accent); font-family: var(--mono); font-size: 11px; white-space: nowrap; margin-left: 4px; }
+
+.personas { position: relative; }
+.personas-panel {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
+  width: min(520px, calc(100vw - 32px)); max-height: calc(100vh - var(--header-h) - 24px); overflow-y: auto;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px;
+}
+.personas-intro { margin: 0 0 2px; font-size: 12px; color: var(--text-secondary); }
 
 /* --- operator: queue and case, side by side ------------------------------------- */
 

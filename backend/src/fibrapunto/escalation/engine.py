@@ -502,6 +502,17 @@ def case_closed(reference: str) -> str:
     )
 
 
+COLLEAGUE_PREFIX = "A colleague on case no. "
+
+
+def colleague_message(reference: str, text: str) -> str:
+    """A colleague's own words, posted into the customer's conversation from
+    the operator view. Prefixed so the chat shows who is speaking — the
+    customer was told a person was coming, and this is that person — and so
+    the customer can never mistake it for the assistant."""
+    return f"{COLLEAGUE_PREFIX}{reference} writes: {text.strip()}"
+
+
 def case_reopened(reference: str) -> str:
     """Posted when a closed case is reopened by a colleague."""
     return (

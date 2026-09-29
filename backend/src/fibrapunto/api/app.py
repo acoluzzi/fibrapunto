@@ -88,6 +88,7 @@ async def lifespan(app: FastAPI):
     )
     operator.set_pool(_operator_pool)
     operator.set_notifier(_notify_conversation)
+    operator.set_conversation_reader(_conversation_state)
     analyst.set_pool(_operator_pool)
     evals.set_pool(_operator_pool)
     global _sessions_store
@@ -481,6 +482,31 @@ async def decide_offer(reference: str, request: OfferDecision) -> dict[str, Any]
         "email_queued": bool(row["email"]),
         "budget_released": released,
         "budget_settled": settled,
+    }
+
+
+async def _conversation_state(cid: UUID) -> dict[str, Any] | None:
+    """Where the customer's conversation stands, for the operator view. Read
+    without the lease, so it answers while the customer is mid-turn. None
+    when the conversation no longer exists (purged)."""
+    store = _store_required()
+    found = await store.peek(cid)
+    if found is None:
+        return None
+    version, payload = found
+    try:
+        saved = checkpoint.load(version, payload)
+    except UnsupportedCheckpoint:
+        return None
+    status = saved.status.value
+    open_case = saved.facts.handover_reference is not None
+    return {
+        "exists": True,
+        "status": status,
+        "transferred": saved.facts.transferred,
+        # Put through to a colleague, and the conversation still open on
+        # their side: the customer is in the chat, expecting someone.
+        "waiting": saved.facts.transferred and status == "handed_over" and open_case,
     }
 
 

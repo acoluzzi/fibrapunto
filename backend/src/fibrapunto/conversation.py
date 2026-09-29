@@ -393,6 +393,14 @@ class Conversation:
         if reply_text is None and state.human_requested:
             state.human_requested = False  # one attempt; a failure is stated, not retried
             if state.collected.handover_reference is None:
+                # "Without resistance" means nothing is asked first — not even
+                # the reason a cancellation record requires (§13). §12.2's
+                # reason "in their own words" is what they just said. Seen
+                # live: "I want to cancel, get me a person" failed validation
+                # for the missing reason, the model was then free to transfer,
+                # and the customer was told someone was coming while the
+                # operator view had nothing.
+                state.collected.stated_reason = state.collected.stated_reason or text
                 result = await self._dispatcher.open_escalation_case(
                     state, triggers.TriggerKind.human_requested.value
                 )

@@ -17,7 +17,7 @@ from fibrapunto.conversation import Conversation
 from fibrapunto.domains.registry import DomainKey
 from fibrapunto.integrations.billing_client import BillingClient
 from fibrapunto.state.models import ConversationStatus
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from test_conversation_wiring import (  # noqa: F401 — the autouse fixtures
     _billing_in_process,
     _fast_stub,
@@ -415,6 +415,71 @@ async def test_a_request_for_a_person_opens_the_case_immediately(monkeypatch):
     assert reply.handover_reference == REFERENCE
     assert crm.context()["escalation_trigger"] == "customer:human_requested"
     assert reply.text.startswith("Of course")
+
+
+async def test_a_request_for_a_person_while_cancelling_needs_no_reason_first(monkeypatch):
+    """Seen live: "I want to cancel, get me a person" routed to cancellation,
+    whose record requires a stated reason the customer had not given. The case
+    failed validation, the turn fell through to the model, the model called
+    the transfer anyway — and the customer was told someone was coming while
+    the operator view had nothing.
+
+    §12.1: honoured without resistance, so nothing is asked first. §12.2's
+    reason "in their own words" is what they said.
+    """
+    crm = FakeCrm()
+    routed_to(monkeypatch, "cancellation", human=True)
+    model = scripted(monkeypatch, [AIMessage("May I ask why you want to cancel?")])
+    convo = conversation(crm)
+
+    reply = await convo.send("I want to cancel, get me a person")
+
+    assert model.calls == [], "no model call, so nothing is asked first"
+    assert reply.handover_reference == REFERENCE
+    assert crm.records[0]["record_type"] == "cancellation_request"
+    assert crm.records[0]["stated_reason"] == "I want to cancel, get me a person"
+    assert crm.context()["escalation_trigger"] == "customer:human_requested"
+    assert convo.state.collected.transferred, "the case first, then the transfer"
+
+
+async def test_a_transfer_the_model_makes_opens_the_case_first(monkeypatch):
+    """§12.2: the colleague must have everything. A transfer without a case
+    puts a customer through to someone who has nothing — and shows nothing in
+    the operator view. So the case opens by code before the transfer."""
+    crm = FakeCrm()
+    routed_to(monkeypatch, "billing")
+    scripted(
+        monkeypatch,
+        [tool_call("transfer_to_human", {}), AIMessage("I'm putting you through.")],
+    )
+    convo = conversation(crm)
+
+    reply = await convo.send("this is beyond a chatbot, put me through")
+
+    assert reply.handover_reference == REFERENCE
+    assert crm.context()["escalation_trigger"] == "customer:human_requested"
+    assert convo.state.collected.transferred
+
+
+async def test_a_transfer_is_refused_when_the_case_cannot_open(monkeypatch):
+    """No case, no transfer: the model is told what is missing instead of the
+    customer being told someone is coming."""
+    crm = FakeCrm()
+    routed_to(monkeypatch, "cancellation")
+    model = scripted(
+        monkeypatch,
+        [tool_call("transfer_to_human", {}), AIMessage("Could you tell me why?")],
+    )
+    convo = conversation(crm)
+
+    await convo.send("put me through to someone")
+
+    assert crm.records == []
+    assert not convo.state.collected.transferred
+    tool_messages = [m for m in model.calls[-1] if isinstance(m, ToolMessage)]
+    tool_result = json.loads(tool_messages[-1].content)
+    assert tool_result["outcome"] == "failed"
+    assert "stated_reason" in tool_result["missing_fields"]
 
 
 async def test_anger_brings_the_offer_forward_but_opens_nothing(monkeypatch):

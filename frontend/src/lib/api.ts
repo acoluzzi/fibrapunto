@@ -111,6 +111,14 @@ export const api = {
 
   operatorRecord: (reference: string) =>
     req<any>(`/api/operator/records/${reference}`),
+  // A colleague's own words, posted into the customer's conversation under the
+  // case number. The one channel every chat-opened case has.
+  operatorMessage: (reference: string, text: string) =>
+    req<{ reference: string; delivered: boolean }>(`/api/operator/records/${reference}/message`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text }),
+    }),
   operatorChangeStatus: (
     reference: string,
     status: "open" | "in_progress" | "closed",

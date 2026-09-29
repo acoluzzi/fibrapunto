@@ -327,6 +327,7 @@ function Detail({
               <h2>How to reach them</h2>
               <span className="chip">read as operator</span>
             </div>
+            <ChatReach reference={s.reference} conversation={record.conversation} onSent={onChanged} />
             {contact.email || contact.phone ? (
               <>
                 {contact.email && (
@@ -340,7 +341,12 @@ function Detail({
               /* Empty because the record carries no customer: the contract could
                  not be linked, so there is nobody to join to. Saying why beats a
                  blank field that reads as a missing permission. */
-              <span className="muted">not available — this case is not linked to a contract</span>
+              <div className="line">
+                <span className="k">email</span>
+                <span className="muted">
+                  none — no contract linked{record.conversation?.exists ? "; ask for the contract number in the chat" : ""}
+                </span>
+              </div>
             )}
             <p className="note">
               The assistant holds no GRANT on <code>customer.email</code> or{" "}
@@ -497,6 +503,83 @@ function StatusBadge({ status }: { status: string }) {
  *  internal_comments. The rules (handover/lifecycle.py) are the server's; the
  *  buttons only show the moves it will accept, and a 409 is shown as text so
  *  the reason reaches the operator rather than a console. */
+/** The conversation the case came from, as a channel. A customer who asked
+ *  for a person and gave no contract number has no email or phone on the
+ *  record — but they are in that chat, and were told someone is coming. */
+function ChatReach({
+  reference,
+  conversation,
+  onSent,
+}: {
+  reference: string;
+  conversation: { exists: boolean; status: string | null; transferred: boolean; waiting: boolean } | undefined;
+  onSent: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!conversation?.exists) {
+    return (
+      <div className="line">
+        <span className="k">chat</span>
+        <span className="muted">the conversation no longer exists</span>
+      </div>
+    );
+  }
+
+  function send() {
+    const body = text.trim();
+    if (!body) return;
+    setBusy(true);
+    setError(null);
+    api
+      .operatorMessage(reference, body)
+      .then(() => {
+        setText("");
+        toast("Sent. The customer sees it in their conversation.");
+        onSent();
+      })
+      .catch((e: ApiError) => setError(e.message))
+      .finally(() => setBusy(false));
+  }
+
+  return (
+    <>
+      <div className="line">
+        <span className="k">chat</span>
+        <span>
+          {conversation.waiting
+            ? "waiting in the conversation — put through to a colleague, and told the wait is a few minutes"
+            : conversation.transferred
+              ? "put through to a colleague; a colleague has since acted on the case"
+              : "still open; anything sent here appears in their conversation"}
+        </span>
+      </div>
+      <form
+        className="actions"
+        style={{ marginTop: 6 }}
+        onSubmit={(event) => {
+          event.preventDefault();
+          send();
+        }}
+      >
+        <input
+          style={{ flex: 1 }}
+          placeholder="Write to the customer, as the colleague on this case"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          disabled={busy}
+        />
+        <button className="primary" type="submit" disabled={busy || !text.trim()}>
+          Send
+        </button>
+      </form>
+      {error && <p className="login-error">{error}</p>}
+    </>
+  );
+}
+
 function StatusActions({
   reference,
   status,
