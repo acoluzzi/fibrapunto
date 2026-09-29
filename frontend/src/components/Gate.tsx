@@ -1,4 +1,5 @@
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from "react";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { ApiError, api } from "../lib/api";
 import { PERSONAS, VIEW_OF_ROLE } from "../lib/personas";
 import type { Role } from "../lib/types";
@@ -74,6 +75,7 @@ function Login({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  usePageTitle(VIEW_OF_ROLE[role], "signin");
 
   function submit(event: FormEvent) {
     event.preventDefault();

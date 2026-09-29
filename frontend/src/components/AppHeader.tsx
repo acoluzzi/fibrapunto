@@ -2,16 +2,17 @@ import type { ReactNode } from "react";
 import { Mark } from "./Brand";
 import { PersonasButton } from "./PersonaCard";
 import { ThemeButton } from "./ThemeButton";
+import { usePageTitle } from "../hooks/usePageTitle";
 import { useTheme } from "../hooks/useTheme";
-import { PERSONAS, type View } from "../lib/personas";
+import { PERSONAS, VIEW_LABEL, type View } from "../lib/personas";
 
 export type { View };
 
 const VIEWS: { key: View; href: string; label: string; external?: boolean }[] = [
-  { key: "customer", href: "/", label: "Conversation" },
-  { key: "console", href: "/console", label: "Console", external: true },
-  { key: "operator", href: "/operator", label: "Operator" },
-  { key: "analyst", href: "/analyst", label: "Analyst" },
+  { key: "customer", href: "/", label: VIEW_LABEL.customer },
+  { key: "console", href: "/console", label: VIEW_LABEL.console, external: true },
+  { key: "operator", href: "/operator", label: VIEW_LABEL.operator },
+  { key: "analyst", href: "/analyst", label: VIEW_LABEL.analyst },
 ];
 
 /** One header for the four views: the brand, who the view is for, what sits
@@ -37,6 +38,7 @@ export function AppHeader({
   const [theme, toggleTheme] = useTheme();
   const persona = PERSONAS[view];
   const gated = view !== "customer";
+  usePageTitle(view, "in");
   return (
     <header className="topbar">
       <a className="brand" href="/">

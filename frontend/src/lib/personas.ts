@@ -11,6 +11,14 @@ import type { Role } from "./types";
 
 export type View = "customer" | "console" | "operator" | "analyst";
 
+/** The view's name in the nav and the tab title. */
+export const VIEW_LABEL: Record<View, string> = {
+  customer: "Conversation",
+  console: "Console",
+  operator: "Operator",
+  analyst: "Analyst",
+};
+
 export interface Persona {
   view: View;
   /** A first name: the person, not the permission. */
