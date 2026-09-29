@@ -58,6 +58,11 @@ class ReasoningLayerUnavailable(RuntimeError):
 # difference between "500" and "you requested 1024 tokens but can afford 398"
 # is the difference between opening docker logs and knowing what to do.
 _PROVIDER_MESSAGE = re.compile(r"'message':\s*[\"']([^\"']{5,400})")
+# OpenRouter relays an upstream failure as the wrapper "Provider returned
+# error" and keeps the provider's own words in `metadata.raw`, a JSON string,
+# next to `provider_name`. Those two are the useful part.
+_UPSTREAM_MESSAGE = re.compile(r"'raw':\s*'[^']*?\\?\"message\\?\":\s*\\?\"([^\"\\]{1,400})")
+_UPSTREAM_PROVIDER = re.compile(r"'provider_name':\s*'([^']{1,80})'")
 # The status is not reliably an attribute. LangChain re-raises some provider
 # failures as plain exceptions carrying only the formatted string, so read it
 # from there too — a test caught this by asserting on a 401 that had lost its
@@ -70,13 +75,25 @@ def interpret_provider_error(exc: Exception) -> ReasoningLayerUnavailable:
     raw = str(exc)
     match = _PROVIDER_MESSAGE.search(raw)
     detail = match.group(1) if match else raw[:300]
+    relayed = "Provider returned error" in raw
+    if relayed and (upstream := _UPSTREAM_MESSAGE.search(raw)):
+        provider = _UPSTREAM_PROVIDER.search(raw)
+        detail = upstream.group(1)
+        if provider:
+            detail = f"{provider.group(1)}: {detail}"
 
     status = getattr(exc, "status_code", None)
     if status is None and (found := _STATUS_CODE.search(raw)):
         status = int(found.group(1))
 
     hint = None
-    if status == 402 or "requires more credits" in raw:
+    if relayed and status in (404, 500, 502, 503):
+        hint = (
+            "The provider OpenRouter routed to failed upstream. Another provider "
+            "may serve the same model: check the model's endpoint list on "
+            "OpenRouter and the routing block in llm/registry.py."
+        )
+    elif status == 402 or "requires more credits" in raw:
         hint = (
             "OpenRouter credit exhausted. The provider reserves credit equal to "
             "max_tokens for every in-flight request, so the balance must cover "

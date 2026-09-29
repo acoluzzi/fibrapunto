@@ -126,13 +126,19 @@ class LLMRegistry:
             )
 
     def provider_options(self) -> dict[str, Any]:
-        """The OpenRouter routing block. Not tuning knobs — both entries are
+        """The OpenRouter routing block. Not tuning knobs — every entry is
         load-bearing.
 
-        `allow_fallbacks: false` is what makes §10's version pinning mean
-        anything. `data_collection: "deny"` restricts routing to providers that
-        do not retain prompts, which is a §9 control rather than a README
-        promise.
+        `data_collection: "deny"` restricts routing to providers that do not
+        retain prompts, which is a §9 control rather than a README promise.
+
+        `allow_fallbacks: true` lets OpenRouter try the next provider serving
+        the *same* model when its first choice fails. It does not weaken §10's
+        pin: a different model is only ever served through the separate
+        `models` list, which is never sent, and `assert_served_model` checks
+        every response regardless. It used to be `false`, and one unhealthy
+        endpoint (a 404 from "Claude Platform on AWS" while four other
+        providers served the model) took the whole agent down with it.
 
         `usage.include` asks the provider to report what each call cost, in
         its own accounting, on the response. §16 makes cost per conversation a
@@ -141,7 +147,7 @@ class LLMRegistry:
         """
         return {
             "provider": {
-                "allow_fallbacks": False,
+                "allow_fallbacks": True,
                 "data_collection": "deny",
             },
             "usage": {"include": True},

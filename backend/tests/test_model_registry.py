@@ -66,11 +66,13 @@ def test_the_configured_registry_is_valid():
 # --- pinning (§10) -----------------------------------------------------------
 
 
-def test_routing_options_pin_the_provider_and_refuse_retention():
+def test_routing_options_allow_provider_fallback_and_refuse_retention():
     options = get_registry().provider_options()["provider"]
-    assert options["allow_fallbacks"] is False, (
-        "Without this the provider may serve a different model under load, and "
-        "a 'pinned' eval run is not pinned."
+    assert options["allow_fallbacks"] is True, (
+        "A fallback is to another provider of the same model, never to another "
+        "model (that is the `models` list, which is not sent). With it off, one "
+        "unhealthy endpoint takes the agent down while others serve the model. "
+        "The pin is enforced by assert_served_model on every response."
     )
     assert options["data_collection"] == "deny", (
         "§9: restrict routing to providers that do not retain prompts."
@@ -127,6 +129,25 @@ def test_a_credit_error_is_interpreted_rather_than_re_raised():
     assert isinstance(interpreted, chat.ReasoningLayerUnavailable)
     assert "1024 tokens" in interpreted.reason
     assert interpreted.hint and "max_tokens" in interpreted.hint
+
+
+def test_an_upstream_error_relayed_by_openrouter_names_the_provider_and_its_words():
+    """OpenRouter wraps a provider's failure as "Provider returned error" and
+    puts the provider's own message in `metadata.raw`. The wrapper is what the
+    first regex found, and the log said nothing a person could act on."""
+    raw = Exception(
+        "Error code: 404 - {'error': {'message': 'Provider returned error', "
+        "'code': 404, 'metadata': {'raw': '{\"type\":\"error\",\"error\":"
+        '{"type":"not_found_error","message":"model: claude-sonnet-5"},'
+        "\"request_id\":\"req_011\"}', 'provider_name': 'Claude Platform on AWS', "
+        "'is_byok': False}}, 'user_id': 'user_1'}"
+    )
+    interpreted = chat.interpret_provider_error(raw)
+
+    assert "Claude Platform on AWS" in interpreted.reason
+    assert "model: claude-sonnet-5" in interpreted.reason
+    assert "Provider returned error" not in interpreted.reason
+    assert interpreted.hint and "provider" in interpreted.hint.lower()
 
 
 def test_an_unrecognised_failure_still_becomes_typed():

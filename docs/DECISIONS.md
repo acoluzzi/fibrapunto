@@ -225,7 +225,7 @@ protection against it. That is the entry's real evidence.
 ### 10. OpenRouter, with the pin verified per call · `settled`
 
 **Decision.** All model access through OpenRouter, with
-`provider: {allow_fallbacks: false, data_collection: "deny"}` and an assertion
+`provider: {allow_fallbacks: true, data_collection: "deny"}` and an assertion
 that the served model equals the requested one.
 
 **Why.** Model IDs become config strings, which makes §10's "the choice is the
@@ -237,10 +237,20 @@ not retain prompts — a real §9 control rather than a README promise.
 **Cost.** 5.5% fee on credit purchases; token rates pass through. An extra
 subprocessor to declare under §9 — stated in the README rather than hidden.
 
-**The trap.** OpenRouter offers no native pinning guarantee. Without
-`allow_fallbacks: false` it may serve a different provider under load, and a
-"pinned" eval run that silently changed model is worse than no pin at all.
-`smoke_openrouter.py` verifies the served model on every run.
+**The trap.** OpenRouter offers no native pinning guarantee, and a "pinned"
+eval run that silently changed model is worse than no pin at all. The pin is
+therefore verified on every response, not requested: `assert_served_model`
+compares the served id with the requested one, and `smoke_openrouter.py` does
+the same on every run.
+
+**Revised (29 September 2026).** `allow_fallbacks` was `false` in the belief
+that it protected the pin. It does not: an OpenRouter fallback is to another
+*provider* of the same model, never to another model (that is the separate
+`models` list, which is never sent). What `false` did do was make the agent
+unavailable whenever the first-choice provider was unhealthy — a 404 from one
+endpoint while four others served the model. Fallbacks are now allowed; the
+retention filter still applies to every candidate, and the served-model check
+still fails loudly.
 
 ### 11. Judge separation enforced by vendor, not by model id · `settled`
 

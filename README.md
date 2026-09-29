@@ -73,8 +73,9 @@ make perimeter-proof     # the same query under both identities, side by side
 ## Data protection note
 
 Conversation content is sent to a model provider reached via OpenRouter, which is therefore a
-subprocessor. Requests are pinned to a single provider (`allow_fallbacks: false`) and restricted
-to providers that do not retain prompts (`data_collection: "deny"`). Transcripts are stored
+subprocessor. Requests are restricted to providers that do not retain prompts
+(`data_collection: "deny"`); OpenRouter may pick any such provider that serves the pinned model,
+and every response is checked against the requested model id. Transcripts are stored
 redacted and deleted on a retention schedule. The questions §9 says must be answered before
 production are answered by the operator, not by this repository.
 
