@@ -42,6 +42,12 @@ async def reset(conn: asyncpg.Connection) -> dict[str, int]:
         # CASCADE reaches platform.turn and platform.trace_event through their
         # foreign keys. RESTART IDENTITY so ids are stable across resets, which
         # is what makes the idempotence check a simple checksum.
+        #
+        # platform.eval_run is deliberately not in the list. It holds the §1
+        # metrics of past runs, published from evals/runs/ — a record of the
+        # project's progression (§14), not demo data. `make demo` and `make
+        # eval` both reset, and truncating it here made the dashboard's eval
+        # section go blank at exactly the moment it was meant to be shown.
         await conn.execute(
             """
             TRUNCATE crm.handover_record,
@@ -53,8 +59,7 @@ async def reset(conn: asyncpg.Connection) -> dict[str, int]:
                      platform.conversation_checkpoint,
                      platform.conversation,
                      platform.browser_principal,
-                     platform.notification_outbox,
-                     platform.eval_run
+                     platform.notification_outbox
             RESTART IDENTITY CASCADE
             """
         )
